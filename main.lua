@@ -1712,44 +1712,6 @@ pages = {
 
 local pageTransitionId = 0
 
-local function selectCategory(name)
-    if name == "Information" and not gameSupported then
-        return
-    end
-    if currentCategory == name or switchingPage then
-        return
-    end
-    local newPage = pages[name]
-    if not newPage then
-        return
-    end
-    switchingPage = true
-    pageTransitionId += 1
-    local transitionId = pageTransitionId
-    local oldPage = pages[currentCategory]
-    currentCategory = name
-    closeInformationPanel()
-    closeKeybindPanel()
-    closeLanguagePanel()
-    for buttonName, button in pairs(categoryButtons) do
-        local selected = buttonName == name
-        local indicator = button:FindFirstChild("NeonIndicator")
-        tween(button, 0.2, {
-            BackgroundColor3 = selected
-                and THEMES[theme].Category
-                or Color3.fromRGB(12, 14, 18)
-        })
-        if indicator then
-            indicator.Visible = selected
-            indicator.BackgroundTransparency = selected and 0 or 1
-        end
-    end
-    if oldPage then
-        oldPage.Visible = false
-        oldPage.Position = UDim2.fromOffset(0, 0)
-    end
-    newPage.Visible = true
-    local direction = name == "Home" and -1 or 1
     local function selectCategory(name)
     if name == "Information" and not gameSupported then
         return
@@ -2582,12 +2544,14 @@ task.spawn(function()
     tween(mainScale, 0.65, {
         Scale = 1
     }, Enum.EasingStyle.Back)
-    for _, data in ipairs(shadows) do
-        tween(data.Frame, 0.65, {
-            BackgroundTransparency = data.Transparency
-        })
-    end
+for _, data in ipairs(shadows) do
+    tween(data.Frame, 0.65, {
+        BackgroundTransparency = data.Transparency
+    })
+end
+
 task.wait(0.7)
+
 if mainScale.Parent then
     mainScale:Destroy()
 end
