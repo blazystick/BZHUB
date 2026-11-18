@@ -563,7 +563,7 @@ local navigation = create("Frame", {
     ZIndex = 25
 }, main)
 
-local function createCategory(name, text, y, isBottom)
+_G.BZHUB_CreateCategory = function(name, text, y, isBottom)
     local button = create("TextButton", {
         Name = name,
         Position = UDim2.new(
