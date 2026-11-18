@@ -1712,7 +1712,7 @@ pages = {
 
 local pageTransitionId = 0
 
-local function selectCategory(name)
+_G.BZHUB_SelectCategory = function(name)
     if name == "Information" and not gameSupported then
         return
     end
@@ -1762,7 +1762,24 @@ local function selectCategory(name)
         switchingPage = false
     end)
 end
+_G.BZHUB_CreatePage = function(name)
+    if pages[name] then
+        return pages[name]
+    end
 
+    local page = create("Frame", {
+        Name = name .. "Page",
+        Size = UDim2.fromScale(1, 1),
+        Position = UDim2.fromOffset(0, 0),
+        BackgroundTransparency = 1,
+        Visible = false,
+        BorderSizePixel = 0,
+        ZIndex = 20
+    }, content)
+
+    pages[name] = page
+    return page
+end
 local function selectInitialCategory(name)
     currentCategory = name
     for pageName, page in pairs(pages) do
