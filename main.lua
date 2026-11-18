@@ -1711,8 +1711,7 @@ pages = {
 }
 
 local pageTransitionId = 0
-
-    local function selectCategory(name)
+local function selectCategory(name)
     if name == "Information" and not gameSupported then
         return
     end
