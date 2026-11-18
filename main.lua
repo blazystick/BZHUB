@@ -2527,8 +2527,13 @@ task.spawn(function()
             BackgroundTransparency = data.Transparency
         })
     end
-    task.wait(0.7)
-    if mainScale.Parent then
-        mainScale:Destroy()
-    end
+task.wait(0.7)
+if mainScale.Parent then
+    mainScale:Destroy()
+end
+
+if game.PlaceId == 120219252362013 then
+    task.wait(0.2)
+    _G.BZHUB_SelectCategory("Farm")
+end
 end)
