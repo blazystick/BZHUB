@@ -1750,16 +1750,75 @@ local function selectCategory(name)
     end
     newPage.Visible = true
     local direction = name == "Home" and -1 or 1
+    local function selectCategory(name)
+    if name == "Information" and not gameSupported then
+        return
+    end
+
+    if currentCategory == name or switchingPage then
+        return
+    end
+
+    local newPage = pages[name]
+    if not newPage then
+        return
+    end
+
+    switchingPage = true
+    pageTransitionId += 1
+
+    local transitionId = pageTransitionId
+    local oldPage = pages[currentCategory]
+
+    currentCategory = name
+
+    closeInformationPanel()
+    closeKeybindPanel()
+    closeLanguagePanel()
+
+    for buttonName, button in pairs(categoryButtons) do
+        local selected = buttonName == name
+        local indicator = button:FindFirstChild("NeonIndicator")
+
+        tween(button, 0.2, {
+            BackgroundColor3 = selected
+                and THEMES[theme].Category
+                or Color3.fromRGB(12, 14, 18)
+        })
+
+        if indicator then
+            indicator.Visible = selected
+            indicator.BackgroundTransparency = selected and 0 or 1
+        end
+    end
+
+    if oldPage then
+        oldPage.Visible = false
+        oldPage.Position = UDim2.fromOffset(0, 0)
+    end
+
+    newPage.Visible = true
+
+    local direction = name == "Home" and -1 or 1
     newPage.Position = UDim2.fromOffset(direction * 30, 0)
+
     local moveAnimation = tween(newPage, 0.32, {
         Position = UDim2.fromOffset(0, 0)
     }, Enum.EasingStyle.Quint)
-    moveAnimation.Completed:Once(function()
+
+    moveAnimation.Completed:Connect(function()
         if transitionId ~= pageTransitionId then
             return
         end
+
         newPage.Position = UDim2.fromOffset(0, 0)
         switchingPage = false
+    end)
+
+    task.delay(0.5, function()
+        if transitionId == pageTransitionId then
+            switchingPage = false
+        end
     end)
 end
 _G.BZHUB_SelectCategory = selectCategory
