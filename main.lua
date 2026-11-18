@@ -612,6 +612,7 @@ local function createCategory(name, text, y, isBottom)
     return button
 end
 _G.BZHUB_CreateCategory = createCategory
+print("[BZHUB] Category API hazır")
 local homeButton = createCategory("Home", translate("Home"), 0)
 
 local informationButton
