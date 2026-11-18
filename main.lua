@@ -1712,7 +1712,7 @@ pages = {
 
 local pageTransitionId = 0
 
-_G.BZHUB_SelectCategory = function(name)
+local function selectCategory(name)
     if name == "Information" and not gameSupported then
         return
     end
@@ -1762,6 +1762,7 @@ _G.BZHUB_SelectCategory = function(name)
         switchingPage = false
     end)
 end
+_G.BZHUB_SelectCategory = selectCategory
 _G.BZHUB_CreatePage = function(name)
     if pages[name] then
         return pages[name]
