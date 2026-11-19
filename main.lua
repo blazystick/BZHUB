@@ -2086,6 +2086,21 @@ local function selectCategory(name)
         end
     end)
 end
+-- DEFAULT CATEGORY CONNECTIONS
+
+homeButton.MouseButton1Click:Connect(function()
+    selectCategory("Home")
+end)
+
+if informationButton then
+    informationButton.MouseButton1Click:Connect(function()
+        selectCategory("Information")
+    end)
+end
+
+settingsButton.MouseButton1Click:Connect(function()
+    selectCategory("Settings")
+end)
 currentCategory = "Home"
 pages.Home.Visible = true
 -- GAME MODULE SYSTEM
