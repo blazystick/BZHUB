@@ -40,7 +40,7 @@ function GameModule.Register(api)
         local MAX_PATH_RETRIES = 3
 
         -- NEW: PRE-ARRIVAL WAIT
-        local PRE_ARRIVAL_DISTANCE = 2
+        local PRE_ARRIVAL_DISTANCE = 6
         local PRE_ARRIVAL_WAIT = 6
         local FINAL_REACH_DISTANCE = 1
 
