@@ -41,8 +41,13 @@ function GameModule.Register(api)
 
         local selectedSpeed = 1
         local isEnabled = false
+        local trainEnabled = false
         local isDragging = false
         local actionId = 0
+        local trainActionId = 0
+        local activeHudMode = "throw"
+        local startTrain
+        local stopTrain
 
         -- İlk başlangıçta 6 saniye bekle.
         -- Sonraki döngülerde ThrowReadyAt beklenecek.
@@ -190,7 +195,9 @@ function GameModule.Register(api)
         local function updateHud(key, detail, progress)
             if not hudGui then return end
             if hudStateText then
-                hudStateText.Text = "AUTO THROW   /   " .. (isEnabled and "ON" or "OFF")
+                local mode = (activeHudMode == "train") and "AUTO TRAIN" or "AUTO THROW"
+                local enabled = (activeHudMode == "train") and trainEnabled or isEnabled
+                hudStateText.Text = mode .. "   /   " .. (enabled and "ON" or "OFF")
             end
             if hudInfoText then
                 local message
@@ -208,6 +215,16 @@ function GameModule.Register(api)
                     message = "Respawning character..."
                 elseif key == "starting" then
                     message = "Starting Auto Throw..."
+                elseif key == "trainMoving" then
+                    message = "Walking to TrainingSpot..."
+                elseif key == "training" then
+                    message = "Training is active."
+                elseif key == "trainStopping" then
+                    message = "Leaving the training area..."
+                elseif key == "trainStopped" then
+                    message = "Auto Train stopped."
+                elseif key == "trainError" then
+                    message = "Auto Train error: " .. tostring(detail or "")
                 elseif key == "stopped" then
                     message = "Auto Throw stopped."
                 elseif key == "error" then
@@ -217,7 +234,7 @@ function GameModule.Register(api)
                 end
                 hudInfoText.Text = message
             end
-            if isEnabled then
+            if isEnabled or trainEnabled then
                 hudGui.Enabled = true
                 hudVisible = true
                 setHudProgress(progress)
@@ -438,7 +455,6 @@ function GameModule.Register(api)
 
         local TRAIN_RED = Color3.fromRGB(242, 72, 82)
         local TRAIN_RED_BRIGHT = Color3.fromRGB(255, 105, 112)
-        local trainEnabled = false
         local auto2xEnabled = false
 
         local trainCard = Instance.new("Frame")
@@ -606,6 +622,7 @@ function GameModule.Register(api)
                     BackgroundTransparency = 0.12
                 })
                 makeTween(trainCardStroke, 0.22, {Transparency = 0.08, Thickness = 1.8})
+                if startTrain then startTrain() end
             else
                 auto2xEnabled = false
                 setRedSwitch(auto2xSwitch, auto2xKnob, auto2xSwitchStroke, false, false)
@@ -620,6 +637,7 @@ function GameModule.Register(api)
                         auto2xRow.Visible = false
                     end
                 end)
+                if stopTrain then stopTrain() end
             end
         end)
 
@@ -1767,6 +1785,201 @@ function GameModule.Register(api)
         end
 
         --==================================================
+        -- AUTO TRAIN: FIND TRAINING SPOT AND EXIT CONTROL
+        --==================================================
+
+        local function findTrainingSpot()
+            local plotProps = workspace:FindFirstChild("LocalPlotProps")
+            if not plotProps then
+                plotProps = workspace:FindFirstChild("LocalPlotProps", true)
+            end
+            if not plotProps then
+                return nil, "LocalPlotProps was not found in Workspace."
+            end
+
+            local trainingArea = plotProps:FindFirstChild("TrainingArea")
+                or plotProps:FindFirstChild("TrainingArea", true)
+            if not trainingArea then
+                return nil, "TrainingArea was not found under LocalPlotProps."
+            end
+
+            local trainingSpot = trainingArea:FindFirstChild("TrainingSpot")
+                or trainingArea:FindFirstChild("TrainingSpot", true)
+            if not trainingSpot then
+                return nil, "TrainingSpot was not found under TrainingArea."
+            end
+
+            return trainingSpot
+        end
+
+        local function getTrainingSpotPosition(spot)
+            if spot:IsA("BasePart") then
+                return spot.Position
+            elseif spot:IsA("Model") then
+                return spot:GetPivot().Position
+            elseif spot:IsA("Attachment") then
+                return spot.WorldPosition
+            end
+            local part = spot:FindFirstChildWhichIsA("BasePart", true)
+            if part then return part.Position end
+            return nil
+        end
+
+        local function findTrainingStopButton()
+            local roots = {playerGui, workspace}
+            for _, root in ipairs(roots) do
+                for _, object in ipairs(root:GetDescendants()) do
+                    if object:IsA("GuiButton") then
+                        local buttonText = ""
+                        if object:IsA("TextButton") then
+                            buttonText = string.upper((object.Text or ""):gsub("%s+", ""))
+                        end
+                        local objectName = string.upper(object.Name or "")
+                        if buttonText == "STOP" or objectName == "STOP" or objectName:find("STOPTRAIN", 1, true) then
+                            return object
+                        end
+                    end
+                end
+            end
+            return nil
+        end
+
+        local function pressTrainingStopWithoutMouse()
+            local stopButton = findTrainingStopButton()
+            if not stopButton then
+                warn("[BZHUB AUTO TRAIN] STOP button was not found in PlayerGui or Workspace.")
+                return false, "STOP button not found"
+            end
+
+            debugLog("Training STOP control found: " .. stopButton:GetFullName())
+
+            -- Fire the GUI's click signal directly. This does not move/click the real mouse (MB1).
+            if typeof(firesignal) == "function" then
+                local ok, err = pcall(function()
+                    firesignal(stopButton.MouseButton1Click)
+                end)
+                if ok then
+                    debugLog("Training STOP signal fired without MB1.")
+                    return true
+                end
+                warn("[BZHUB AUTO TRAIN] Could not fire STOP signal: " .. tostring(err))
+                return false, tostring(err)
+            end
+
+            -- Some executors expose the button connections but not firesignal.
+            if typeof(getconnections) == "function" then
+                local ok, connections = pcall(function()
+                    return getconnections(stopButton.MouseButton1Click)
+                end)
+                if ok and type(connections) == "table" and #connections > 0 then
+                    local fired = false
+                    for _, connection in ipairs(connections) do
+                        if connection.Enabled and type(connection.Function) == "function" then
+                            local success = pcall(connection.Function)
+                            fired = fired or success
+                        end
+                    end
+                    if fired then
+                        debugLog("Training STOP callback invoked without MB1.")
+                        return true
+                    end
+                end
+            end
+
+            warn("[BZHUB AUTO TRAIN] Executor has no supported signal-fire function; STOP was not activated.")
+            return false, "Executor does not support signal firing"
+        end
+
+        startTrain = function()
+            trainActionId += 1
+            local thisTrainId = trainActionId
+
+            task.spawn(function()
+                local ok, err = pcall(function()
+                    activeHudMode = "train"
+                    setStatus("trainMoving", "Walking to TrainingSpot...")
+
+                    local spot, findError = findTrainingSpot()
+                    if not spot then error(findError) end
+                    local targetPosition = getTrainingSpotPosition(spot)
+                    if not targetPosition then error("TrainingSpot has no usable position.") end
+
+                    local character, humanoid, rootPart = getCharacterReferences()
+                    if not character or not humanoid or not rootPart then
+                        error("Character references are unavailable.")
+                    end
+
+                    local path = PathfindingService:CreatePath({
+                        AgentRadius = 2,
+                        AgentHeight = 5,
+                        AgentCanJump = true,
+                        AgentCanClimb = true,
+                        WaypointSpacing = 4
+                    })
+                    path:ComputeAsync(rootPart.Position, targetPosition)
+                    if path.Status ~= Enum.PathStatus.Success then
+                        error("Pathfinding failed: " .. tostring(path.Status))
+                    end
+
+                    local waypoints = path:GetWaypoints()
+                    for index, waypoint in ipairs(waypoints) do
+                        if not trainEnabled or trainActionId ~= thisTrainId then return end
+                        if player.Character ~= character then return end
+                        rootPart = character:FindFirstChild("HumanoidRootPart")
+                        if not rootPart then error("HumanoidRootPart disappeared.") end
+
+                        humanoid:MoveTo(waypoint.Position)
+                        local started = os.clock()
+                        while trainEnabled and trainActionId == thisTrainId do
+                            if player.Character ~= character then return end
+                            rootPart = character:FindFirstChild("HumanoidRootPart")
+                            if not rootPart then return end
+                            if (rootPart.Position - waypoint.Position).Magnitude <= 3.5 then
+                                break
+                            end
+                            if os.clock() - started > WAYPOINT_TIMEOUT then
+                                error("Timed out while walking to TrainingSpot (waypoint " .. index .. ").")
+                            end
+                            task.wait(0.1)
+                        end
+                    end
+
+                    if not trainEnabled or trainActionId ~= thisTrainId then return end
+                    setStatus("training", "TrainingSpot reached. Training is active.")
+                    debugLog("TrainingSpot reached. Waiting until Auto Train is disabled.")
+                    while trainEnabled and trainActionId == thisTrainId do
+                        task.wait(0.2)
+                    end
+                end)
+
+                if not ok and trainActionId == thisTrainId then
+                    warn("[BZHUB AUTO TRAIN ERROR] " .. tostring(err))
+                    setStatus("trainError", tostring(err))
+                end
+            end)
+        end
+
+        stopTrain = function()
+            trainActionId += 1
+            activeHudMode = isEnabled and "throw" or "train"
+            if trainEnabled then return end
+
+            setStatus("trainStopping", "Activating the game's STOP control...")
+            task.spawn(function()
+                local stopped, stopError = pressTrainingStopWithoutMouse()
+                if not stopped then
+                    debugLog("Could not activate STOP control: " .. tostring(stopError))
+                end
+                if isEnabled then
+                    activeHudMode = "throw"
+                    setStatus(currentStatus, currentStatusDetail)
+                else
+                    setStatus("trainStopped")
+                end
+            end)
+        end
+
+        --==================================================
         -- MAIN FARM LOOP
         --==================================================
 
@@ -1880,6 +2093,7 @@ function GameModule.Register(api)
             isEnabled = not isEnabled
 
             if isEnabled then
+                activeHudMode = "throw"
                 setSwitchVisual(true, false)
                 setStatus("starting")
                 debugLog("Farm enabled.")
@@ -1887,8 +2101,13 @@ function GameModule.Register(api)
             else
                 actionId += 1
                 setSwitchVisual(false, false)
-                setStatus("stopped")
-                if hudGui then hudGui.Enabled = false end
+                if trainEnabled then
+                    activeHudMode = "train"
+                    setStatus("training")
+                else
+                    setStatus("stopped")
+                    if hudGui then hudGui.Enabled = false end
+                end
                 debugLog("Farm disabled.")
             end
         end)
