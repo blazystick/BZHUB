@@ -2063,8 +2063,6 @@ local function selectCategory(name)
     end)
 end
 
-selectInitialCategory("Home")
-
 -- GAME MODULE SYSTEM
 local BZHUB_API = {}
 
