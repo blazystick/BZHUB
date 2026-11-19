@@ -24,7 +24,8 @@ function GameModule.Register(api)
         local MIN_POWER = 0
         local MAX_POWER = 20
 
-        local POWER_0_Y = 0.995735705
+        local POWER_0_Y = 1.0
+        local POWER_1_Y = 0.995735705
         local POWER_10_Y = 0.555865407
         local POWER_20_Y = 0.00212187553
 
@@ -38,11 +39,6 @@ function GameModule.Register(api)
         local WAYPOINT_REACH_DISTANCE = 6
         local WAYPOINT_TIMEOUT = 15
         local MAX_PATH_RETRIES = 3
-
-        -- NEW: PRE-ARRIVAL WAIT
-        local PRE_ARRIVAL_DISTANCE = 6
-        local PRE_ARRIVAL_WAIT = 6
-        local FINAL_REACH_DISTANCE = 1
 
         local selectedSpeed = 1
         local isEnabled = false
@@ -582,13 +578,7 @@ function GameModule.Register(api)
                     return false
                 end
 
-                local isFinalWaypoint = index == #waypoints
-
-                local reachDistance = isFinalWaypoint
-                    and FINAL_REACH_DISTANCE
-                    or WAYPOINT_REACH_DISTANCE
-
-                if getWaypointDistance(rootPart, waypoint) <= reachDistance then
+                if hasReachedWaypoint(rootPart, waypoint) then
                     debugLog(
                         "Waypoint " .. index .. " already reached. Skipping."
                     )
@@ -612,7 +602,6 @@ function GameModule.Register(api)
 
                 local startTime = os.clock()
                 local reached = false
-                local preArrivalPaused = false
 
                 while stillRunning(currentId) do
                     if player.Character ~= character then
@@ -629,43 +618,7 @@ function GameModule.Register(api)
                     local distance =
                         getWaypointDistance(rootPart, waypoint)
 
-                    -- STOP 2 STUDS BEFORE FINAL WAYPOINT
-
-                    if isFinalWaypoint
-                        and not preArrivalPaused
-                        and distance <= PRE_ARRIVAL_DISTANCE then
-
-                        preArrivalPaused = true
-
-                        humanoid:MoveTo(rootPart.Position)
-
-                        debugLog(
-                            "Pre-arrival point reached: "
-                            .. string.format("%.2f", distance)
-                            .. " studs."
-                        )
-
-                        debugLog("Stopping for 6 seconds...")
-
-                        if not waitWhileEnabled(
-                            PRE_ARRIVAL_WAIT,
-                            currentId
-                        ) then
-                            return false
-                        end
-
-                        if player.Character ~= character then
-                            return false
-                        end
-
-                        debugLog("6 seconds completed. Continuing movement...")
-
-                        humanoid:MoveTo(waypoint.Position)
-
-                        startTime = os.clock()
-                    end
-
-                    if distance <= reachDistance then
+                    if distance <= WAYPOINT_REACH_DISTANCE then
                         reached = true
 
                         debugLog(string.format(
@@ -681,7 +634,7 @@ function GameModule.Register(api)
                         break
                     end
 
-                    task.wait(0.05)
+                    task.wait(0.1)
                 end
 
                 if not stillRunning(currentId) then
@@ -746,8 +699,8 @@ function GameModule.Register(api)
                     targetDistance
                 ))
 
-                if targetDistance <= FINAL_REACH_DISTANCE then
-                    debugLog("Already at StarterArea.")
+                if targetDistance <= WAYPOINT_REACH_DISTANCE then
+                    debugLog("Already near StarterArea. No extra movement.")
                     return true
                 end
 
@@ -788,11 +741,7 @@ function GameModule.Register(api)
                 end
 
                 if path.Status ~= Enum.PathStatus.Success then
-                    debugLog(
-                        "Pathfinding status: "
-                        .. tostring(path.Status)
-                    )
-
+                    debugLog("Pathfinding status: " .. tostring(path.Status))
                     task.wait(0.5)
                     continue
                 end
