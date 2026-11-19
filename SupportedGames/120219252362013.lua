@@ -45,8 +45,8 @@ function GameModule.Register(api)
             [20] = 5.00
         }
 
-        -- İKİ TIKLAMA ARASINDAKİ SÜRE
-        local REPEAT_DELAY = 6
+        local AFTER_CLICK_DELAY = 1
+        local AFTER_RESPAWN_DELAY = 6
 
         local selectedSpeed = 1
         local isEnabled = false
@@ -254,6 +254,32 @@ function GameModule.Register(api)
         updateSlider(selectedSpeed)
 
         --==================================================
+        -- CHECK ACTIVE SESSION
+        --==================================================
+
+        local function stillRunning(currentId)
+            return isEnabled and actionId == currentId
+        end
+
+        --==================================================
+        -- WAIT WITH CANCELLATION
+        --==================================================
+
+        local function waitWhileEnabled(seconds, currentId)
+            local startTime = os.clock()
+
+            while os.clock() - startTime < seconds do
+                if not stillRunning(currentId) then
+                    return false
+                end
+
+                task.wait(0.05)
+            end
+
+            return stillRunning(currentId)
+        end
+
+        --==================================================
         -- MOUSE CLICK
         --==================================================
 
@@ -284,13 +310,17 @@ function GameModule.Register(api)
         end
 
         --==================================================
-        -- MOVEMENT
+        -- MOVE TO STARTERAREA
         --==================================================
 
-        local function moveToStarterArea()
+        local function moveToStarterArea(currentId)
             debugLog("Looking for StarterArea...")
 
             local starterArea = workspace:WaitForChild("StarterArea")
+
+            if not stillRunning(currentId) then
+                return false
+            end
 
             local targetPosition
 
@@ -319,7 +349,7 @@ function GameModule.Register(api)
 
             local startTime = os.clock()
 
-            while isEnabled do
+            while stillRunning(currentId) do
                 local distance = (rootPart.Position - targetPosition).Magnitude
 
                 if distance <= 5 then
@@ -338,7 +368,56 @@ function GameModule.Register(api)
         end
 
         --==================================================
-        -- FARM LOOP
+        -- RESET CHARACTER
+        --==================================================
+
+        local function resetCharacter(currentId)
+            if not stillRunning(currentId) then
+                return false
+            end
+
+            local character = player.Character
+
+            if not character then
+                error("Character not found before reset.")
+            end
+
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+            if not humanoid then
+                error("Humanoid not found before reset.")
+            end
+
+            debugLog("Resetting character...")
+
+            -- Gerçek karakter ölümü
+            humanoid.Health = 0
+
+            -- Yeni karakterin yüklenmesini bekle
+            while stillRunning(currentId) do
+                local newCharacter = player.Character
+
+                if newCharacter and newCharacter ~= character then
+                    local newHumanoid =
+                        newCharacter:FindFirstChildOfClass("Humanoid")
+
+                    local newRoot =
+                        newCharacter:FindFirstChild("HumanoidRootPart")
+
+                    if newHumanoid and newRoot and newHumanoid.Health > 0 then
+                        debugLog("Character respawned!")
+                        return true
+                    end
+                end
+
+                task.wait(0.1)
+            end
+
+            return false
+        end
+
+        --==================================================
+        -- MAIN FARM LOOP
         --==================================================
 
         local function startFarm()
@@ -351,14 +430,14 @@ function GameModule.Register(api)
 
                     debugLog("Farm started.")
 
-                    -- MOVE ONLY ONCE AT START
-                    if not moveToStarterArea() then
-                        return
-                    end
+                    while stillRunning(currentId) do
 
-                    -- CLICK LOOP
-                    while isEnabled and currentId == actionId do
+                        -- 1. WALK
+                        if not moveToStarterArea(currentId) then
+                            break
+                        end
 
+                        -- 2. SELECTED DELAY
                         local delay = CLICK_DELAYS[selectedSpeed]
 
                         debugLog(string.format(
@@ -366,18 +445,45 @@ function GameModule.Register(api)
                             delay
                         ))
 
-                        task.wait(delay)
-
-                        if not isEnabled or currentId ~= actionId then
+                        if not waitWhileEnabled(delay, currentId) then
                             break
                         end
 
-                        -- ONLY ONE CLICK
+                        -- 3. CLICK ONCE
+                        debugLog("Performing one click...")
                         performClick()
 
-                        debugLog("Waiting 6 seconds for next click.")
+                        -- 4. WAIT 1 SECOND
+                        debugLog("Waiting 1 second before reset...")
 
-                        task.wait(REPEAT_DELAY)
+                        if not waitWhileEnabled(
+                            AFTER_CLICK_DELAY,
+                            currentId
+                        ) then
+                            break
+                        end
+
+                        -- 5. RESET CHARACTER
+                        if not resetCharacter(currentId) then
+                            break
+                        end
+
+                        -- 6. WALK AGAIN
+                        if not moveToStarterArea(currentId) then
+                            break
+                        end
+
+                        -- 7. WAIT 6 SECONDS
+                        debugLog("Waiting 6 seconds...")
+
+                        if not waitWhileEnabled(
+                            AFTER_RESPAWN_DELAY,
+                            currentId
+                        ) then
+                            break
+                        end
+
+                        debugLog("Cycle completed. Restarting...")
                     end
 
                 end)
@@ -387,6 +493,7 @@ function GameModule.Register(api)
 
                     if currentId == actionId then
                         isEnabled = false
+
                         sliderContainer.Visible = true
                         toggleButton.Text = "Farm: OFF"
                         toggleButton.TextColor3 =
@@ -414,7 +521,6 @@ function GameModule.Register(api)
                 sliderContainer.Visible = false
 
                 debugLog("Farm enabled.")
-
                 startFarm()
 
             else
