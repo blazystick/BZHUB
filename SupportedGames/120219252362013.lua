@@ -1,4 +1,4 @@
-
+--12312312312
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -445,7 +445,6 @@ function GameModule.Register(api)
         local TRAIN_RED = Color3.fromRGB(242, 72, 82)
         local TRAIN_RED_BRIGHT = Color3.fromRGB(255, 105, 112)
         local auto2xEnabled = false
-        local auto2xWorkerId = 0
 
         local trainCard = Instance.new("Frame")
         trainCard.Name = "AutoTrainCard"
@@ -621,7 +620,6 @@ function GameModule.Register(api)
                 if startTrain then startTrain() end
             else
                 auto2xEnabled = false
-                auto2xWorkerId += 1
                 setRedSwitch(auto2xSwitch, auto2xKnob, auto2xSwitchStroke, false, false)
                 local collapse = makeTween(trainCard, 0.24, {Size = UDim2.new(1, -20, 0, 62)})
                 makeTween(auto2xRow, 0.18, {
@@ -638,157 +636,13 @@ function GameModule.Register(api)
             end
         end)
 
-        local function findTapBonusButton()
-            local trainingSequence = playerGui:FindFirstChild("TrainingSequence")
-            if not trainingSequence then return nil, nil end
-
-            local tapBonusLayer = trainingSequence:FindFirstChild("TapBonusLayer")
-            if not tapBonusLayer then return nil, nil end
-
-            local tapBonus = tapBonusLayer:FindFirstChild("TapBonus", true)
-            if not tapBonus then return nil, nil end
-
-            -- TapBonus should preferably be an ImageButton. If it is an image/label,
-            -- use a GuiButton ancestor or a GuiButton inside it as the click target.
-            if tapBonus:IsA("GuiButton") then
-                return tapBonus, tapBonus
-            end
-
-            local ancestor = tapBonus.Parent
-            while ancestor and ancestor ~= tapBonusLayer do
-                if ancestor:IsA("GuiButton") then
-                    return ancestor, tapBonus
-                end
-                ancestor = ancestor.Parent
-            end
-
-            local nestedButton = tapBonus:FindFirstChildWhichIsA("GuiButton", true)
-            if nestedButton then
-                return nestedButton, tapBonus
-            end
-
-            return nil, tapBonus
-        end
-
-        -- Solara-compatible GUI click helper.
-        -- Solara exposes mousemoveabs() and mouse1click(); do not rely on
-        -- firesignal/getconnections or GuiButton:Activate().
-        local function clickGuiButton(button)
-            if not button or not button:IsA("GuiButton") then
-                return false, "Target is not a GuiButton"
-            end
-            if not button.Visible or not button.Active then
-                return false, "Button is not visible or active"
-            end
-            if button.AbsoluteSize.X <= 0 or button.AbsoluteSize.Y <= 0 then
-                return false, "Button has no visible size"
-            end
-
-            local x = button.AbsolutePosition.X + button.AbsoluteSize.X / 2
-            local y = button.AbsolutePosition.Y + button.AbsoluteSize.Y / 2
-
-            -- Preferred Solara input API.
-            if type(mousemoveabs) == "function" and type(mouse1click) == "function" then
-                local oldMousePosition
-                pcall(function()
-                    oldMousePosition = UserInputService:GetMouseLocation()
-                end)
-
-                local clicked, clickError = pcall(function()
-                    mousemoveabs(x, y)
-                    task.wait(0.05)
-                    mouse1click()
-                end)
-
-                -- Restore the user's cursor position even if the click fails.
-                if oldMousePosition then
-                    pcall(function()
-                        mousemoveabs(oldMousePosition.X, oldMousePosition.Y)
-                    end)
-                end
-
-                if clicked then
-                    return true
-                end
-                warn("[BZHUB INPUT] Solara mouse click failed: " .. tostring(clickError))
-            end
-
-            -- Fallback for executors that expose VirtualInputManager.
-            local virtualClicked, virtualError = pcall(function()
-                VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
-                task.wait(0.05)
-                VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
-            end)
-            if virtualClicked then
-                return true
-            end
-
-            return false, "Solara mouse input and VirtualInputManager failed: " .. tostring(virtualError)
-        end
-
-        local function clickTapBonusButton(button)
-            return clickGuiButton(button)
-        end
-
+        -- Auto 2x: keep the original toggle-only behavior.
+        -- The game handles the bonus itself; this script does not click TapBonus
+        -- and does not move or interfere with the user's mouse.
         auto2xSwitch.MouseButton1Click:Connect(function()
             if not trainEnabled then return end
             auto2xEnabled = not auto2xEnabled
             setRedSwitch(auto2xSwitch, auto2xKnob, auto2xSwitchStroke, auto2xEnabled, false)
-
-            auto2xWorkerId += 1
-            local thisWorkerId = auto2xWorkerId
-            if auto2xEnabled then
-                task.spawn(function()
-                    local lastTapBonusObject = nil
-                    local wasVisible = false
-                    local warnedMissingButton = false
-
-                    -- Keep checking continuously while Auto 2x is enabled.
-                    -- Click once each time TapBonus becomes visible; if it hides
-                    -- and appears again, the same ImageButton is clicked again.
-                    while trainEnabled and auto2xEnabled and auto2xWorkerId == thisWorkerId do
-                        local clickButton, tapBonusObject = findTapBonusButton()
-                        local trainingSequence = playerGui:FindFirstChild("TrainingSequence")
-                        local tapBonusLayer = trainingSequence and trainingSequence:FindFirstChild("TapBonusLayer")
-                        local layerVisible = tapBonusLayer and tapBonusLayer.Visible
-                        local bonusVisible = tapBonusObject
-                            and tapBonusObject.Parent
-                            and tapBonusObject.Visible
-                            and layerVisible
-                            and clickButton
-                            and clickButton.Visible
-                            and clickButton.Active
-
-                        if not tapBonusObject then
-                            lastTapBonusObject = nil
-                            wasVisible = false
-                            warnedMissingButton = false
-                        elseif not clickButton then
-                            wasVisible = false
-                            if not warnedMissingButton then
-                                warn("[BZHUB AUTO 2X] TapBonus was found but no clickable GuiButton target exists.")
-                                warnedMissingButton = true
-                            end
-                        elseif not bonusVisible then
-                            wasVisible = false
-                            lastTapBonusObject = tapBonusObject
-                        elseif tapBonusObject ~= lastTapBonusObject or not wasVisible then
-                            local clicked, clickError = clickTapBonusButton(clickButton)
-                            if clicked then
-                                debugLog("Auto 2x clicked TapBonus: " .. tapBonusObject:GetFullName())
-                                lastTapBonusObject = tapBonusObject
-                                wasVisible = true
-                                warnedMissingButton = false
-                            elseif not warnedMissingButton then
-                                warn("[BZHUB AUTO 2X] TapBonus click failed: " .. tostring(clickError))
-                                warnedMissingButton = true
-                            end
-                        end
-
-                        task.wait(0.1)
-                    end
-                end)
-            end
         end)
 
         -- Animated information panel slides in from the right.
@@ -1986,47 +1840,42 @@ function GameModule.Register(api)
         end
 
         local function pressTrainingStopWithoutMouse()
-            -- The game also exits the training action when SPACE is pressed.
-            -- Do not click the on-screen STOP control: that was producing MB1.
+            local stopButton = findTrainingStopButton()
+            if not stopButton then
+                warn("[BZHUB AUTO TRAIN] STOP control was not found at PlayerGui.TrainingSequence.Button.")
+                return false, "STOP button not found"
+            end
+
+            -- User requested SPACE instead of clicking the game's STOP button.
+            -- This intentionally does not use mousemoveabs, mouse1click, firesignal,
+            -- getconnections, or GuiButton:Activate().
             local keyCode = Enum.KeyCode.Space
 
-            -- Solara-style keyboard API first.
             if type(keypress) == "function" and type(keyrelease) == "function" then
-                local pressed, pressError = pcall(function()
-                    keypress(0x20) -- SPACE virtual-key code
+                local ok, err = pcall(function()
+                    keypress(0x20)
                     task.wait(0.08)
                     keyrelease(0x20)
                 end)
-
-                -- Always attempt to release SPACE if the press sequence errors.
-                if not pressed then
-                    pcall(function() keyrelease(0x20) end)
-                    warn("[BZHUB AUTO TRAIN] Solara SPACE input failed: " .. tostring(pressError))
-                else
-                    debugLog("Training stopped using Solara SPACE key input.")
+                if ok then
+                    debugLog("Training stop requested with SPACE via Solara keyboard input.")
                     return true
                 end
+                warn("[BZHUB AUTO TRAIN] Solara SPACE input failed: " .. tostring(err))
             end
 
-            -- Fallback to Roblox VirtualInputManager when exposed by the executor.
-            local sent, inputError = pcall(function()
+            local virtualOk, virtualErr = pcall(function()
                 VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
                 task.wait(0.08)
                 VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
             end)
-
-            if sent then
-                debugLog("Training stop requested using VirtualInputManager SPACE.")
+            if virtualOk then
+                debugLog("Training stop requested with SPACE via VirtualInputManager.")
                 return true
             end
 
-            -- Ensure the key is not left held if the fallback partially ran.
-            pcall(function()
-                VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
-            end)
-
-            warn("[BZHUB AUTO TRAIN] Could not send SPACE: " .. tostring(inputError))
-            return false, "SPACE input is unsupported: " .. tostring(inputError)
+            warn("[BZHUB AUTO TRAIN] Could not send SPACE: " .. tostring(virtualErr))
+            return false, "SPACE input is unavailable: " .. tostring(virtualErr)
         end
 
         startTrain = function()
