@@ -1849,7 +1849,17 @@ function GameModule.Register(api)
 
             debugLog("Training STOP control found: " .. stopButton:GetFullName())
 
-            -- Fire the GUI's click signal directly. This does not move/click the real mouse (MB1).
+            -- Prefer Roblox's built-in GuiButton activation. It does not require executor signal APIs.
+            local activated, activateError = pcall(function()
+                stopButton:Activate()
+            end)
+            if activated then
+                debugLog("Training STOP activated with GuiButton:Activate().")
+                return true
+            end
+            warn("[BZHUB AUTO TRAIN] GuiButton:Activate() failed: " .. tostring(activateError))
+
+            -- Fallback for executors that expose signal firing. This does not send a physical MB1 click.
             if typeof(firesignal) == "function" then
                 local ok, err = pcall(function()
                     firesignal(stopButton.MouseButton1Click)
