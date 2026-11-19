@@ -33,18 +33,20 @@ function GameModule.Register(api)
         local MARKER_TIMEOUT = 15
 
         local AFTER_CLICK_DELAY = 1
-        local AFTER_RESPAWN_DELAY = 6
+        local INITIAL_STARTER_WAIT = 6
 
         local WAYPOINT_REACH_DISTANCE = 6
         local WAYPOINT_TIMEOUT = 15
         local MAX_PATH_RETRIES = 3
 
-        local SHIELD_APPEAR_TIMEOUT = 10
-
         local selectedSpeed = 1
         local isEnabled = false
         local isDragging = false
         local actionId = 0
+
+        -- İlk başlangıçta 6 saniye bekle.
+        -- Sonraki döngülerde ThrowReadyAt beklenecek.
+        local firstCycle = true
 
         --==================================================
         -- DEBUG
@@ -279,6 +281,49 @@ function GameModule.Register(api)
             end
 
             return stillRunning(currentId)
+        end
+
+        --==================================================
+        -- THROW COOLDOWN
+        --==================================================
+
+        local function waitForThrowCooldown(currentId)
+            debugLog("Waiting for ThrowReadyAt cooldown...")
+
+            local lastDisplayedSecond = -1
+
+            while stillRunning(currentId) do
+                local readyAt = player:GetAttribute("ThrowReadyAt")
+
+                if type(readyAt) == "number" then
+                    local remaining = math.max(
+                        0,
+                        readyAt - workspace:GetServerTimeNow()
+                    )
+
+                    local displayedSecond = math.ceil(remaining)
+
+                    if displayedSecond ~= lastDisplayedSecond then
+                        lastDisplayedSecond = displayedSecond
+
+                        debugLog(string.format(
+                            "Throw cooldown remaining: %.2f seconds",
+                            remaining
+                        ))
+                    end
+
+                    if remaining <= 0 then
+                        debugLog("Throw cooldown finished! Starting movement.")
+                        return true
+                    end
+                else
+                    debugLog("ThrowReadyAt not available yet. Waiting...")
+                end
+
+                task.wait(0.05)
+            end
+
+            return false
         end
 
         --==================================================
@@ -786,65 +831,6 @@ function GameModule.Register(api)
         end
 
         --==================================================
-        -- WAIT FOR SPAWN SHIELD
-        --==================================================
-
-        local function waitForSpawnShield(character, currentId)
-            debugLog("Checking spawn shield...")
-
-            local startTime = os.clock()
-            local shield = nil
-
-            -- Kalkanın doğuşta eklenmesini bekle.
-            while stillRunning(currentId)
-                and player.Character == character
-                and os.clock() - startTime < SHIELD_APPEAR_TIMEOUT do
-
-                shield = character:FindFirstChildOfClass("ForceField")
-
-                if shield then
-                    break
-                end
-
-                task.wait(0.05)
-            end
-
-            if not stillRunning(currentId) then
-                return false
-            end
-
-            if player.Character ~= character then
-                return false
-            end
-
-            if not shield then
-                debugLog("No ForceField detected. Continuing.")
-                return true
-            end
-
-            debugLog("Spawn shield detected. Waiting for it to disappear...")
-
-            -- Kalkan silinene kadar bekle.
-            while stillRunning(currentId)
-                and player.Character == character
-                and shield.Parent do
-
-                task.wait(0.05)
-            end
-
-            if not stillRunning(currentId) then
-                return false
-            end
-
-            if player.Character ~= character then
-                return false
-            end
-
-            debugLog("Spawn shield disappeared. Movement allowed.")
-            return true
-        end
-
-        --==================================================
         -- RESET CHARACTER
         --==================================================
 
@@ -884,15 +870,6 @@ function GameModule.Register(api)
                         and newHumanoid.Health > 0 then
 
                         debugLog("Character respawned!")
-
-                        -- KALKAN BİTMEDEN YÜRÜMEYE BAŞLAMA.
-                        if not waitForSpawnShield(
-                            newCharacter,
-                            currentId
-                        ) then
-                            return false
-                        end
-
                         return true
                     end
                 end
@@ -912,6 +889,8 @@ function GameModule.Register(api)
 
             local currentId = actionId
 
+            firstCycle = true
+
             task.spawn(function()
                 local success, err = pcall(function()
 
@@ -924,25 +903,29 @@ function GameModule.Register(api)
                             break
                         end
 
-                        -- SELECTED POWER
+                        -- 2. ONLY FIRST CYCLE: WAIT 6 SECONDS
+                        if firstCycle then
+                            debugLog("First cycle: waiting 6 seconds at StarterArea...")
+
+                            if not waitWhileEnabled(
+                                INITIAL_STARTER_WAIT,
+                                currentId
+                            ) then
+                                break
+                            end
+
+                            firstCycle = false
+                        end
+
+                        -- 3. GET SELECTED POWER
                         local targetPower = selectedSpeed
 
                         debugLog(
-                            "Reached StarterArea. Selected power: "
+                            "StarterArea reached. Selected power: "
                             .. targetPower
                         )
 
-                        -- 2. WAIT FOR 6 SECONDS AT STARTERAREA
-                        debugLog("Waiting 6 seconds at StarterArea...")
-
-                        if not waitWhileEnabled(
-                            AFTER_RESPAWN_DELAY,
-                            currentId
-                        ) then
-                            break
-                        end
-
-                        -- 3. WAIT FOR REAL MARKER POSITION
+                        -- 4. WAIT FOR MARKER POWER
                         if not waitForSelectedPower(
                             targetPower,
                             currentId
@@ -950,12 +933,12 @@ function GameModule.Register(api)
                             break
                         end
 
-                        -- 4. CLICK AT SELECTED POWER
+                        -- 5. CLICK / THROW
                         if not performClick(currentId) then
                             break
                         end
 
-                        -- 5. WAIT BEFORE RESET
+                        -- 6. WAIT BEFORE RESET
                         debugLog("Waiting 1 second before reset...")
 
                         if not waitWhileEnabled(
@@ -965,20 +948,22 @@ function GameModule.Register(api)
                             break
                         end
 
-                        -- 6. RESET
+                        -- 7. RESET CHARACTER
                         if not resetCharacter(currentId) then
                             break
                         end
 
-                        -- 7. WALK AFTER SHIELD DISAPPEARS
-                        if not moveToStarterArea(currentId) then
+                        -- 8. WAIT UNTIL THROW COOLDOWN IS ZERO
+                        if not waitForThrowCooldown(currentId) then
                             break
                         end
 
-                        debugLog("Reached StarterArea after respawn.")
+                        -- 9. LOOP RESTARTS AND WALKS TO STARTERAREA
+                        debugLog("Cooldown finished. Moving to StarterArea...")
 
-                        -- Döngü başa döner ve StarterArea'da 6 saniye bekler.
-                        debugLog("Cycle completed. Restarting...")
+                        -- Döngü başa döner:
+                        -- StarterArea'ya yürür, animasyon başlar,
+                        -- güç yakalanır, fırlatılır ve tekrar reset atılır.
                     end
 
                 end)
