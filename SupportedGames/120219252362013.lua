@@ -1826,21 +1826,17 @@ function GameModule.Register(api)
         end
 
         local function findTrainingStopButton()
-            local roots = {playerGui, workspace}
-            for _, root in ipairs(roots) do
-                for _, object in ipairs(root:GetDescendants()) do
-                    if object:IsA("GuiButton") then
-                        local buttonText = ""
-                        if object:IsA("TextButton") then
-                            buttonText = string.upper((object.Text or ""):gsub("%s+", ""))
-                        end
-                        local objectName = string.upper(object.Name or "")
-                        if buttonText == "STOP" or objectName == "STOP" or objectName:find("STOPTRAIN", 1, true) then
-                            return object
-                        end
-                    end
-                end
+            -- Exact game UI path: Players > LocalPlayer > PlayerGui > TrainingSequence > Button
+            local trainingSequence = playerGui:FindFirstChild("TrainingSequence")
+            if not trainingSequence then
+                return nil
             end
+
+            local stopButton = trainingSequence:FindFirstChild("Button", true)
+            if stopButton and stopButton:IsA("GuiButton") then
+                return stopButton
+            end
+
             return nil
         end
 
