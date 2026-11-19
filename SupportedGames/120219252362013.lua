@@ -134,31 +134,6 @@ function GameModule.Register(api)
         }
 
         local function getLanguage()
-            -- Ana GUI isterse api.GetLanguage() veya api.GetCurrentLanguage()
-            -- fonksiyonlarından biriyle seçili dili bu modüle aktarabilir.
-            for _, methodName in ipairs({"GetLanguage", "GetCurrentLanguage"}) do
-                local method = api and api[methodName]
-                if type(method) == "function" then
-                    local ok, result = pcall(method, api)
-                    if ok and type(result) == "string" then
-                        local lowered = string.lower(result)
-                        if lowered == "turkish" or lowered == "tr" or lowered == "tr-tr" then
-                            return "Turkish"
-                        elseif lowered == "russian" or lowered == "ru" or lowered == "ru-ru" then
-                            return "Russian"
-                        elseif lowered == "english" or lowered == "en" or lowered == "en-us" then
-                            return "English"
-                        end
-                    end
-                end
-            end
-
-            local locale = string.lower(LocalizationService.RobloxLocaleId or "en-us")
-            if string.sub(locale, 1, 2) == "tr" then
-                return "Turkish"
-            elseif string.sub(locale, 1, 2) == "ru" then
-                return "Russian"
-            end
             return "English"
         end
 
@@ -184,8 +159,79 @@ function GameModule.Register(api)
         local statusText
         local currentStatus = "idle"
         local currentStatusDetail = ""
+        local hudGui
+        local hudFill
+        local hudStateText
+        local hudInfoText
+        local hudProgressTween
+        local hudVisible = false
 
-        local function setStatus(key, detail)
+        local function setHudProgress(progress)
+            if not hudFill or not hudFill.Parent then return end
+
+            if hudProgressTween then
+                hudProgressTween:Cancel()
+                hudProgressTween = nil
+            end
+
+            if type(progress) == "number" then
+                hudFill.Size = UDim2.new(math.clamp(progress, 0, 1), 0, 1, 0)
+            else
+                hudFill.Size = UDim2.new(0.18, 0, 1, 0)
+                hudProgressTween = TweenService:Create(
+                    hudFill,
+                    TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+                    {Size = UDim2.new(0.88, 0, 1, 0)}
+                )
+                hudProgressTween:Play()
+            end
+        end
+
+        local function updateHud(key, detail, progress)
+            if not hudGui then return end
+            if hudStateText then
+                hudStateText.Text = "AUTO THROW = " .. (isEnabled and "ON" or "OFF")
+            end
+            if hudInfoText then
+                local message
+                if key == "cooldown" then
+                    message = detail ~= "" and ("Protection cooldown: " .. detail) or "Waiting for protection cooldown..."
+                elseif key == "initialWait" then
+                    message = detail ~= "" and ("Starting wait: " .. detail) or "Waiting at starting position..."
+                elseif key == "moving" then
+                    message = "Walking to position..."
+                elseif key == "marker" then
+                    message = "Waiting for throw power..."
+                elseif key == "throwing" then
+                    message = "Throwing..."
+                elseif key == "resetting" then
+                    message = "Respawning character..."
+                elseif key == "starting" then
+                    message = "Starting Auto Throw..."
+                elseif key == "stopped" then
+                    message = "Auto Throw stopped."
+                elseif key == "error" then
+                    message = "Error: " .. tostring(detail or "")
+                else
+                    message = tr(key)
+                end
+                hudInfoText.Text = message
+            end
+            if isEnabled then
+                hudGui.Enabled = true
+                hudVisible = true
+                setHudProgress(progress)
+            else
+                hudGui.Enabled = false
+                hudVisible = false
+                if hudProgressTween then
+                    hudProgressTween:Cancel()
+                    hudProgressTween = nil
+                end
+            end
+        end
+
+        local function setStatus(key, detail, progress)
             currentStatus = key
             currentStatusDetail = detail or ""
 
@@ -196,6 +242,8 @@ function GameModule.Register(api)
                 end
                 statusText.Text = message
             end
+
+            updateHud(key, currentStatusDetail, progress)
         end
 
         local title = Instance.new("TextLabel")
@@ -252,7 +300,7 @@ function GameModule.Register(api)
         local infoButton = Instance.new("TextButton")
         infoButton.Name = "InfoButton"
         infoButton.AnchorPoint = Vector2.new(1, 0)
-        infoButton.Position = UDim2.new(1, -53, 0, 10)
+        infoButton.Position = UDim2.new(1, -87, 0, 10)
         infoButton.Size = UDim2.fromOffset(29, 29)
         infoButton.BackgroundColor3 = Color3.fromRGB(24, 42, 62)
         infoButton.BorderSizePixel = 0
@@ -277,7 +325,7 @@ function GameModule.Register(api)
         switchButton.Name = "AutoThrowSwitch"
         switchButton.AnchorPoint = Vector2.new(1, 0)
         switchButton.Position = UDim2.new(1, -12, 0, 10)
-        switchButton.Size = UDim2.fromOffset(34, 29)
+        switchButton.Size = UDim2.fromOffset(70, 29)
         switchButton.BackgroundColor3 = Color3.fromRGB(43, 53, 68)
         switchButton.BorderSizePixel = 0
         switchButton.Text = ""
@@ -435,6 +483,103 @@ function GameModule.Register(api)
         closeCorner.CornerRadius = UDim.new(1, 0)
         closeCorner.Parent = closeInfoButton
 
+        --==================================================
+        -- INDEPENDENT TOP STATUS HUD
+        -- This ScreenGui is parented to PlayerGui, not the BZHUB page,
+        -- so it remains visible when the main hub is minimized/hidden.
+        --==================================================
+
+        hudGui = Instance.new("ScreenGui")
+        hudGui.Name = "BZHUB_AutoThrow_StatusHUD"
+        hudGui.ResetOnSpawn = false
+        hudGui.IgnoreGuiInset = true
+        hudGui.DisplayOrder = 100000
+        hudGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        hudGui.Enabled = false
+        hudGui.Parent = playerGui
+
+        local hudContainer = Instance.new("Frame")
+        hudContainer.Name = "StatusContainer"
+        hudContainer.AnchorPoint = Vector2.new(0.5, 0)
+        hudContainer.Position = UDim2.new(0.5, 0, 0, 88)
+        hudContainer.Size = UDim2.fromOffset(350, 66)
+        hudContainer.BackgroundTransparency = 1
+        hudContainer.BorderSizePixel = 0
+        hudContainer.Active = false
+        hudContainer.Parent = hudGui
+
+        hudStateText = Instance.new("TextLabel")
+        hudStateText.Name = "State"
+        hudStateText.Position = UDim2.fromOffset(0, 0)
+        hudStateText.Size = UDim2.new(1, 0, 0, 21)
+        hudStateText.BackgroundTransparency = 1
+        hudStateText.Text = "AUTO THROW = OFF"
+        hudStateText.TextColor3 = Color3.fromRGB(235, 243, 255)
+        hudStateText.TextSize = 13
+        hudStateText.Font = Enum.Font.GothamBold
+        hudStateText.TextXAlignment = Enum.TextXAlignment.Center
+        hudStateText.TextStrokeTransparency = 0.65
+        hudStateText.Active = false
+        hudStateText.Parent = hudContainer
+
+        local hudDivider = Instance.new("Frame")
+        hudDivider.Name = "Divider"
+        hudDivider.Position = UDim2.fromOffset(0, 25)
+        hudDivider.Size = UDim2.new(1, 0, 0, 1)
+        hudDivider.BackgroundColor3 = ACCENT
+        hudDivider.BackgroundTransparency = 0.12
+        hudDivider.BorderSizePixel = 0
+        hudDivider.Parent = hudContainer
+
+        local hudBar = Instance.new("Frame")
+        hudBar.Name = "ProgressBar"
+        hudBar.Position = UDim2.fromOffset(0, 32)
+        hudBar.Size = UDim2.new(1, 0, 0, 25)
+        hudBar.BackgroundColor3 = Color3.fromRGB(7, 18, 31)
+        hudBar.BackgroundTransparency = 0.28
+        hudBar.BorderSizePixel = 0
+        hudBar.ClipsDescendants = true
+        hudBar.Parent = hudContainer
+
+        local hudBarCorner = Instance.new("UICorner")
+        hudBarCorner.CornerRadius = UDim.new(0, 5)
+        hudBarCorner.Parent = hudBar
+
+        hudFill = Instance.new("Frame")
+        hudFill.Name = "BlueProgress"
+        hudFill.Size = UDim2.new(0, 0, 1, 0)
+        hudFill.BackgroundColor3 = ACCENT
+        hudFill.BackgroundTransparency = 0.08
+        hudFill.BorderSizePixel = 0
+        hudFill.Parent = hudBar
+
+        local hudFillCorner = Instance.new("UICorner")
+        hudFillCorner.CornerRadius = UDim.new(0, 5)
+        hudFillCorner.Parent = hudFill
+
+        local hudFillGradient = Instance.new("UIGradient")
+        hudFillGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 125, 220)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(75, 190, 255))
+        })
+        hudFillGradient.Parent = hudFill
+
+        hudInfoText = Instance.new("TextLabel")
+        hudInfoText.Name = "Status"
+        hudInfoText.Position = UDim2.fromOffset(8, 0)
+        hudInfoText.Size = UDim2.new(1, -16, 1, 0)
+        hudInfoText.BackgroundTransparency = 1
+        hudInfoText.Text = "Starting..."
+        hudInfoText.TextColor3 = Color3.fromRGB(255, 255, 255)
+        hudInfoText.TextSize = 11
+        hudInfoText.Font = Enum.Font.GothamSemibold
+        hudInfoText.TextXAlignment = Enum.TextXAlignment.Center
+        hudInfoText.TextYAlignment = Enum.TextYAlignment.Center
+        hudInfoText.TextWrapped = true
+        hudInfoText.TextTruncate = Enum.TextTruncate.AtEnd
+        hudInfoText.ZIndex = 3
+        hudInfoText.Parent = hudBar
+
         local infoHint = Instance.new("TextLabel")
         infoHint.Position = UDim2.fromOffset(13, 39)
         infoHint.Size = UDim2.new(1, -26, 0, 28)
@@ -483,7 +628,7 @@ function GameModule.Register(api)
             infoPanelTitle.Text = tr("infoTitle")
             infoHint.Text = tr("infoHint")
             sliderLabel.Text = string.format("%s: %d", tr("power"), selectedSpeed)
-            stateLabel.Text = isEnabled and tr("enabled") or tr("disabled")
+            stateLabel.Text = isEnabled and "ON" or "OFF"
             local message = tr(currentStatus)
             if currentStatus == "error" and currentStatusDetail ~= "" then
                 message = message .. currentStatusDetail
@@ -493,7 +638,7 @@ function GameModule.Register(api)
 
         local function setSwitchVisual(enabled, instant)
             local knobPosition = enabled
-                and UDim2.fromOffset(8, 3)
+                and UDim2.fromOffset(44, 3)
                 or UDim2.fromOffset(3, 3)
 
             local switchColor = enabled
@@ -522,8 +667,14 @@ function GameModule.Register(api)
                 })
             end
 
-            stateLabel.Text = enabled and tr("enabled") or tr("disabled")
+            stateLabel.Text = enabled and "ON" or "OFF"
             stateLabel.TextColor3 = enabled and ACCENT_BRIGHT or MUTED
+            if hudStateText then
+                hudStateText.Text = "AUTO THROW = " .. (enabled and "ON" or "OFF")
+            end
+            if hudGui then
+                hudGui.Enabled = enabled
+            end
         end
 
         local function openInfo()
@@ -657,6 +808,7 @@ function GameModule.Register(api)
         updateSlider(selectedSpeed)
         setSwitchVisual(false, true)
         refreshLanguage()
+        if hudGui then hudGui.Enabled = false end
 
                 --==================================================
         -- SESSION CHECK
@@ -672,13 +824,26 @@ function GameModule.Register(api)
 
         local function waitWhileEnabled(seconds, currentId)
             local startTime = os.clock()
+            local lastSecond = -1
 
             while os.clock() - startTime < seconds do
                 if not stillRunning(currentId) then
                     return false
                 end
 
-                task.wait(0.01)
+                local elapsed = os.clock() - startTime
+                local remaining = math.max(0, seconds - elapsed)
+                local shown = math.ceil(remaining)
+
+                if shown ~= lastSecond then
+                    lastSecond = shown
+                    setStatus(currentStatus, string.format("%ds remaining", shown),
+                        math.clamp(elapsed / math.max(seconds, 0.01), 0, 1))
+                else
+                    setHudProgress(math.clamp(elapsed / math.max(seconds, 0.01), 0, 1))
+                end
+
+                task.wait(0.05)
             end
 
             return stillRunning(currentId)
@@ -707,7 +872,7 @@ function GameModule.Register(api)
 
                     if displayedSecond ~= lastDisplayedSecond then
                         lastDisplayedSecond = displayedSecond
-
+                        setStatus("cooldown", string.format("%ds remaining", displayedSecond))
                         debugLog(string.format(
                             "Throw cooldown remaining: %.2f seconds",
                             remaining
@@ -719,6 +884,7 @@ function GameModule.Register(api)
                         return true
                     end
                 else
+                    setStatus("cooldown", "Waiting for cooldown timer...")
                     debugLog("ThrowReadyAt not available yet. Waiting...")
                 end
 
@@ -917,7 +1083,7 @@ function GameModule.Register(api)
                 return false
             end
 
-            setStatus("throwing")
+            setStatus("throwing", "Sending throw input...", 0.9)
             local mouseLocation = UserInputService:GetMouseLocation()
 
             VirtualInputManager:SendMouseButtonEvent(
@@ -1110,7 +1276,7 @@ function GameModule.Register(api)
         --==================================================
 
         local function moveToStarterArea(currentId)
-            setStatus("moving")
+            setStatus("moving", nil)
             debugLog("Finding path to StarterArea...")
 
             local character, humanoid, rootPart =
@@ -1257,7 +1423,7 @@ function GameModule.Register(api)
                 error("Humanoid not found before reset.")
             end
 
-            setStatus("resetting")
+            setStatus("resetting", "Respawning character...")
             debugLog("Resetting character...")
 
             humanoid.Health = 0
@@ -1312,7 +1478,7 @@ function GameModule.Register(api)
 
                         -- 2. ONLY FIRST CYCLE: WAIT 6 SECONDS
                         if firstCycle then
-                            setStatus("initialWait")
+                            setStatus("initialWait", "6s remaining", 0)
                             debugLog("First cycle: waiting 6 seconds at StarterArea...")
 
                             if not waitWhileEnabled(
@@ -1384,6 +1550,7 @@ function GameModule.Register(api)
 
                         setSwitchVisual(false, false)
                         setStatus("error", tostring(err))
+                        if hudGui then hudGui.Enabled = false end
                     end
                 end
 
@@ -1407,6 +1574,7 @@ function GameModule.Register(api)
                 actionId += 1
                 setSwitchVisual(false, false)
                 setStatus("stopped")
+                if hudGui then hudGui.Enabled = false end
                 debugLog("Farm disabled.")
             end
         end)
