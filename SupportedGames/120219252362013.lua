@@ -25,7 +25,6 @@ function GameModule.Register(api)
         local MAX_POWER = 20
 
         local POWER_0_Y = 1.0
-        local POWER_1_Y = 0.995735705
         local POWER_10_Y = 0.555865407
         local POWER_20_Y = 0.00212187553
 
@@ -39,6 +38,8 @@ function GameModule.Register(api)
         local WAYPOINT_REACH_DISTANCE = 6
         local WAYPOINT_TIMEOUT = 15
         local MAX_PATH_RETRIES = 3
+
+        local SHIELD_APPEAR_TIMEOUT = 10
 
         local selectedSpeed = 1
         local isEnabled = false
@@ -785,6 +786,65 @@ function GameModule.Register(api)
         end
 
         --==================================================
+        -- WAIT FOR SPAWN SHIELD
+        --==================================================
+
+        local function waitForSpawnShield(character, currentId)
+            debugLog("Checking spawn shield...")
+
+            local startTime = os.clock()
+            local shield = nil
+
+            -- Kalkanın doğuşta eklenmesini bekle.
+            while stillRunning(currentId)
+                and player.Character == character
+                and os.clock() - startTime < SHIELD_APPEAR_TIMEOUT do
+
+                shield = character:FindFirstChildOfClass("ForceField")
+
+                if shield then
+                    break
+                end
+
+                task.wait(0.05)
+            end
+
+            if not stillRunning(currentId) then
+                return false
+            end
+
+            if player.Character ~= character then
+                return false
+            end
+
+            if not shield then
+                debugLog("No ForceField detected. Continuing.")
+                return true
+            end
+
+            debugLog("Spawn shield detected. Waiting for it to disappear...")
+
+            -- Kalkan silinene kadar bekle.
+            while stillRunning(currentId)
+                and player.Character == character
+                and shield.Parent do
+
+                task.wait(0.05)
+            end
+
+            if not stillRunning(currentId) then
+                return false
+            end
+
+            if player.Character ~= character then
+                return false
+            end
+
+            debugLog("Spawn shield disappeared. Movement allowed.")
+            return true
+        end
+
+        --==================================================
         -- RESET CHARACTER
         --==================================================
 
@@ -824,6 +884,15 @@ function GameModule.Register(api)
                         and newHumanoid.Health > 0 then
 
                         debugLog("Character respawned!")
+
+                        -- KALKAN BİTMEDEN YÜRÜMEYE BAŞLAMA.
+                        if not waitForSpawnShield(
+                            newCharacter,
+                            currentId
+                        ) then
+                            return false
+                        end
+
                         return true
                     end
                 end
@@ -855,7 +924,7 @@ function GameModule.Register(api)
                             break
                         end
 
-                        -- CAPTURE SELECTED POWER
+                        -- SELECTED POWER
                         local targetPower = selectedSpeed
 
                         debugLog(
@@ -863,7 +932,17 @@ function GameModule.Register(api)
                             .. targetPower
                         )
 
-                        -- 2. WAIT FOR REAL MARKER POSITION
+                        -- 2. WAIT FOR 6 SECONDS AT STARTERAREA
+                        debugLog("Waiting 6 seconds at StarterArea...")
+
+                        if not waitWhileEnabled(
+                            AFTER_RESPAWN_DELAY,
+                            currentId
+                        ) then
+                            break
+                        end
+
+                        -- 3. WAIT FOR REAL MARKER POSITION
                         if not waitForSelectedPower(
                             targetPower,
                             currentId
@@ -871,12 +950,12 @@ function GameModule.Register(api)
                             break
                         end
 
-                        -- 3. CLICK AT SELECTED POWER
+                        -- 4. CLICK AT SELECTED POWER
                         if not performClick(currentId) then
                             break
                         end
 
-                        -- 4. WAIT BEFORE RESET
+                        -- 5. WAIT BEFORE RESET
                         debugLog("Waiting 1 second before reset...")
 
                         if not waitWhileEnabled(
@@ -886,26 +965,19 @@ function GameModule.Register(api)
                             break
                         end
 
-                        -- 5. RESET
+                        -- 6. RESET
                         if not resetCharacter(currentId) then
                             break
                         end
 
-                        -- 6. WALK AGAIN
+                        -- 7. WALK AFTER SHIELD DISAPPEARS
                         if not moveToStarterArea(currentId) then
                             break
                         end
 
-                        -- 7. WAIT AFTER RESPAWN
-                        debugLog("Waiting 6 seconds...")
+                        debugLog("Reached StarterArea after respawn.")
 
-                        if not waitWhileEnabled(
-                            AFTER_RESPAWN_DELAY,
-                            currentId
-                        ) then
-                            break
-                        end
-
+                        -- Döngü başa döner ve StarterArea'da 6 saniye bekler.
                         debugLog("Cycle completed. Restarting...")
                     end
 
