@@ -2152,7 +2152,7 @@ end
 if gameSupported and game.PlaceId == 120219252362013 then
     task.spawn(function()
         local success, err = pcall(function()
-            local url = "https://raw.githubusercontent.com/blazystick/BZHUB/refs/heads/main/SupportedGames/120219252362013.lua?v=2"
+            local url = "https://raw.githubusercontent.com/blazystick/BZHUB/refs/heads/main/SupportedGames/120219252362013.lua"
             local requestSuccess, response = pcall(function()
                 return game:HttpGet(url)
             end)
