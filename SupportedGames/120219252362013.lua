@@ -1,4 +1,4 @@
---123213123123
+
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -637,8 +637,7 @@ function GameModule.Register(api)
             end
         end)
 
-        -- Auto 2x: detect TapBonus continuously and fire its Activated signal
-        -- without moving the cursor or sending a physical MB1 input.
+        -- Auto 2x: try getconnections first when Solara exposes it; use mouse fallback if needed.
         local function findTapBonusButton()
             local trainingSequence = playerGui:FindFirstChild("TrainingSequence")
             if not trainingSequence then return nil, nil end
@@ -669,25 +668,138 @@ function GameModule.Register(api)
             return nil, tapBonus
         end
 
-        local function activateTapBonus(button)
-            if not button or not button:IsA("GuiButton") then return false end
-            if not button.Visible or not button.Active then return false end
-            if type(firesignal) ~= "function" then
-                warn("[BZHUB AUTO 2X] firesignal is unavailable in this executor.")
+        local function tapBonusStillExists(expectedObject)
+            local currentButton, currentObject = findTapBonusButton()
+            return currentObject == expectedObject and currentButton ~= nil
+                and currentButton.Visible and currentButton.Active, currentButton
+        end
+
+        -- Some Solara builds may not expose getconnections, so detect support safely.
+        local function tryGetConnectionsActivation(button)
+            if not button or not button:IsA("GuiButton") then
+                return false
+            end
+            if type(getconnections) ~= "function" then
                 return false
             end
 
+            local function triggerSignalConnections(signal)
+                local getOk, connections = pcall(function()
+                    return getconnections(signal)
+                end)
+                if not getOk or type(connections) ~= "table" then
+                    return false
+                end
+
+                local firedAny = false
+                for _, connection in ipairs(connections) do
+                    if connection then
+                        local enabled = true
+                        pcall(function()
+                            enabled = connection.Enabled
+                        end)
+
+                        if enabled ~= false then
+                            local firedThisConnection = false
+                            local fireMethod
+                            pcall(function()
+                                fireMethod = connection.Fire
+                            end)
+
+                            if type(fireMethod) == "function" then
+                                firedThisConnection = pcall(function()
+                                    fireMethod(connection)
+                                end)
+                            end
+
+                            -- Some implementations expose Function but not Fire.
+                            if not firedThisConnection then
+                                local callback
+                                pcall(function()
+                                    callback = connection.Function
+                                end)
+                                if type(callback) == "function" then
+                                    firedThisConnection = pcall(callback)
+                                end
+                            end
+
+                            if firedThisConnection then
+                                firedAny = true
+                            end
+                        end
+                    end
+                end
+                return firedAny
+            end
+
+            -- Activated is preferred. MouseButton1Click is only checked if no
+            -- Activated connection could be fired.
+            local okActivated = triggerSignalConnections(button.Activated)
+            if okActivated then
+                return true
+            end
+
+            return triggerSignalConnections(button.MouseButton1Click)
+        end
+
+        local function mouseClickTapBonus(button)
+            if not button or not button:IsA("GuiButton") then return false end
+            if not button.Visible or not button.Active then return false end
+            if type(mousemoveabs) ~= "function" or type(mouse1click) ~= "function" then
+                warn("[BZHUB AUTO 2X] Mouse fallback is unavailable in this executor.")
+                return false
+            end
+
+            local oldPosition = UserInputService:GetMouseLocation()
+            local center = button.AbsolutePosition + (button.AbsoluteSize / 2)
+            local moved = false
+
             local ok, err = pcall(function()
-                -- Give the bonus a brief moment to settle after it appears.
-                task.wait(0.22)
-                firesignal(button.Activated)
+                mousemoveabs(center.X, center.Y)
+                moved = true
+                task.wait(0.14)
+                mouse1click()
+                task.wait(0.08)
             end)
 
+            -- Always try to put the cursor back where it was.
+            if moved then
+                pcall(function()
+                    mousemoveabs(oldPosition.X, oldPosition.Y)
+                end)
+            end
+
             if not ok then
-                warn("[BZHUB AUTO 2X] TapBonus Activated signal failed: " .. tostring(err))
+                warn("[BZHUB AUTO 2X] Mouse fallback failed: " .. tostring(err))
                 return false
             end
             return true
+        end
+
+        local function attemptAuto2x(button, tapBonusObject)
+            if not button or not tapBonusObject then
+                return false
+            end
+
+            -- First try the button's event connections without moving the cursor.
+            local connectionAttempted = tryGetConnectionsActivation(button)
+            if connectionAttempted then
+                task.wait(0.3)
+                local stillVisible, refreshedButton = tapBonusStillExists(tapBonusObject)
+                if not stillVisible then
+                    return true
+                end
+                button = refreshedButton or button
+            end
+
+            -- If the bonus is still present (or event connections are unsupported),
+            -- use Solara's mouse input as the reliable fallback.
+            local stillVisible, currentButton = tapBonusStillExists(tapBonusObject)
+            if stillVisible and currentButton then
+                mouseClickTapBonus(currentButton)
+            end
+
+            return not tapBonusStillExists(tapBonusObject)
         end
 
         auto2xSwitch.MouseButton1Click:Connect(function()
@@ -699,28 +811,33 @@ function GameModule.Register(api)
             local thisWorkerId = auto2xWorkerId
             if auto2xEnabled then
                 task.spawn(function()
-                    local lastClickedObject = nil
-                    local warnedMissingButton = false
-
                     while trainEnabled and auto2xEnabled and auto2xWorkerId == thisWorkerId do
                         local clickButton, tapBonusObject = findTapBonusButton()
 
                         if not tapBonusObject then
-                            lastClickedObject = nil
-                            warnedMissingButton = false
+                            task.wait(0.1)
                         elseif not clickButton then
-                            if not warnedMissingButton then
-                                warn("[BZHUB AUTO 2X] TapBonus exists but no GuiButton was found.")
-                                warnedMissingButton = true
+                            warn("[BZHUB AUTO 2X] TapBonus exists but no GuiButton was found.")
+                            task.wait(0.2)
+                        else
+                            -- Give the bonus a moment to appear before clicking it with the mouse.
+                            task.wait(0.22)
+                            if not (trainEnabled and auto2xEnabled and auto2xWorkerId == thisWorkerId) then
+                                break
                             end
-                        elseif tapBonusObject ~= lastClickedObject then
-                            if activateTapBonus(clickButton) then
-                                debugLog("Auto 2x fired TapBonus Activated: " .. tapBonusObject:GetFullName())
-                                lastClickedObject = tapBonusObject
+
+                            -- Try getconnections first; mouse is used only if the bonus remains.
+                            attemptAuto2x(clickButton, tapBonusObject)
+                            task.wait(0.35)
+
+                            -- Keep retrying while the same bonus remains visible.
+                            while trainEnabled and auto2xEnabled and auto2xWorkerId == thisWorkerId do
+                                local remains, retryButton = tapBonusStillExists(tapBonusObject)
+                                if not remains then break end
+                                attemptAuto2x(retryButton, tapBonusObject)
+                                task.wait(0.45)
                             end
                         end
-
-                        task.wait(0.1)
                     end
                 end)
             end
@@ -1928,8 +2045,8 @@ function GameModule.Register(api)
             end
 
             -- User requested SPACE instead of clicking the game's STOP button.
-            -- This intentionally does not use mousemoveabs, mouse1click, firesignal,
-            -- getconnections, or GuiButton:Activate().
+            -- This intentionally sends SPACE directly through keyboard input,
+            -- without using mouse input or GUI event injection.
             local keyCode = Enum.KeyCode.Space
 
             if type(keypress) == "function" and type(keyrelease) == "function" then
