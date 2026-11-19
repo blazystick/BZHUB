@@ -19,31 +19,16 @@ function GameModule.Register(api)
         -- CONFIGURATION
         --==================================================
 
-        local MIN_DELAY = 1
-        local MAX_DELAY = 20
+        local MIN_POWER = 1
+        local MAX_POWER = 20
 
-        local CLICK_DELAYS = {
-            [1] = 0.125,
-            [2] = 0.250,
-            [3] = 0.375,
-            [4] = 0.500,
-            [5] = 0.625,
-            [6] = 0.750,
-            [7] = 0.875,
-            [8] = 1.000,
-            [9] = 1.125,
-            [10] = 1.250,
-            [11] = 1.375,
-            [12] = 1.500,
-            [13] = 1.625,
-            [14] = 1.750,
-            [15] = 1.875,
-            [16] = 2.000,
-            [17] = 2.125,
-            [18] = 2.250,
-            [19] = 2.375,
-            [20] = 2.500
-        }
+        -- Estimated timing of the in-game power meter.
+        local ANIMATION_OPEN_DELAY = 0.7
+        local POWER_RISE_DURATION = 2
+
+        -- 19 intervals between level 1 and level 20.
+        local POWER_LEVEL_INTERVAL =
+            POWER_RISE_DURATION / (MAX_POWER - MIN_POWER)
 
         local AFTER_CLICK_DELAY = 1
         local AFTER_RESPAWN_DELAY = 6
@@ -190,20 +175,23 @@ function GameModule.Register(api)
         local function updateSlider(value)
             selectedSpeed = math.clamp(
                 math.floor(value + 0.5),
-                MIN_DELAY,
-                MAX_DELAY
+                MIN_POWER,
+                MAX_POWER
             )
 
-            local percentage = (selectedSpeed - MIN_DELAY)
-                / math.max(1, MAX_DELAY - MIN_DELAY)
+            local percentage = (selectedSpeed - MIN_POWER)
+                / (MAX_POWER - MIN_POWER)
 
             sliderFill.Size = UDim2.new(percentage, 0, 1, 0)
             sliderKnob.Position = UDim2.new(percentage, 0, 0.5, 0)
 
+            local estimatedTime =
+                (selectedSpeed - MIN_POWER) * POWER_LEVEL_INTERVAL
+
             sliderLabel.Text = string.format(
-                "Click Delay: %d | %.3f seconds",
+                "Power Level: %d | %.3f seconds",
                 selectedSpeed,
-                CLICK_DELAYS[selectedSpeed]
+                estimatedTime
             )
         end
 
@@ -223,8 +211,8 @@ function GameModule.Register(api)
                 1
             )
 
-            local value = MIN_DELAY
-                + percentage * (MAX_DELAY - MIN_DELAY)
+            local value = MIN_POWER
+                + percentage * (MAX_POWER - MIN_POWER)
 
             updateSlider(value)
         end
@@ -288,10 +276,59 @@ function GameModule.Register(api)
                     return false
                 end
 
-                task.wait(0.05)
+                task.wait(0.01)
             end
 
             return stillRunning(currentId)
+        end
+
+        --==================================================
+        -- POWER TIMING
+        --==================================================
+
+        local function getPowerWaitTime(power)
+            power = math.clamp(
+                math.floor(power + 0.5),
+                MIN_POWER,
+                MAX_POWER
+            )
+
+            return (power - MIN_POWER) * POWER_LEVEL_INTERVAL
+        end
+
+        local function waitForSelectedPower(power, currentId)
+            local powerWait = getPowerWaitTime(power)
+
+            debugLog(string.format(
+                "Power meter animation opening: %.2f seconds.",
+                ANIMATION_OPEN_DELAY
+            ))
+
+            if not waitWhileEnabled(
+                ANIMATION_OPEN_DELAY,
+                currentId
+            ) then
+                return false
+            end
+
+            debugLog("Power meter should now be active.")
+
+            debugLog(string.format(
+                "Waiting for power level %d. Estimated time: %.3f seconds.",
+                power,
+                powerWait
+            ))
+
+            if not waitWhileEnabled(powerWait, currentId) then
+                return false
+            end
+
+            debugLog(string.format(
+                "Target power level %d reached. Clicking now!",
+                power
+            ))
+
+            return true
         end
 
         --==================================================
@@ -325,7 +362,7 @@ function GameModule.Register(api)
                 0
             )
 
-            debugLog("One click completed.")
+            debugLog("MB1 click completed.")
 
             return true
         end
@@ -408,7 +445,6 @@ function GameModule.Register(api)
                     return false
                 end
 
-                -- Skip waypoints that are already close enough.
                 if hasReachedWaypoint(rootPart, waypoint) then
                     debugLog(
                         "Waypoint "
@@ -447,7 +483,6 @@ function GameModule.Register(api)
                         return false
                     end
 
-                    -- Calculate the real distance every iteration.
                     local distance =
                         getWaypointDistance(rootPart, waypoint)
 
@@ -523,7 +558,6 @@ function GameModule.Register(api)
                     return false
                 end
 
-                -- If already near StarterArea, do not move again.
                 local targetDistance =
                     (rootPart.Position - targetPosition).Magnitude
 
@@ -687,24 +721,28 @@ function GameModule.Register(api)
                             break
                         end
 
-                        -- 2. SELECTED DELAY
-                        local delay = CLICK_DELAYS[selectedSpeed]
+                        -- Capture the selected power for this cycle.
+                        local targetPower = selectedSpeed
 
-                        debugLog(string.format(
-                            "Waiting %.3f seconds before clicking.",
-                            delay
-                        ))
+                        debugLog(
+                            "Reached StarterArea. Selected power: "
+                            .. targetPower
+                        )
 
-                        if not waitWhileEnabled(delay, currentId) then
+                        -- 2. WAIT FOR ANIMATION AND POWER LEVEL
+                        if not waitForSelectedPower(
+                            targetPower,
+                            currentId
+                        ) then
                             break
                         end
 
-                        -- 3. CLICK ONCE
+                        -- 3. CLICK AT SELECTED POWER
                         if not performClick(currentId) then
                             break
                         end
 
-                        -- 4. WAIT 1 SECOND
+                        -- 4. WAIT BEFORE RESET
                         debugLog("Waiting 1 second before reset...")
 
                         if not waitWhileEnabled(
@@ -724,7 +762,7 @@ function GameModule.Register(api)
                             break
                         end
 
-                        -- 7. WAIT 6 SECONDS
+                        -- 7. WAIT AFTER RESPAWN
                         debugLog("Waiting 6 seconds...")
 
                         if not waitWhileEnabled(
