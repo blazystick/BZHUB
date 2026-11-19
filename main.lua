@@ -2057,7 +2057,7 @@ local function selectCategory(name)
         Position = UDim2.fromOffset(0, 0)
     }, Enum.EasingStyle.Quint)
 
-    moveAnimation.Completed:Once(function()
+    moveAnimation.Completed:Connect(function()
         if transitionId ~= pageTransitionId then
             return
         end
