@@ -1,4 +1,4 @@
-
+--123123123
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -42,6 +42,8 @@ function GameModule.Register(api)
         local selectedSpeed = 1
         local isEnabled = false
         local trainEnabled = false
+        local autoEquipBestEnabled = false
+        local autoEquipBestWorkerId = 0
         local isDragging = false
         local actionId = 0
         local trainActionId = 0
@@ -278,7 +280,7 @@ function GameModule.Register(api)
         cardCorner.Parent = mainCard
 
         local cardStroke = Instance.new("UIStroke")
-        cardStroke.Color = ACCENT
+        cardStroke.Color = Color3.fromRGB(242, 72, 82)
         cardStroke.Thickness = 1.35
         cardStroke.Transparency = 0.28
         cardStroke.Parent = mainCard
@@ -634,6 +636,199 @@ function GameModule.Register(api)
                     end
                 end)
                 if stopTrain then stopTrain() end
+            end
+        end)
+
+        --==================================================
+        -- AUTO EQUIP BEST PET CARD
+        --==================================================
+
+        local EQUIP_GREEN = Color3.fromRGB(65, 205, 125)
+        local EQUIP_GREEN_BRIGHT = Color3.fromRGB(105, 235, 155)
+
+        local equipBestCard = Instance.new("Frame")
+        equipBestCard.Name = "AutoEquipBestPetCard"
+        equipBestCard.Position = UDim2.fromOffset(10, 326)
+        equipBestCard.Size = UDim2.new(1, -20, 0, 62)
+        equipBestCard.BackgroundColor3 = CARD
+        equipBestCard.BorderSizePixel = 0
+        equipBestCard.Parent = page
+
+        local equipBestCorner = Instance.new("UICorner")
+        equipBestCorner.CornerRadius = UDim.new(0, 12)
+        equipBestCorner.Parent = equipBestCard
+
+        local equipBestStroke = Instance.new("UIStroke")
+        equipBestStroke.Color = EQUIP_GREEN
+        equipBestStroke.Thickness = 1.35
+        equipBestStroke.Transparency = 0.3
+        equipBestStroke.Parent = equipBestCard
+
+        local equipBestGradient = Instance.new("UIGradient")
+        equipBestGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 39, 32)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 24, 22))
+        })
+        equipBestGradient.Rotation = 15
+        equipBestGradient.Parent = equipBestCard
+
+        local equipBestLabel = Instance.new("TextLabel")
+        equipBestLabel.Name = "AutoEquipBestPetLabel"
+        equipBestLabel.Position = UDim2.fromOffset(14, 7)
+        equipBestLabel.Size = UDim2.new(1, -198, 0, 38)
+        equipBestLabel.BackgroundTransparency = 1
+        equipBestLabel.Text = "Auto Equip Best Pet"
+        equipBestLabel.TextColor3 = TEXT
+        equipBestLabel.TextSize = 13
+        equipBestLabel.Font = Enum.Font.GothamSemibold
+        equipBestLabel.TextXAlignment = Enum.TextXAlignment.Left
+        equipBestLabel.Parent = equipBestCard
+
+        local equipBestSwitch = Instance.new("TextButton")
+        equipBestSwitch.Name = "AutoEquipBestPetSwitch"
+        equipBestSwitch.AnchorPoint = Vector2.new(1, 0)
+        equipBestSwitch.Position = UDim2.new(1, -12, 0, 10)
+        equipBestSwitch.Size = UDim2.fromOffset(60, 29)
+        equipBestSwitch.BackgroundColor3 = Color3.fromRGB(48, 58, 55)
+        equipBestSwitch.BorderSizePixel = 0
+        equipBestSwitch.Text = ""
+        equipBestSwitch.AutoButtonColor = false
+        equipBestSwitch.Parent = equipBestCard
+
+        local equipSwitchCorner = Instance.new("UICorner")
+        equipSwitchCorner.CornerRadius = UDim.new(1, 0)
+        equipSwitchCorner.Parent = equipBestSwitch
+
+        local equipSwitchStroke = Instance.new("UIStroke")
+        equipSwitchStroke.Color = EQUIP_GREEN
+        equipSwitchStroke.Transparency = 0.48
+        equipSwitchStroke.Thickness = 1
+        equipSwitchStroke.Parent = equipBestSwitch
+
+        local equipSwitchKnob = Instance.new("Frame")
+        equipSwitchKnob.Name = "Knob"
+        equipSwitchKnob.Position = UDim2.fromOffset(3, 3)
+        equipSwitchKnob.Size = UDim2.fromOffset(23, 23)
+        equipSwitchKnob.BackgroundColor3 = Color3.fromRGB(235, 242, 238)
+        equipSwitchKnob.BorderSizePixel = 0
+        equipSwitchKnob.Parent = equipBestSwitch
+
+        local equipKnobCorner = Instance.new("UICorner")
+        equipKnobCorner.CornerRadius = UDim.new(1, 0)
+        equipKnobCorner.Parent = equipSwitchKnob
+
+        local equipDivider = Instance.new("Frame")
+        equipDivider.Name = "ControlsDivider"
+        equipDivider.AnchorPoint = Vector2.new(1, 0.5)
+        equipDivider.Position = UDim2.new(1, -80, 0.5, 0)
+        equipDivider.Size = UDim2.fromOffset(1, 27)
+        equipDivider.BackgroundColor3 = Color3.fromRGB(150, 170, 160)
+        equipDivider.BackgroundTransparency = 0.62
+        equipDivider.BorderSizePixel = 0
+        equipDivider.Parent = equipBestCard
+
+        local equipOnceButton = Instance.new("TextButton")
+        equipOnceButton.Name = "EquipBestOnceButton"
+        equipOnceButton.AnchorPoint = Vector2.new(1, 0)
+        equipOnceButton.Position = UDim2.new(1, -88, 0, 10)
+        equipOnceButton.Size = UDim2.fromOffset(96, 29)
+        equipOnceButton.BackgroundColor3 = Color3.fromRGB(31, 76, 54)
+        equipOnceButton.BorderSizePixel = 0
+        equipOnceButton.Text = "EQUIP BEST"
+        equipOnceButton.TextColor3 = EQUIP_GREEN_BRIGHT
+        equipOnceButton.TextSize = 10
+        equipOnceButton.Font = Enum.Font.GothamBold
+        equipOnceButton.AutoButtonColor = false
+        equipOnceButton.Parent = equipBestCard
+
+        local equipOnceCorner = Instance.new("UICorner")
+        equipOnceCorner.CornerRadius = UDim.new(0, 8)
+        equipOnceCorner.Parent = equipOnceButton
+
+        local equipOnceStroke = Instance.new("UIStroke")
+        equipOnceStroke.Color = EQUIP_GREEN
+        equipOnceStroke.Transparency = 0.5
+        equipOnceStroke.Thickness = 1
+        equipOnceStroke.Parent = equipOnceButton
+
+        local function setEquipSwitchVisual(enabled, instant)
+            local knobPosition = enabled
+                and UDim2.new(1, -26, 0, 3)
+                or UDim2.fromOffset(3, 3)
+            local switchColor = enabled
+                and Color3.fromRGB(35, 112, 70)
+                or Color3.fromRGB(48, 58, 55)
+            if instant then
+                equipSwitchKnob.Position = knobPosition
+                equipBestSwitch.BackgroundColor3 = switchColor
+                equipSwitchStroke.Transparency = enabled and 0.08 or 0.48
+            else
+                makeTween(equipSwitchKnob, 0.2, {Position = knobPosition})
+                makeTween(equipBestSwitch, 0.2, {BackgroundColor3 = switchColor})
+                makeTween(equipSwitchStroke, 0.2, {Transparency = enabled and 0.08 or 0.48})
+            end
+        end
+
+        local function invokeEquipBest()
+            local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+            local remote = remotes and remotes:FindFirstChild("Plot_EquipBest")
+            if not remote or not remote:IsA("RemoteFunction") then
+                debugLog("Equip Best failed: Plot_EquipBest RemoteFunction was not found.")
+                return false
+            end
+
+            local success, result = pcall(function()
+                return remote:InvokeServer()
+            end)
+
+            if success then
+                debugLog("Equip Best invoked successfully. Result: " .. tostring(result))
+                return true
+            end
+
+            warn("[BZHUB EQUIP BEST ERROR] " .. tostring(result))
+            return false
+        end
+
+        local function startAutoEquipBest()
+            autoEquipBestWorkerId += 1
+            local workerId = autoEquipBestWorkerId
+
+            task.spawn(function()
+                while autoEquipBestEnabled and workerId == autoEquipBestWorkerId do
+                    invokeEquipBest()
+                    for _ = 1, 80 do
+                        if not autoEquipBestEnabled or workerId ~= autoEquipBestWorkerId then
+                            break
+                        end
+                        task.wait(0.1)
+                    end
+                end
+            end)
+        end
+
+        equipBestSwitch.MouseButton1Click:Connect(function()
+            autoEquipBestEnabled = not autoEquipBestEnabled
+            equipOnceButton.Visible = not autoEquipBestEnabled
+            equipDivider.Visible = not autoEquipBestEnabled
+            setEquipSwitchVisual(autoEquipBestEnabled, false)
+            makeTween(equipBestStroke, 0.2, {
+                Transparency = autoEquipBestEnabled and 0.08 or 0.3,
+                Thickness = autoEquipBestEnabled and 1.8 or 1.35
+            })
+
+            if autoEquipBestEnabled then
+                debugLog("Auto Equip Best Pet enabled.")
+                startAutoEquipBest()
+            else
+                autoEquipBestWorkerId += 1
+                debugLog("Auto Equip Best Pet disabled.")
+            end
+        end)
+
+        equipOnceButton.MouseButton1Click:Connect(function()
+            if not autoEquipBestEnabled then
+                invokeEquipBest()
             end
         end)
 
