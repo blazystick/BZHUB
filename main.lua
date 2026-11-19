@@ -1996,6 +1996,7 @@ pages = {
 local pageTransitionId = 0
 
 local function selectCategory(name)
+    print("[BZHUB DEBUG] Click:", name, "Switching:", switchingPage)
     if name == "Information" and not gameSupported then
         return
     end
@@ -2068,6 +2069,7 @@ local function selectCategory(name)
     end
 
     moveAnimation.Completed:Connect(function()
+        print("[BZHUB DEBUG] Animation completed:", name)
         if transitionId ~= pageTransitionId then
             return
         end
@@ -2077,6 +2079,7 @@ local function selectCategory(name)
     end)
 
     task.delay(0.6, function()
+        print("[BZHUB DEBUG] Unlock:", name)
         if transitionId == pageTransitionId then
             newPage.Position = UDim2.fromOffset(0, 0)
             switchingPage = false
