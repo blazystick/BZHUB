@@ -2132,7 +2132,7 @@ function BZHUB_API.AddCategory(name, text, callback)
         Visible = false,
         ZIndex = 22
     }, content)
-    if name == "Farm" then
+    if name == "Automation" then
         button.Text = "    " .. string.upper(text)
     end
     pages[name] = page
