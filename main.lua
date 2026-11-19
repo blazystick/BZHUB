@@ -2000,7 +2000,11 @@ local function selectCategory(name)
         return
     end
 
-    if currentCategory == name or switchingPage then
+    if switchingPage then
+        return
+    end
+
+    if currentCategory == name then
         return
     end
 
