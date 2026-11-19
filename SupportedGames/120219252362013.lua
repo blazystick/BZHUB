@@ -11,6 +11,7 @@ function GameModule.Register(api)
         local Players = game:GetService("Players")
         local UserInputService = game:GetService("UserInputService")
         local VirtualInputManager = game:GetService("VirtualInputManager")
+        local PathfindingService = game:GetService("PathfindingService")
 
         local player = Players.LocalPlayer
 
@@ -21,28 +22,28 @@ function GameModule.Register(api)
         local MIN_DELAY = 1
         local MAX_DELAY = 20
 
-        -- HER SEVİYENİN BEKLEME SÜRESİ
+        -- 8. SEVIYE = 1 SANİYE
         local CLICK_DELAYS = {
-            [1] = 0.35,
-            [2] = 0.15,
-            [3] = 0.25,
-            [4] = 0.35,
-            [5] = 0.50,
-            [6] = 0.65,
-            [7] = 0.80,
-            [8] = 1.00,
-            [9] = 1.20,
-            [10] = 1.40,
-            [11] = 1.60,
-            [12] = 1.80,
-            [13] = 2.00,
-            [14] = 2.20,
-            [15] = 2.50,
-            [16] = 2.80,
-            [17] = 3.00,
-            [18] = 3.50,
-            [19] = 4.00,
-            [20] = 5.00
+            [1] = 0.125,
+            [2] = 0.250,
+            [3] = 0.375,
+            [4] = 0.500,
+            [5] = 0.625,
+            [6] = 0.750,
+            [7] = 0.875,
+            [8] = 1.000,
+            [9] = 1.125,
+            [10] = 1.250,
+            [11] = 1.375,
+            [12] = 1.500,
+            [13] = 1.625,
+            [14] = 1.750,
+            [15] = 1.875,
+            [16] = 2.000,
+            [17] = 2.125,
+            [18] = 2.250,
+            [19] = 2.375,
+            [20] = 2.500
         }
 
         local AFTER_CLICK_DELAY = 1
@@ -196,7 +197,7 @@ function GameModule.Register(api)
             sliderKnob.Position = UDim2.new(percentage, 0, 0.5, 0)
 
             sliderLabel.Text = string.format(
-                "Click Delay: %d | %.2f seconds",
+                "Click Delay: %d | %.3f seconds",
                 selectedSpeed,
                 CLICK_DELAYS[selectedSpeed]
             )
@@ -204,9 +205,19 @@ function GameModule.Register(api)
 
         local function updateSliderFromInput(input)
             local trackWidth = sliderTrack.AbsoluteSize.X
-            local relativeX = input.Position.X - sliderTrack.AbsolutePosition.X
 
-            local percentage = math.clamp(relativeX / trackWidth, 0, 1)
+            if trackWidth <= 0 then
+                return
+            end
+
+            local relativeX =
+                input.Position.X - sliderTrack.AbsolutePosition.X
+
+            local percentage = math.clamp(
+                relativeX / trackWidth,
+                0,
+                1
+            )
 
             local value = MIN_DELAY
                 + percentage * (MAX_DELAY - MIN_DELAY)
@@ -254,7 +265,7 @@ function GameModule.Register(api)
         updateSlider(selectedSpeed)
 
         --==================================================
-        -- CHECK ACTIVE SESSION
+        -- SESSION CHECK
         --==================================================
 
         local function stillRunning(currentId)
@@ -262,7 +273,7 @@ function GameModule.Register(api)
         end
 
         --==================================================
-        -- WAIT WITH CANCELLATION
+        -- CANCELLABLE WAIT
         --==================================================
 
         local function waitWhileEnabled(seconds, currentId)
@@ -283,7 +294,11 @@ function GameModule.Register(api)
         -- MOUSE CLICK
         --==================================================
 
-        local function performClick()
+        local function performClick(currentId)
+            if not stillRunning(currentId) then
+                return false
+            end
+
             local mouseLocation = UserInputService:GetMouseLocation()
 
             VirtualInputManager:SendMouseButtonEvent(
@@ -307,28 +322,30 @@ function GameModule.Register(api)
             )
 
             debugLog("One click completed.")
+
+            return true
         end
 
         --==================================================
-        -- MOVE TO STARTERAREA
+        -- GET STARTERAREA POSITION
+        --==================================================
+
+        local function getStarterAreaPosition()
+            local starterArea = workspace:WaitForChild("StarterArea")
+
+            if starterArea:IsA("BasePart") then
+                return starterArea.Position
+            end
+
+            return starterArea:GetPivot().Position
+        end
+
+        --==================================================
+        -- PATHFINDING MOVEMENT
         --==================================================
 
         local function moveToStarterArea(currentId)
-            debugLog("Looking for StarterArea...")
-
-            local starterArea = workspace:WaitForChild("StarterArea")
-
-            if not stillRunning(currentId) then
-                return false
-            end
-
-            local targetPosition
-
-            if starterArea:IsA("BasePart") then
-                targetPosition = starterArea.Position
-            else
-                targetPosition = starterArea:GetPivot().Position
-            end
+            debugLog("Finding path to StarterArea...")
 
             local character = player.Character
 
@@ -343,28 +360,104 @@ function GameModule.Register(api)
                 error("Humanoid or HumanoidRootPart not found.")
             end
 
-            debugLog("Walking to StarterArea...")
+            local targetPosition = getStarterAreaPosition()
 
-            humanoid:MoveTo(targetPosition)
-
-            local startTime = os.clock()
-
-            while stillRunning(currentId) do
-                local distance = (rootPart.Position - targetPosition).Magnitude
-
-                if distance <= 5 then
-                    debugLog("StarterArea reached!")
-                    return true
-                end
-
-                if os.clock() - startTime >= 10 then
-                    error("Movement timed out.")
-                end
-
-                task.wait(0.1)
+            if not stillRunning(currentId) then
+                return false
             end
 
-            return false
+            local path = PathfindingService:CreatePath({
+                AgentRadius = 2,
+                AgentHeight = 5,
+                AgentCanJump = true,
+                AgentCanClimb = true,
+                WaypointSpacing = 4
+            })
+
+            debugLog("Calculating route...")
+
+            path:ComputeAsync(
+                rootPart.Position,
+                targetPosition
+            )
+
+            if not stillRunning(currentId) then
+                return false
+            end
+
+            if path.Status ~= Enum.PathStatus.Success then
+                error("Pathfinding failed: " .. tostring(path.Status))
+            end
+
+            local waypoints = path:GetWaypoints()
+
+            debugLog("Route found. Waypoints: " .. #waypoints)
+
+            for index, waypoint in ipairs(waypoints) do
+
+                if not stillRunning(currentId) then
+                    return false
+                end
+
+                -- Refresh character references
+                if player.Character ~= character then
+                    return false
+                end
+
+                rootPart = character:FindFirstChild("HumanoidRootPart")
+
+                if not rootPart then
+                    error("HumanoidRootPart disappeared.")
+                end
+
+                if waypoint.Action == Enum.PathWaypointAction.Jump then
+                    humanoid.Jump = true
+                    debugLog("Jumping over obstacle...")
+                end
+
+                debugLog(
+                    "Moving to waypoint "
+                    .. index
+                    .. "/"
+                    .. #waypoints
+                )
+
+                humanoid:MoveTo(waypoint.Position)
+
+                local startTime = os.clock()
+                local reached = false
+
+                while stillRunning(currentId) do
+                    local distance =
+                        (rootPart.Position - waypoint.Position).Magnitude
+
+                    if distance <= 3 then
+                        reached = true
+                        break
+                    end
+
+                    if os.clock() - startTime >= 8 then
+                        break
+                    end
+
+                    task.wait(0.1)
+                end
+
+                if not stillRunning(currentId) then
+                    return false
+                end
+
+                if not reached then
+                    error(
+                        "Could not reach waypoint "
+                        .. index
+                    )
+                end
+            end
+
+            debugLog("StarterArea reached successfully!")
+
+            return true
         end
 
         --==================================================
@@ -376,13 +469,14 @@ function GameModule.Register(api)
                 return false
             end
 
-            local character = player.Character
+            local oldCharacter = player.Character
 
-            if not character then
+            if not oldCharacter then
                 error("Character not found before reset.")
             end
 
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            local humanoid =
+                oldCharacter:FindFirstChildOfClass("Humanoid")
 
             if not humanoid then
                 error("Humanoid not found before reset.")
@@ -390,22 +484,23 @@ function GameModule.Register(api)
 
             debugLog("Resetting character...")
 
-            -- Gerçek karakter ölümü
             humanoid.Health = 0
 
-            -- Yeni karakterin yüklenmesini bekle
             while stillRunning(currentId) do
                 local newCharacter = player.Character
 
-                if newCharacter and newCharacter ~= character then
+                if newCharacter and newCharacter ~= oldCharacter then
                     local newHumanoid =
                         newCharacter:FindFirstChildOfClass("Humanoid")
 
                     local newRoot =
                         newCharacter:FindFirstChild("HumanoidRootPart")
 
-                    if newHumanoid and newRoot and newHumanoid.Health > 0 then
+                    if newHumanoid and newRoot
+                        and newHumanoid.Health > 0 then
+
                         debugLog("Character respawned!")
+
                         return true
                     end
                 end
@@ -432,7 +527,7 @@ function GameModule.Register(api)
 
                     while stillRunning(currentId) do
 
-                        -- 1. WALK
+                        -- 1. WALK TO STARTERAREA
                         if not moveToStarterArea(currentId) then
                             break
                         end
@@ -441,7 +536,7 @@ function GameModule.Register(api)
                         local delay = CLICK_DELAYS[selectedSpeed]
 
                         debugLog(string.format(
-                            "Waiting %.2f seconds before click.",
+                            "Waiting %.3f seconds before clicking.",
                             delay
                         ))
 
@@ -450,8 +545,9 @@ function GameModule.Register(api)
                         end
 
                         -- 3. CLICK ONCE
-                        debugLog("Performing one click...")
-                        performClick()
+                        if not performClick(currentId) then
+                            break
+                        end
 
                         -- 4. WAIT 1 SECOND
                         debugLog("Waiting 1 second before reset...")
@@ -463,7 +559,7 @@ function GameModule.Register(api)
                             break
                         end
 
-                        -- 5. RESET CHARACTER
+                        -- 5. RESET
                         if not resetCharacter(currentId) then
                             break
                         end
@@ -521,6 +617,7 @@ function GameModule.Register(api)
                 sliderContainer.Visible = false
 
                 debugLog("Farm enabled.")
+
                 startFarm()
 
             else
