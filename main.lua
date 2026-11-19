@@ -419,15 +419,31 @@ local pages = {}
 local shadows = {}
 
 --==================================================
--- SCREEN GUI
+-- SCREEN GUI (TOPMOST)
 --==================================================
+
+-- Prefer the executor's hidden UI container so BZHUB is not limited
+-- to the normal PlayerGui display layer. Fall back to PlayerGui when
+-- gethui is unavailable or cannot be accessed.
+local bzhubGuiParent = playerGui
+
+if typeof(gethui) == "function" then
+    local success, hiddenGui = pcall(function()
+        return gethui()
+    end)
+
+    if success and hiddenGui then
+        bzhubGuiParent = hiddenGui
+    end
+end
 
 screenGui = create("ScreenGui", {
     Name = "BZHUB",
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
+    DisplayOrder = 2147483647,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-}, playerGui)
+}, bzhubGuiParent)
 
 --==================================================
 -- LOADING SCREEN
