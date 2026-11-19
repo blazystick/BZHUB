@@ -80,8 +80,8 @@ function GameModule.Register(api)
                 title = "AUTO THROW",
                 power = "Power Level",
                 info = "i",
-                infoTitle = "AUTO THROW STATUS",
-                infoHint = "Live information about the automation.",
+                infoTitle = "AUTO THROW - IMPORTANT NOTES",
+                infoHint = "• The 6-second starting wait is normal.\n• Do not move or click while the automation is waiting.\n• Cooldown delays are part of the game.\n• Keep the game open until the throw is complete.",
                 idle = "Auto Throw is currently disabled.",
                 starting = "Starting the automation...",
                 moving = "Moving to the throw area. Please do not interfere.",
@@ -100,8 +100,8 @@ function GameModule.Register(api)
                 title = "AUTO THROW",
                 power = "Güç Seviyesi",
                 info = "i",
-                infoTitle = "AUTO THROW DURUMU",
-                infoHint = "Otomasyonun anlık durumu.",
+                infoTitle = "AUTO THROW - IMPORTANT NOTES",
+                infoHint = "• The 6-second starting wait is normal.\n• Do not move or click while the automation is waiting.\n• Cooldown delays are part of the game.\n• Keep the game open until the throw is complete.",
                 idle = "Auto Throw şu anda kapalı.",
                 starting = "Otomasyon başlatılıyor...",
                 moving = "Atış alanına yürünüyor. Lütfen müdahale etmeyin.",
@@ -120,8 +120,8 @@ function GameModule.Register(api)
                 title = "АВТО БРОСОК",
                 power = "Уровень силы",
                 info = "i",
-                infoTitle = "СТАТУС АВТОБРОСКА",
-                infoHint = "Текущий статус автоматизации.",
+                infoTitle = "AUTO THROW - IMPORTANT NOTES",
+                infoHint = "• The 6-second starting wait is normal.\n• Do not move or click while the automation is waiting.\n• Cooldown delays are part of the game.\n• Keep the game open until the throw is complete.",
                 idle = "Автобросок сейчас выключен.",
                 starting = "Запуск автоматизации...",
                 moving = "Персонаж идет к зоне броска. Пожалуйста, не вмешивайтесь.",
@@ -179,17 +179,8 @@ function GameModule.Register(api)
                 hudProgressTween = nil
             end
 
-            if type(progress) == "number" then
-                hudFill.Size = UDim2.new(math.clamp(progress, 0, 1), 0, 1, 0)
-            else
-                hudFill.Size = UDim2.new(0.18, 0, 1, 0)
-                hudProgressTween = TweenService:Create(
-                    hudFill,
-                    TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-                    {Size = UDim2.new(0.88, 0, 1, 0)}
-                )
-                hudProgressTween:Play()
-            end
+            local actualProgress = (type(progress) == "number") and progress or 0
+            hudFill.Size = UDim2.new(math.clamp(actualProgress, 0, 1), 0, 1, 0)
         end
 
         local function updateHud(key, detail, progress)
@@ -234,7 +225,10 @@ function GameModule.Register(api)
                 end
                 hudInfoText.Text = message
             end
-            if isEnabled or trainEnabled then
+            local active = (activeHudMode == "train" and trainEnabled)
+                or (activeHudMode == "throw" and isEnabled)
+
+            if active then
                 hudGui.Enabled = true
                 hudVisible = true
                 setHudProgress(progress)
@@ -245,20 +239,15 @@ function GameModule.Register(api)
                     hudProgressTween:Cancel()
                     hudProgressTween = nil
                 end
+                if hudFill and hudFill.Parent then
+                    hudFill.Size = UDim2.new(0, 0, 1, 0)
+                end
             end
         end
 
         local function setStatus(key, detail, progress)
             currentStatus = key
             currentStatusDetail = detail or ""
-
-            if statusText and statusText.Parent then
-                local message = tr(key)
-                if key == "error" and currentStatusDetail ~= "" then
-                    message = message .. currentStatusDetail
-                end
-                statusText.Text = message
-            end
 
             updateHud(key, currentStatusDetail, progress)
         end
@@ -607,12 +596,18 @@ function GameModule.Register(api)
         end
 
         trainSwitch.MouseButton1Click:Connect(function()
+            if not trainEnabled and isEnabled then
+                debugLog("Auto Train toggle blocked: Auto Throw is already enabled.")
+                return
+            end
+
             trainEnabled = not trainEnabled
             trainStateLabel.Text = trainEnabled and "ON" or "OFF"
             trainStateLabel.TextColor3 = trainEnabled and TRAIN_RED_BRIGHT or MUTED
             setRedSwitch(trainSwitch, trainKnob, trainSwitchStroke, trainEnabled, false)
 
             if trainEnabled then
+                activeHudMode = "train"
                 auto2xRow.Visible = true
                 auto2xRow.BackgroundTransparency = 1
                 auto2xRow.Position = UDim2.fromOffset(12, 55)
@@ -835,7 +830,8 @@ function GameModule.Register(api)
 
         local infoHint = Instance.new("TextLabel")
         infoHint.Position = UDim2.fromOffset(13, 39)
-        infoHint.Size = UDim2.new(1, -26, 0, 28)
+        infoHint.Size = UDim2.new(1, -26, 0, 0)
+        infoHint.Visible = false
         infoHint.BackgroundTransparency = 1
         infoHint.Text = tr("infoHint")
         infoHint.TextColor3 = MUTED
@@ -848,6 +844,7 @@ function GameModule.Register(api)
         infoHint.Parent = infoPanel
 
         local statusDot = Instance.new("Frame")
+        statusDot.Visible = false
         statusDot.Position = UDim2.fromOffset(14, 82)
         statusDot.Size = UDim2.fromOffset(7, 7)
         statusDot.BackgroundColor3 = Color3.fromRGB(115, 130, 150)
@@ -861,13 +858,14 @@ function GameModule.Register(api)
 
         statusText = Instance.new("TextLabel")
         statusText.Name = "StatusText"
-        statusText.Position = UDim2.fromOffset(28, 75)
-        statusText.Size = UDim2.new(1, -42, 0, 100)
+        statusText.Position = UDim2.fromOffset(14, 48)
+        statusText.Size = UDim2.new(1, -28, 0, 128)
         statusText.BackgroundTransparency = 1
         statusText.Text = tr("idle")
         statusText.TextColor3 = TEXT
         statusText.TextSize = 10
         statusText.Font = Enum.Font.Gotham
+        statusText.Text = tr("infoHint")
         statusText.TextWrapped = true
         statusText.TextXAlignment = Enum.TextXAlignment.Left
         statusText.TextYAlignment = Enum.TextYAlignment.Top
@@ -956,11 +954,7 @@ function GameModule.Register(api)
             infoHint.Text = tr("infoHint")
             sliderLabel.Text = string.format("%s: %d", tr("power"), selectedSpeed)
             stateLabel.Text = isEnabled and "ON" or "OFF"
-            local message = tr(currentStatus)
-            if currentStatus == "error" and currentStatusDetail ~= "" then
-                message = message .. currentStatusDetail
-            end
-            statusText.Text = message
+            statusText.Text = tr("infoHint")
         end
 
         local function setSwitchVisual(enabled, instant)
@@ -1186,7 +1180,7 @@ function GameModule.Register(api)
         --==================================================
 
         local function waitForThrowCooldown(currentId)
-            setStatus("cooldown")
+            setStatus("cooldown", "Waiting for the game cooldown...", 0)
             debugLog("Waiting for ThrowReadyAt cooldown...")
 
             local lastDisplayedSecond = -1
@@ -1204,7 +1198,7 @@ function GameModule.Register(api)
 
                     if displayedSecond ~= lastDisplayedSecond then
                         lastDisplayedSecond = displayedSecond
-                        setStatus("cooldown", string.format("%ds remaining", displayedSecond))
+                        setStatus("cooldown", string.format("%ds remaining", displayedSecond), 0)
                         debugLog(string.format(
                             "Throw cooldown remaining: %.2f seconds",
                             remaining
@@ -1216,7 +1210,7 @@ function GameModule.Register(api)
                         return true
                     end
                 else
-                    setStatus("cooldown", "Waiting for cooldown timer...")
+                    setStatus("cooldown", "Waiting for cooldown timer...", 0)
                     debugLog("ThrowReadyAt not available yet. Waiting...")
                 end
 
@@ -1279,7 +1273,7 @@ function GameModule.Register(api)
         --==================================================
 
         local function waitForMarker(currentId)
-            setStatus("marker")
+            setStatus("marker", "Waiting for the selected power marker...", 0)
             debugLog("Waiting for ThrowSequence Marker...")
 
             local startTime = os.clock()
@@ -1344,6 +1338,8 @@ function GameModule.Register(api)
                 end
 
                 local currentY = marker.Position.Y.Scale
+                -- The HUD bar follows the marker's real position in the game meter.
+                setHudProgress(1 - math.clamp(currentY, 0, 1))
 
                 if previousY ~= nil then
                     local difference = currentY - previousY
@@ -1415,7 +1411,7 @@ function GameModule.Register(api)
                 return false
             end
 
-            setStatus("throwing", "Sending throw input...", 0.9)
+            setStatus("throwing", "Sending throw input...", 0)
             local mouseLocation = UserInputService:GetMouseLocation()
 
             VirtualInputManager:SendMouseButtonEvent(
@@ -1928,6 +1924,16 @@ function GameModule.Register(api)
                     end
 
                     local waypoints = path:GetWaypoints()
+                    local totalPathDistance = 0
+                    local previousPosition = rootPart.Position
+                    for _, waypoint in ipairs(waypoints) do
+                        totalPathDistance += (waypoint.Position - previousPosition).Magnitude
+                        previousPosition = waypoint.Position
+                    end
+                    totalPathDistance = math.max(totalPathDistance, 0.001)
+                    local completedPathDistance = 0
+
+                    setStatus("trainMoving", "Calculating route...", 0)
                     for index, waypoint in ipairs(waypoints) do
                         if not trainEnabled or trainActionId ~= thisTrainId then return end
                         if player.Character ~= character then return end
@@ -1935,12 +1941,17 @@ function GameModule.Register(api)
                         if not rootPart then error("HumanoidRootPart disappeared.") end
 
                         humanoid:MoveTo(waypoint.Position)
+                        local segmentStartDistance = (rootPart.Position - waypoint.Position).Magnitude
                         local started = os.clock()
                         while trainEnabled and trainActionId == thisTrainId do
                             if player.Character ~= character then return end
                             rootPart = character:FindFirstChild("HumanoidRootPart")
                             if not rootPart then return end
-                            if (rootPart.Position - waypoint.Position).Magnitude <= 3.5 then
+                            local remainingDistance = (rootPart.Position - waypoint.Position).Magnitude
+                            local segmentProgress = 1 - math.clamp(remainingDistance / math.max(segmentStartDistance, 0.001), 0, 1)
+                            local totalProgress = (completedPathDistance + segmentStartDistance * segmentProgress) / totalPathDistance
+                            setStatus("trainMoving", string.format("Waypoint %d/%d", index, #waypoints), totalProgress)
+                            if remainingDistance <= 3.5 then
                                 break
                             end
                             if os.clock() - started > WAYPOINT_TIMEOUT then
@@ -1948,10 +1959,11 @@ function GameModule.Register(api)
                             end
                             task.wait(0.1)
                         end
+                        completedPathDistance += segmentStartDistance
                     end
 
                     if not trainEnabled or trainActionId ~= thisTrainId then return end
-                    setStatus("training", "TrainingSpot reached. Training is active.")
+                    setStatus("training", "TrainingSpot reached. Training is active.", 1)
                     debugLog("TrainingSpot reached. Waiting until Auto Train is disabled.")
                     while trainEnabled and trainActionId == thisTrainId do
                         task.wait(0.2)
@@ -1970,7 +1982,8 @@ function GameModule.Register(api)
             activeHudMode = isEnabled and "throw" or "train"
             if trainEnabled then return end
 
-            setStatus("trainStopping", "Activating the game's STOP control...")
+            if hudGui then hudGui.Enabled = false end
+            setStatus("trainStopping", "Activating the game's STOP control...", 0)
             task.spawn(function()
                 local stopped, stopError = pressTrainingStopWithoutMouse()
                 if not stopped then
@@ -2096,6 +2109,11 @@ function GameModule.Register(api)
         --==================================================
 
         switchButton.MouseButton1Click:Connect(function()
+            if not isEnabled and trainEnabled then
+                debugLog("Auto Throw toggle blocked: Auto Train is already enabled.")
+                return
+            end
+
             isEnabled = not isEnabled
 
             if isEnabled then
