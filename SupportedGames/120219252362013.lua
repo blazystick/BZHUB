@@ -1,4 +1,4 @@
---123123123
+
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -1986,28 +1986,47 @@ function GameModule.Register(api)
         end
 
         local function pressTrainingStopWithoutMouse()
-            local stopButton = findTrainingStopButton()
-            if not stopButton then
-                warn("[BZHUB AUTO TRAIN] STOP button was not found at PlayerGui.TrainingSequence.Button.")
-                return false, "STOP button not found"
+            -- The game also exits the training action when SPACE is pressed.
+            -- Do not click the on-screen STOP control: that was producing MB1.
+            local keyCode = Enum.KeyCode.Space
+
+            -- Solara-style keyboard API first.
+            if type(keypress) == "function" and type(keyrelease) == "function" then
+                local pressed, pressError = pcall(function()
+                    keypress(0x20) -- SPACE virtual-key code
+                    task.wait(0.08)
+                    keyrelease(0x20)
+                end)
+
+                -- Always attempt to release SPACE if the press sequence errors.
+                if not pressed then
+                    pcall(function() keyrelease(0x20) end)
+                    warn("[BZHUB AUTO TRAIN] Solara SPACE input failed: " .. tostring(pressError))
+                else
+                    debugLog("Training stopped using Solara SPACE key input.")
+                    return true
+                end
             end
 
-            debugLog("Training STOP control found: " .. stopButton:GetFullName())
+            -- Fallback to Roblox VirtualInputManager when exposed by the executor.
+            local sent, inputError = pcall(function()
+                VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
+                task.wait(0.08)
+                VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+            end)
 
-            if not stopButton.Visible or not stopButton.Active then
-                return false, "STOP button is not visible or active"
-            end
-
-            -- Uses Solara's documented mousemoveabs() + mouse1click() API.
-            -- No firesignal/getconnections and no GuiButton:Activate() call.
-            local clicked, clickError = clickGuiButton(stopButton)
-            if clicked then
-                debugLog("Training STOP clicked with Solara mouse input.")
+            if sent then
+                debugLog("Training stop requested using VirtualInputManager SPACE.")
                 return true
             end
 
-            warn("[BZHUB AUTO TRAIN] Solara STOP click failed: " .. tostring(clickError))
-            return false, clickError or "Solara mouse click failed"
+            -- Ensure the key is not left held if the fallback partially ran.
+            pcall(function()
+                VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+            end)
+
+            warn("[BZHUB AUTO TRAIN] Could not send SPACE: " .. tostring(inputError))
+            return false, "SPACE input is unsupported: " .. tostring(inputError)
         end
 
         startTrain = function()
