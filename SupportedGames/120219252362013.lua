@@ -1,4 +1,4 @@
-
+--123213123123
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -637,9 +637,8 @@ function GameModule.Register(api)
             end
         end)
 
-        -- Auto 2x: detect TapBonus continuously. After a short reaction delay,
-        -- teleport the cursor to its center, pause briefly, click once, then
-        -- immediately restore the previous cursor position.
+        -- Auto 2x: detect TapBonus continuously and fire its Activated signal
+        -- without moving the cursor or sending a physical MB1 input.
         local function findTapBonusButton()
             local trainingSequence = playerGui:FindFirstChild("TrainingSequence")
             if not trainingSequence then return nil, nil end
@@ -670,48 +669,22 @@ function GameModule.Register(api)
             return nil, tapBonus
         end
 
-        local function clickTapBonusAndRestoreCursor(button)
+        local function activateTapBonus(button)
             if not button or not button:IsA("GuiButton") then return false end
             if not button.Visible or not button.Active then return false end
-            if button.AbsoluteSize.X <= 0 or button.AbsoluteSize.Y <= 0 then return false end
-            if type(mousemoveabs) ~= "function" or type(mouse1click) ~= "function" then
-                warn("[BZHUB AUTO 2X] Solara mousemoveabs/mouse1click is unavailable.")
+            if type(firesignal) ~= "function" then
+                warn("[BZHUB AUTO 2X] firesignal is unavailable in this executor.")
                 return false
             end
-
-            local oldPosition = UserInputService:GetMouseLocation()
-            local targetX = math.floor(button.AbsolutePosition.X + button.AbsoluteSize.X / 2)
-            local targetY = math.floor(button.AbsolutePosition.Y + button.AbsoluteSize.Y / 2)
-            local moved = false
 
             local ok, err = pcall(function()
                 -- Give the bonus a brief moment to settle after it appears.
                 task.wait(0.22)
-
-                -- Solara moves the cursor directly to the target coordinates.
-                mousemoveabs(targetX, targetY)
-                moved = true
-
-                -- Short, deliberate pause so the game registers the cursor position.
-                task.wait(0.14)
-                mouse1click()
-
-                -- Tiny release pause, then restore the original cursor position.
-                task.wait(0.08)
+                firesignal(button.Activated)
             end)
 
-            -- Restore the cursor even if the click call errors.
-            if moved then
-                local restoreOk, restoreErr = pcall(function()
-                    mousemoveabs(math.floor(oldPosition.X), math.floor(oldPosition.Y))
-                end)
-                if not restoreOk then
-                    warn("[BZHUB AUTO 2X] Could not restore cursor position: " .. tostring(restoreErr))
-                end
-            end
-
             if not ok then
-                warn("[BZHUB AUTO 2X] TapBonus click failed: " .. tostring(err))
+                warn("[BZHUB AUTO 2X] TapBonus Activated signal failed: " .. tostring(err))
                 return false
             end
             return true
@@ -741,8 +714,8 @@ function GameModule.Register(api)
                                 warnedMissingButton = true
                             end
                         elseif tapBonusObject ~= lastClickedObject then
-                            if clickTapBonusAndRestoreCursor(clickButton) then
-                                debugLog("Auto 2x clicked TapBonus and restored cursor: " .. tapBonusObject:GetFullName())
+                            if activateTapBonus(clickButton) then
+                                debugLog("Auto 2x fired TapBonus Activated: " .. tapBonusObject:GetFullName())
                                 lastClickedObject = tapBonusObject
                             end
                         end
