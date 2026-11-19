@@ -2077,6 +2077,9 @@ function BZHUB_API.AddCategory(name, text, callback)
     if not gameSupported then return end
     if pages[name] then return end
 
+    assert(type(createCategory) == "function", "createCategory is nil")
+    assert(type(create) == "function", "create is nil")
+
     gameCategoryCount += 1
 
     local button = createCategory(
