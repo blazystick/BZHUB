@@ -363,11 +363,23 @@ function GameModule.Register(api)
         toggleLabel.BackgroundColor3 = Color3.fromRGB(75, 31, 42)
         toggleLabel.BackgroundTransparency = 0.05
         toggleLabel.Text = "Auto Throw"
-        toggleLabel.TextColor3 = TEXT
+        toggleLabel.TextColor3 = Color3.fromRGB(255, 190, 198)
+        toggleLabel.TextStrokeColor3 = Color3.fromRGB(255, 55, 78)
+        toggleLabel.TextStrokeTransparency = 0.48
         toggleLabel.TextSize = 14
-        toggleLabel.Font = Enum.Font.GothamSemibold
+        toggleLabel.Font = Enum.Font.GothamBold
         toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
         toggleLabel.Parent = mainCard
+        local throwLabelPadding = Instance.new("UIPadding")
+        throwLabelPadding.PaddingLeft = UDim.new(0, 10)
+        throwLabelPadding.Parent = toggleLabel
+        local throwLabelGradient = Instance.new("UIGradient")
+        throwLabelGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(91, 31, 48)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(43, 22, 36))
+        })
+        throwLabelGradient.Rotation = 0
+        throwLabelGradient.Parent = toggleLabel
         local throwLabelCorner = Instance.new("UICorner")
         throwLabelCorner.CornerRadius = UDim.new(0, 8)
         throwLabelCorner.Parent = toggleLabel
@@ -556,11 +568,23 @@ function GameModule.Register(api)
         trainLabel.BackgroundColor3 = Color3.fromRGB(75, 31, 42)
         trainLabel.BackgroundTransparency = 0.05
         trainLabel.Text = "Auto Train"
-        trainLabel.TextColor3 = TEXT
+        trainLabel.TextColor3 = Color3.fromRGB(255, 190, 198)
+        trainLabel.TextStrokeColor3 = Color3.fromRGB(255, 55, 78)
+        trainLabel.TextStrokeTransparency = 0.48
         trainLabel.TextSize = 14
-        trainLabel.Font = Enum.Font.GothamSemibold
+        trainLabel.Font = Enum.Font.GothamBold
         trainLabel.TextXAlignment = Enum.TextXAlignment.Left
         trainLabel.Parent = trainCard
+        local trainLabelPadding = Instance.new("UIPadding")
+        trainLabelPadding.PaddingLeft = UDim.new(0, 10)
+        trainLabelPadding.Parent = trainLabel
+        local trainLabelGradient = Instance.new("UIGradient")
+        trainLabelGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(91, 31, 48)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(43, 22, 36))
+        })
+        trainLabelGradient.Rotation = 0
+        trainLabelGradient.Parent = trainLabel
         local trainLabelCorner = Instance.new("UICorner")
         trainLabelCorner.CornerRadius = UDim.new(0, 8)
         trainLabelCorner.Parent = trainLabel
@@ -762,11 +786,23 @@ function GameModule.Register(api)
         equipBestLabel.BackgroundColor3 = Color3.fromRGB(31, 76, 54)
         equipBestLabel.BackgroundTransparency = 0.05
         equipBestLabel.Text = "Auto Equip Best Pet"
-        equipBestLabel.TextColor3 = TEXT
+        equipBestLabel.TextColor3 = Color3.fromRGB(190, 255, 218)
+        equipBestLabel.TextStrokeColor3 = Color3.fromRGB(42, 255, 142)
+        equipBestLabel.TextStrokeTransparency = 0.5
         equipBestLabel.TextSize = 13
-        equipBestLabel.Font = Enum.Font.GothamSemibold
+        equipBestLabel.Font = Enum.Font.GothamBold
         equipBestLabel.TextXAlignment = Enum.TextXAlignment.Left
         equipBestLabel.Parent = equipBestCard
+        local equipBestLabelPadding = Instance.new("UIPadding")
+        equipBestLabelPadding.PaddingLeft = UDim.new(0, 10)
+        equipBestLabelPadding.Parent = equipBestLabel
+        local equipBestLabelGradient = Instance.new("UIGradient")
+        equipBestLabelGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(37, 104, 72)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 57, 48))
+        })
+        equipBestLabelGradient.Rotation = 0
+        equipBestLabelGradient.Parent = equipBestLabel
         local equipBestLabelCorner = Instance.new("UICorner")
         equipBestLabelCorner.CornerRadius = UDim.new(0, 8)
         equipBestLabelCorner.Parent = equipBestLabel
