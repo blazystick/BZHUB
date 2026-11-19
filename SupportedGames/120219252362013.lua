@@ -700,51 +700,21 @@ function GameModule.Register(api)
 
         --==================================================
         -- INDEPENDENT TOP STATUS HUD
-        -- This ScreenGui is independent from the BZHUB page and prefers
-        -- the executor/CoreGui layer so it can sit above ordinary game GUIs.
+        -- This ScreenGui is parented to PlayerGui, not the BZHUB page,
+        -- so it remains visible when the main hub is minimized/hidden.
         --==================================================
 
         hudGui = Instance.new("ScreenGui")
         hudGui.Name = "BZHUB_AutoThrow_StatusHUD"
         hudGui.ResetOnSpawn = false
         hudGui.IgnoreGuiInset = true
-        -- Use the highest practical DisplayOrder so the HUD stays above
-        -- other ScreenGuis sharing the same GUI layer.
-        hudGui.DisplayOrder = 2147483647
-        hudGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+        hudGui.DisplayOrder = 100000
+        hudGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         hudGui.Enabled = false
-
-        -- Prefer the executor's hidden UI container (usually hosted under
-        -- CoreGui). This can place the HUD above ordinary PlayerGui menus.
-        -- If unavailable, fall back safely without breaking the module.
-        local hudParent
-        local getHiddenUI = gethui or get_hidden_gui
-        if type(getHiddenUI) == "function" then
-            local ok, hiddenUI = pcall(getHiddenUI)
-            if ok and typeof(hiddenUI) == "Instance" then
-                hudParent = hiddenUI
-            end
-        end
-
-        if not hudParent then
-            local coreGui = game:GetService("CoreGui")
-            local coreGuiOk = pcall(function()
-                hudGui.Parent = coreGui
-            end)
-            if coreGuiOk and hudGui.Parent == coreGui then
-                hudParent = coreGui
-            end
-        end
-
-        if hudParent then
-            hudGui.Parent = hudParent
-        else
-            hudGui.Parent = playerGui
-        end
+        hudGui.Parent = playerGui
 
         local hudContainer = Instance.new("Frame")
         hudContainer.Name = "StatusContainer"
-        hudContainer.ZIndex = 100000
         hudContainer.AnchorPoint = Vector2.new(0.5, 0)
         hudContainer.Position = UDim2.new(0.5, 0, 0, 88)
         hudContainer.Size = UDim2.fromOffset(390, 78)
@@ -862,13 +832,6 @@ function GameModule.Register(api)
         hudInfoText.TextTruncate = Enum.TextTruncate.AtEnd
         hudInfoText.ZIndex = 3
         hudInfoText.Parent = hudBar
-
-        -- Keep every HUD element on a high ZIndex inside its ScreenGui.
-        for _, hudObject in ipairs(hudContainer:GetDescendants()) do
-            if hudObject:IsA("GuiObject") then
-                hudObject.ZIndex = math.max(hudObject.ZIndex, 100001)
-            end
-        end
 
         local infoHint = Instance.new("TextLabel")
         infoHint.Position = UDim2.fromOffset(13, 39)
