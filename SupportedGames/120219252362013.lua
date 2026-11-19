@@ -14,7 +14,7 @@ function GameModule.Register(api)
     end)
 
     if farmButton then
-        farmButton.Text = "  FARM"
+        farmButton.Text = " FARM"
     end
 end
 
