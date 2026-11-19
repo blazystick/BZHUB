@@ -2115,17 +2115,24 @@ if gameSupported and game.PlaceId == 120219252362013 then
     task.spawn(function()
         local success, err = pcall(function()
             local url = "https://raw.githubusercontent.com/blazystick/BZHUB/refs/heads/main/SupportedGames/120219252362013.lua"
-
-            local response = game:HttpGet(url, true)
-            assert(
-                not response:find("^404:"),
-                "Github returned 404"
-            )
-            local source = response
-            assert(type(source) == "string", "Invalid module source")
-            print("[BZHUB] Module response:", source:sub(1, 100))
-            local compiled, compileError = loadstring(source)
-            assert(compiled, compileError or "Compilation failed")
+            local requestSuccess, response = pcall(function()
+                return game:HttpGet(url)
+            end)
+            if not requestSuccess or type(response) ~= "string" then
+                warn("[BZHUB] HTTP request failed:", response)
+                return
+            end
+            if response:find("^404:") then
+                warn("[BZHUB] GitHub returned 404")
+                return
+            end
+            print("[BZHUB] Module response:", response:sub(1, 100))
+            assert(type(loadstring) == "function", "Executor does not support loadstring")
+            local compiled, compileError = loadstring(response)
+            if not compiled then
+                warn("[BZHUB] Compile error:", compileError)
+                return
+            end
             local moduleScript = compiled()
             assert(type(moduleScript) == "table", "Module must return a table")
             assert(type(moduleScript.Register) == "function", "Register function missing")
