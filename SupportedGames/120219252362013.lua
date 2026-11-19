@@ -23,7 +23,7 @@ function GameModule.Register(api)
 
         -- HER SEVİYENİN BEKLEME SÜRESİ
         local CLICK_DELAYS = {
-            [1] = 0.10,
+            [1] = 0.35,
             [2] = 0.15,
             [3] = 0.25,
             [4] = 0.35,
