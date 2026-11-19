@@ -2,7 +2,7 @@
 local GameModule = {}
 
 function GameModule.Register(api)
-    api.AddCategory("Farm", "AUTO THROW", function(page)
+    api.AddCategory("Automation", "AUTOMATION", function(page)
 
         --==================================================
         -- SERVICES
@@ -190,7 +190,7 @@ function GameModule.Register(api)
         local function updateHud(key, detail, progress)
             if not hudGui then return end
             if hudStateText then
-                hudStateText.Text = "AUTO THROW = " .. (isEnabled and "ON" or "OFF")
+                hudStateText.Text = "AUTO THROW   /   " .. (isEnabled and "ON" or "OFF")
             end
             if hudInfoText then
                 local message
@@ -376,7 +376,7 @@ function GameModule.Register(api)
         separator.Parent = mainCard
 
         -- Power slider is integrated into the same card.
-        local sliderContainer = Instance.new("Frame")
+        local sliderContainer = Instance.new("CanvasGroup")
         sliderContainer.Name = "ClickSpeedSlider"
         sliderContainer.Position = UDim2.fromOffset(12, 69)
         sliderContainer.Size = UDim2.new(1, -24, 0, 54)
@@ -431,6 +431,203 @@ function GameModule.Register(api)
         local knobCorner = Instance.new("UICorner")
         knobCorner.CornerRadius = UDim.new(1, 0)
         knobCorner.Parent = sliderKnob
+
+        --==================================================
+        -- AUTO TRAIN CARD (UI CONTROL)
+        --==================================================
+
+        local TRAIN_RED = Color3.fromRGB(242, 72, 82)
+        local TRAIN_RED_BRIGHT = Color3.fromRGB(255, 105, 112)
+        local trainEnabled = false
+        local auto2xEnabled = false
+
+        local trainCard = Instance.new("Frame")
+        trainCard.Name = "AutoTrainCard"
+        trainCard.Position = UDim2.fromOffset(10, 198)
+        trainCard.Size = UDim2.new(1, -20, 0, 62)
+        trainCard.BackgroundColor3 = CARD
+        trainCard.BorderSizePixel = 0
+        trainCard.ClipsDescendants = true
+        trainCard.Parent = page
+
+        local trainCardCorner = Instance.new("UICorner")
+        trainCardCorner.CornerRadius = UDim.new(0, 12)
+        trainCardCorner.Parent = trainCard
+
+        local trainCardStroke = Instance.new("UIStroke")
+        trainCardStroke.Color = TRAIN_RED
+        trainCardStroke.Thickness = 1.35
+        trainCardStroke.Transparency = 0.3
+        trainCardStroke.Parent = trainCard
+
+        local trainCardGradient = Instance.new("UIGradient")
+        trainCardGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(42, 23, 31)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(19, 18, 27))
+        })
+        trainCardGradient.Rotation = 15
+        trainCardGradient.Parent = trainCard
+
+        local trainLabel = Instance.new("TextLabel")
+        trainLabel.Name = "AutoTrainLabel"
+        trainLabel.Position = UDim2.fromOffset(14, 7)
+        trainLabel.Size = UDim2.new(1, -115, 0, 38)
+        trainLabel.BackgroundTransparency = 1
+        trainLabel.Text = "Auto Train"
+        trainLabel.TextColor3 = TEXT
+        trainLabel.TextSize = 14
+        trainLabel.Font = Enum.Font.GothamSemibold
+        trainLabel.TextXAlignment = Enum.TextXAlignment.Left
+        trainLabel.Parent = trainCard
+
+        local trainStateLabel = Instance.new("TextLabel")
+        trainStateLabel.Name = "TrainState"
+        trainStateLabel.AnchorPoint = Vector2.new(1, 0)
+        trainStateLabel.Position = UDim2.new(1, -13, 0, 43)
+        trainStateLabel.Size = UDim2.fromOffset(95, 16)
+        trainStateLabel.BackgroundTransparency = 1
+        trainStateLabel.Text = "OFF"
+        trainStateLabel.TextColor3 = MUTED
+        trainStateLabel.TextSize = 9
+        trainStateLabel.Font = Enum.Font.GothamBold
+        trainStateLabel.TextXAlignment = Enum.TextXAlignment.Right
+        trainStateLabel.Parent = trainCard
+
+        local function makeTrainSwitch(name, parent, position, size)
+            local button = Instance.new("TextButton")
+            button.Name = name
+            button.AnchorPoint = Vector2.new(1, 0)
+            button.Position = position
+            button.Size = size
+            button.BackgroundColor3 = Color3.fromRGB(53, 48, 59)
+            button.BorderSizePixel = 0
+            button.Text = ""
+            button.AutoButtonColor = false
+            button.Parent = parent
+
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(1, 0)
+            corner.Parent = button
+
+            local outline = Instance.new("UIStroke")
+            outline.Color = TRAIN_RED
+            outline.Transparency = 0.48
+            outline.Thickness = 1
+            outline.Parent = button
+
+            local knob = Instance.new("Frame")
+            knob.Name = "Knob"
+            knob.Position = UDim2.fromOffset(3, 3)
+            knob.Size = UDim2.fromOffset(23, 23)
+            knob.BackgroundColor3 = Color3.fromRGB(235, 237, 244)
+            knob.BorderSizePixel = 0
+            knob.Parent = button
+
+            local knobCorner = Instance.new("UICorner")
+            knobCorner.CornerRadius = UDim.new(1, 0)
+            knobCorner.Parent = knob
+
+            return button, knob, outline
+        end
+
+        local trainSwitch, trainKnob, trainSwitchStroke = makeTrainSwitch(
+            "AutoTrainSwitch", trainCard,
+            UDim2.new(1, -12, 0, 10), UDim2.fromOffset(70, 29)
+        )
+
+        local auto2xRow = Instance.new("Frame")
+        auto2xRow.Name = "Auto2xRow"
+        auto2xRow.Position = UDim2.fromOffset(12, 66)
+        auto2xRow.Size = UDim2.new(1, -24, 0, 38)
+        auto2xRow.BackgroundColor3 = Color3.fromRGB(28, 22, 31)
+        auto2xRow.BackgroundTransparency = 0.12
+        auto2xRow.BorderSizePixel = 0
+        auto2xRow.Visible = false
+        auto2xRow.Parent = trainCard
+
+        local auto2xCorner = Instance.new("UICorner")
+        auto2xCorner.CornerRadius = UDim.new(0, 8)
+        auto2xCorner.Parent = auto2xRow
+
+        local auto2xStroke = Instance.new("UIStroke")
+        auto2xStroke.Color = TRAIN_RED
+        auto2xStroke.Thickness = 1
+        auto2xStroke.Transparency = 0.58
+        auto2xStroke.Parent = auto2xRow
+
+        local auto2xLabel = Instance.new("TextLabel")
+        auto2xLabel.Position = UDim2.fromOffset(11, 0)
+        auto2xLabel.Size = UDim2.new(1, -105, 1, 0)
+        auto2xLabel.BackgroundTransparency = 1
+        auto2xLabel.Text = "Auto 2x"
+        auto2xLabel.TextColor3 = TEXT
+        auto2xLabel.TextSize = 11
+        auto2xLabel.Font = Enum.Font.GothamMedium
+        auto2xLabel.TextXAlignment = Enum.TextXAlignment.Left
+        auto2xLabel.Parent = auto2xRow
+
+        local auto2xSwitch, auto2xKnob, auto2xSwitchStroke = makeTrainSwitch(
+            "Auto2xSwitch", auto2xRow,
+            UDim2.new(1, -8, 0.5, -14), UDim2.fromOffset(62, 28)
+        )
+        auto2xKnob.Size = UDim2.fromOffset(22, 22)
+
+        local function setRedSwitch(button, knob, outline, enabled, instant)
+            local targetPosition = enabled
+                and UDim2.new(1, -26, 0, 3)
+                or UDim2.fromOffset(3, 3)
+            local targetColor = enabled
+                and Color3.fromRGB(137, 39, 53)
+                or Color3.fromRGB(53, 48, 59)
+            if instant then
+                knob.Position = targetPosition
+                button.BackgroundColor3 = targetColor
+                outline.Transparency = enabled and 0.08 or 0.48
+            else
+                makeTween(knob, 0.2, {Position = targetPosition})
+                makeTween(button, 0.2, {BackgroundColor3 = targetColor})
+                makeTween(outline, 0.2, {Transparency = enabled and 0.08 or 0.48})
+            end
+        end
+
+        trainSwitch.MouseButton1Click:Connect(function()
+            trainEnabled = not trainEnabled
+            trainStateLabel.Text = trainEnabled and "ON" or "OFF"
+            trainStateLabel.TextColor3 = trainEnabled and TRAIN_RED_BRIGHT or MUTED
+            setRedSwitch(trainSwitch, trainKnob, trainSwitchStroke, trainEnabled, false)
+
+            if trainEnabled then
+                auto2xRow.Visible = true
+                auto2xRow.BackgroundTransparency = 1
+                auto2xRow.Position = UDim2.fromOffset(12, 55)
+                makeTween(trainCard, 0.28, {Size = UDim2.new(1, -20, 0, 116)})
+                makeTween(auto2xRow, 0.28, {
+                    Position = UDim2.fromOffset(12, 66),
+                    BackgroundTransparency = 0.12
+                })
+                makeTween(trainCardStroke, 0.22, {Transparency = 0.08, Thickness = 1.8})
+            else
+                auto2xEnabled = false
+                setRedSwitch(auto2xSwitch, auto2xKnob, auto2xSwitchStroke, false, false)
+                local collapse = makeTween(trainCard, 0.24, {Size = UDim2.new(1, -20, 0, 62)})
+                makeTween(auto2xRow, 0.18, {
+                    Position = UDim2.fromOffset(12, 54),
+                    BackgroundTransparency = 1
+                })
+                makeTween(trainCardStroke, 0.22, {Transparency = 0.3, Thickness = 1.35})
+                collapse.Completed:Connect(function()
+                    if not trainEnabled then
+                        auto2xRow.Visible = false
+                    end
+                end)
+            end
+        end)
+
+        auto2xSwitch.MouseButton1Click:Connect(function()
+            if not trainEnabled then return end
+            auto2xEnabled = not auto2xEnabled
+            setRedSwitch(auto2xSwitch, auto2xKnob, auto2xSwitchStroke, auto2xEnabled, false)
+        end)
 
         -- Animated information panel slides in from the right.
         local infoPanel = Instance.new("Frame")
@@ -502,80 +699,118 @@ function GameModule.Register(api)
         hudContainer.Name = "StatusContainer"
         hudContainer.AnchorPoint = Vector2.new(0.5, 0)
         hudContainer.Position = UDim2.new(0.5, 0, 0, 88)
-        hudContainer.Size = UDim2.fromOffset(350, 66)
-        hudContainer.BackgroundTransparency = 1
+        hudContainer.Size = UDim2.fromOffset(390, 78)
+        hudContainer.BackgroundColor3 = Color3.fromRGB(8, 13, 22)
+        hudContainer.BackgroundTransparency = 0.12
         hudContainer.BorderSizePixel = 0
         hudContainer.Active = false
         hudContainer.Parent = hudGui
 
+        local hudContainerCorner = Instance.new("UICorner")
+        hudContainerCorner.CornerRadius = UDim.new(0, 12)
+        hudContainerCorner.Parent = hudContainer
+
+        local hudContainerStroke = Instance.new("UIStroke")
+        hudContainerStroke.Color = Color3.fromRGB(48, 151, 245)
+        hudContainerStroke.Thickness = 1.15
+        hudContainerStroke.Transparency = 0.22
+        hudContainerStroke.Parent = hudContainer
+
+        local hudContainerGradient = Instance.new("UIGradient")
+        hudContainerGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 29, 47)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(7, 12, 20))
+        })
+        hudContainerGradient.Rotation = 90
+        hudContainerGradient.Parent = hudContainer
+
+        local hudAccent = Instance.new("Frame")
+        hudAccent.Name = "AccentLine"
+        hudAccent.Position = UDim2.fromOffset(12, 10)
+        hudAccent.Size = UDim2.fromOffset(3, 18)
+        hudAccent.BackgroundColor3 = ACCENT_BRIGHT
+        hudAccent.BorderSizePixel = 0
+        hudAccent.Parent = hudContainer
+
+        local hudAccentCorner = Instance.new("UICorner")
+        hudAccentCorner.CornerRadius = UDim.new(1, 0)
+        hudAccentCorner.Parent = hudAccent
+
         hudStateText = Instance.new("TextLabel")
         hudStateText.Name = "State"
-        hudStateText.Position = UDim2.fromOffset(0, 0)
-        hudStateText.Size = UDim2.new(1, 0, 0, 21)
+        hudStateText.Position = UDim2.fromOffset(23, 7)
+        hudStateText.Size = UDim2.new(1, -46, 0, 24)
         hudStateText.BackgroundTransparency = 1
-        hudStateText.Text = "AUTO THROW = OFF"
-        hudStateText.TextColor3 = Color3.fromRGB(235, 243, 255)
-        hudStateText.TextSize = 13
+        hudStateText.Text = "AUTO THROW  /  ON"
+        hudStateText.TextColor3 = Color3.fromRGB(239, 246, 255)
+        hudStateText.TextSize = 12
         hudStateText.Font = Enum.Font.GothamBold
-        hudStateText.TextXAlignment = Enum.TextXAlignment.Center
-        hudStateText.TextStrokeTransparency = 0.65
+        hudStateText.TextXAlignment = Enum.TextXAlignment.Left
+        hudStateText.TextYAlignment = Enum.TextYAlignment.Center
         hudStateText.Active = false
         hudStateText.Parent = hudContainer
 
         local hudDivider = Instance.new("Frame")
         hudDivider.Name = "Divider"
-        hudDivider.Position = UDim2.fromOffset(0, 25)
-        hudDivider.Size = UDim2.new(1, 0, 0, 1)
-        hudDivider.BackgroundColor3 = ACCENT
-        hudDivider.BackgroundTransparency = 0.12
+        hudDivider.Position = UDim2.fromOffset(12, 34)
+        hudDivider.Size = UDim2.new(1, -24, 0, 1)
+        hudDivider.BackgroundColor3 = Color3.fromRGB(66, 126, 184)
+        hudDivider.BackgroundTransparency = 0.45
         hudDivider.BorderSizePixel = 0
         hudDivider.Parent = hudContainer
 
         local hudBar = Instance.new("Frame")
         hudBar.Name = "ProgressBar"
-        hudBar.Position = UDim2.fromOffset(0, 32)
-        hudBar.Size = UDim2.new(1, 0, 0, 25)
-        hudBar.BackgroundColor3 = Color3.fromRGB(7, 18, 31)
-        hudBar.BackgroundTransparency = 0.28
+        hudBar.Position = UDim2.fromOffset(12, 43)
+        hudBar.Size = UDim2.new(1, -24, 0, 24)
+        hudBar.BackgroundColor3 = Color3.fromRGB(5, 12, 22)
+        hudBar.BackgroundTransparency = 0.08
         hudBar.BorderSizePixel = 0
         hudBar.ClipsDescendants = true
         hudBar.Parent = hudContainer
 
         local hudBarCorner = Instance.new("UICorner")
-        hudBarCorner.CornerRadius = UDim.new(0, 5)
+        hudBarCorner.CornerRadius = UDim.new(0, 7)
         hudBarCorner.Parent = hudBar
+
+        local hudBarStroke = Instance.new("UIStroke")
+        hudBarStroke.Color = Color3.fromRGB(42, 104, 161)
+        hudBarStroke.Thickness = 1
+        hudBarStroke.Transparency = 0.42
+        hudBarStroke.Parent = hudBar
 
         hudFill = Instance.new("Frame")
         hudFill.Name = "BlueProgress"
         hudFill.Size = UDim2.new(0, 0, 1, 0)
         hudFill.BackgroundColor3 = ACCENT
-        hudFill.BackgroundTransparency = 0.08
+        hudFill.BackgroundTransparency = 0.02
         hudFill.BorderSizePixel = 0
         hudFill.Parent = hudBar
 
         local hudFillCorner = Instance.new("UICorner")
-        hudFillCorner.CornerRadius = UDim.new(0, 5)
+        hudFillCorner.CornerRadius = UDim.new(0, 7)
         hudFillCorner.Parent = hudFill
 
         local hudFillGradient = Instance.new("UIGradient")
         hudFillGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 125, 220)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(75, 190, 255))
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(27, 112, 218)),
+            ColorSequenceKeypoint.new(0.55, Color3.fromRGB(42, 157, 255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(104, 205, 255))
         })
         hudFillGradient.Parent = hudFill
 
         hudInfoText = Instance.new("TextLabel")
         hudInfoText.Name = "Status"
-        hudInfoText.Position = UDim2.fromOffset(8, 0)
-        hudInfoText.Size = UDim2.new(1, -16, 1, 0)
+        hudInfoText.Position = UDim2.fromOffset(10, 0)
+        hudInfoText.Size = UDim2.new(1, -20, 1, 0)
         hudInfoText.BackgroundTransparency = 1
         hudInfoText.Text = "Starting..."
         hudInfoText.TextColor3 = Color3.fromRGB(255, 255, 255)
-        hudInfoText.TextSize = 11
+        hudInfoText.TextSize = 10
         hudInfoText.Font = Enum.Font.GothamSemibold
         hudInfoText.TextXAlignment = Enum.TextXAlignment.Center
         hudInfoText.TextYAlignment = Enum.TextYAlignment.Center
-        hudInfoText.TextWrapped = true
+        hudInfoText.TextWrapped = false
         hudInfoText.TextTruncate = Enum.TextTruncate.AtEnd
         hudInfoText.ZIndex = 3
         hudInfoText.Parent = hudBar
@@ -620,6 +855,80 @@ function GameModule.Register(api)
         statusText.TextYAlignment = Enum.TextYAlignment.Top
         statusText.ZIndex = 81
         statusText.Parent = infoPanel
+
+        local sliderVisible = true
+        local sliderTween
+
+        local function setPowerSliderVisible(visible, instant)
+            sliderVisible = visible
+            if sliderTween then
+                sliderTween:Cancel()
+                sliderTween = nil
+            end
+
+            if visible then
+                sliderContainer.Visible = true
+                sliderContainer.Active = true
+                sliderTrack.Active = true
+                sliderKnob.Active = true
+                if instant then
+                    sliderContainer.Position = UDim2.fromOffset(12, 69)
+                    sliderContainer.Size = UDim2.new(1, -24, 0, 54)
+                    sliderContainer.GroupTransparency = 0
+                    mainCard.Size = UDim2.new(1, -20, 0, 132)
+                    trainCard.Position = UDim2.fromOffset(10, 198)
+                else
+                    sliderContainer.Position = UDim2.fromOffset(12, 54)
+                    sliderContainer.Size = UDim2.new(1, -24, 0, 0)
+                    sliderContainer.GroupTransparency = 1
+                    mainCard.Size = UDim2.new(1, -20, 0, 66)
+                    trainCard.Position = UDim2.fromOffset(10, 132)
+                    makeTween(mainCard, 0.3, {Size = UDim2.new(1, -20, 0, 132)})
+                    makeTween(trainCard, 0.3, {Position = UDim2.fromOffset(10, 198)})
+                    makeTween(sliderContainer, 0.28, {
+                        Position = UDim2.fromOffset(12, 69),
+                        Size = UDim2.new(1, -24, 0, 54)
+                    })
+                    sliderTween = TweenService:Create(
+                        sliderContainer,
+                        TweenInfo.new(0.24, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+                        {GroupTransparency = 0}
+                    )
+                    sliderTween:Play()
+                end
+            else
+                sliderContainer.Active = false
+                sliderTrack.Active = false
+                sliderKnob.Active = false
+                isDragging = false
+                if instant then
+                    sliderContainer.Visible = false
+                    sliderContainer.Position = UDim2.fromOffset(12, 54)
+                    sliderContainer.Size = UDim2.new(1, -24, 0, 0)
+                    sliderContainer.GroupTransparency = 1
+                    mainCard.Size = UDim2.new(1, -20, 0, 66)
+                    trainCard.Position = UDim2.fromOffset(10, 132)
+                else
+                    makeTween(mainCard, 0.28, {Size = UDim2.new(1, -20, 0, 66)})
+                    makeTween(trainCard, 0.28, {Position = UDim2.fromOffset(10, 132)})
+                    makeTween(sliderContainer, 0.25, {
+                        Position = UDim2.fromOffset(12, 52),
+                        Size = UDim2.new(1, -24, 0, 0)
+                    })
+                    sliderTween = TweenService:Create(
+                        sliderContainer,
+                        TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
+                        {GroupTransparency = 1}
+                    )
+                    sliderTween:Play()
+                    sliderTween.Completed:Connect(function()
+                        if not sliderVisible and sliderContainer.Parent then
+                            sliderContainer.Visible = false
+                        end
+                    end)
+                end
+            end
+        end
 
         local infoOpen = false
 
@@ -669,8 +978,9 @@ function GameModule.Register(api)
 
             stateLabel.Text = enabled and "ON" or "OFF"
             stateLabel.TextColor3 = enabled and ACCENT_BRIGHT or MUTED
+            setPowerSliderVisible(not enabled, instant)
             if hudStateText then
-                hudStateText.Text = "AUTO THROW = " .. (enabled and "ON" or "OFF")
+                hudStateText.Text = "AUTO THROW   /   " .. (enabled and "ON" or "OFF")
             end
             if hudGui then
                 hudGui.Enabled = enabled
@@ -732,6 +1042,7 @@ function GameModule.Register(api)
         end)
 
         local function updateSlider(value)
+            if isEnabled then return end
             selectedSpeed = math.clamp(
                 math.floor(value + 0.5),
                 MIN_POWER,
@@ -769,6 +1080,7 @@ function GameModule.Register(api)
         end
 
         sliderTrack.InputBegan:Connect(function(input)
+            if isEnabled or not sliderVisible then return end
             if input.UserInputType == Enum.UserInputType.MouseButton1
                 or input.UserInputType == Enum.UserInputType.Touch then
                 isDragging = true
@@ -777,6 +1089,7 @@ function GameModule.Register(api)
         end)
 
         sliderKnob.InputBegan:Connect(function(input)
+            if isEnabled or not sliderVisible then return end
             if input.UserInputType == Enum.UserInputType.MouseButton1
                 or input.UserInputType == Enum.UserInputType.Touch then
                 isDragging = true
@@ -784,7 +1097,7 @@ function GameModule.Register(api)
         end)
 
         UserInputService.InputChanged:Connect(function(input)
-            if not isDragging then return end
+            if not isDragging or isEnabled or not sliderVisible then return end
             if input.UserInputType == Enum.UserInputType.MouseMovement
                 or input.UserInputType == Enum.UserInputType.Touch then
                 updateSliderFromInput(input)
@@ -806,6 +1119,7 @@ function GameModule.Register(api)
         end)
 
         updateSlider(selectedSpeed)
+        setPowerSliderVisible(true, true)
         setSwitchVisual(false, true)
         refreshLanguage()
         if hudGui then hudGui.Enabled = false end
