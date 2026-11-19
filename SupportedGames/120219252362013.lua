@@ -12,8 +12,10 @@ function GameModule.Register(api)
         local UserInputService = game:GetService("UserInputService")
         local VirtualInputManager = game:GetService("VirtualInputManager")
         local PathfindingService = game:GetService("PathfindingService")
+        local RunService = game:GetService("RunService")
 
         local player = Players.LocalPlayer
+        local playerGui = player:WaitForChild("PlayerGui")
 
         --==================================================
         -- CONFIGURATION
@@ -22,18 +24,18 @@ function GameModule.Register(api)
         local MIN_POWER = 1
         local MAX_POWER = 20
 
-        -- Estimated timing of the in-game power meter.
-        local ANIMATION_OPEN_DELAY = 0.7
-        local POWER_RISE_DURATION = 2
+        -- Measured Marker Y reference values
+        local POWER_1_Y = 0.995735705
+        local POWER_10_Y = 0.555865407
+        local POWER_20_Y = 0.00212187553
 
-        -- 19 intervals between level 1 and level 20.
-        local POWER_LEVEL_INTERVAL =
-            POWER_RISE_DURATION / (MAX_POWER - MIN_POWER)
+        local MARKER_TOLERANCE = 0.008
+        local DIRECTION_EPSILON = 0.00005
+        local MARKER_TIMEOUT = 15
 
         local AFTER_CLICK_DELAY = 1
         local AFTER_RESPAWN_DELAY = 6
 
-        -- Dynamic waypoint settings
         local WAYPOINT_REACH_DISTANCE = 6
         local WAYPOINT_TIMEOUT = 15
         local MAX_PATH_RETRIES = 3
@@ -179,19 +181,15 @@ function GameModule.Register(api)
                 MAX_POWER
             )
 
-            local percentage = (selectedSpeed - MIN_POWER)
-                / (MAX_POWER - MIN_POWER)
+            local percentage =
+                (selectedSpeed - MIN_POWER) / (MAX_POWER - MIN_POWER)
 
             sliderFill.Size = UDim2.new(percentage, 0, 1, 0)
             sliderKnob.Position = UDim2.new(percentage, 0, 0.5, 0)
 
-            local estimatedTime =
-                (selectedSpeed - MIN_POWER) * POWER_LEVEL_INTERVAL
-
             sliderLabel.Text = string.format(
-                "Power Level: %d | %.3f seconds",
-                selectedSpeed,
-                estimatedTime
+                "Power Level: %d",
+                selectedSpeed
             )
         end
 
@@ -211,8 +209,8 @@ function GameModule.Register(api)
                 1
             )
 
-            local value = MIN_POWER
-                + percentage * (MAX_POWER - MIN_POWER)
+            local value =
+                MIN_POWER + percentage * (MAX_POWER - MIN_POWER)
 
             updateSlider(value)
         end
@@ -283,52 +281,192 @@ function GameModule.Register(api)
         end
 
         --==================================================
-        -- POWER TIMING
+        -- POWER TARGET CALCULATION
         --==================================================
 
-        local function getPowerWaitTime(power)
+        local function getTargetY(power)
             power = math.clamp(
                 math.floor(power + 0.5),
                 MIN_POWER,
                 MAX_POWER
             )
 
-            return (power - MIN_POWER) * POWER_LEVEL_INTERVAL
+            if power <= 10 then
+                local alpha = (power - 1) / 9
+
+                return POWER_1_Y
+                    + (POWER_10_Y - POWER_1_Y) * alpha
+            end
+
+            local alpha = (power - 10) / 10
+
+            return POWER_10_Y
+                + (POWER_20_Y - POWER_10_Y) * alpha
         end
 
+        --==================================================
+        -- FIND THROW MARKER
+        --==================================================
+
+        local function getThrowMarker()
+            local sequence = playerGui:FindFirstChild("ThrowSequence")
+
+            if not sequence then
+                return nil
+            end
+
+            local meter = sequence:FindFirstChild("Meter")
+            if not meter then
+                return nil
+            end
+
+            local bar = meter:FindFirstChild("Bar")
+            if not bar then
+                return nil
+            end
+
+            return bar:FindFirstChild("Marker")
+        end
+
+        --==================================================
+        -- WAIT FOR THROW MARKER
+        --==================================================
+
+        local function waitForMarker(currentId)
+            debugLog("Waiting for ThrowSequence Marker...")
+
+            local startTime = os.clock()
+
+            while stillRunning(currentId) do
+                local marker = getThrowMarker()
+
+                if marker and marker:IsA("GuiObject") then
+                    debugLog("ThrowSequence Marker found!")
+                    return marker
+                end
+
+                if os.clock() - startTime >= MARKER_TIMEOUT then
+                    error("ThrowSequence Marker not found. Timed out.")
+                end
+
+                task.wait(0.03)
+            end
+
+            return nil
+        end
+
+        --==================================================
+        -- REAL MARKER POWER DETECTION
+        --==================================================
+
         local function waitForSelectedPower(power, currentId)
-            local powerWait = getPowerWaitTime(power)
+            local targetY = getTargetY(power)
 
             debugLog(string.format(
-                "Power meter animation opening: %.2f seconds.",
-                ANIMATION_OPEN_DELAY
-            ))
-
-            if not waitWhileEnabled(
-                ANIMATION_OPEN_DELAY,
-                currentId
-            ) then
-                return false
-            end
-
-            debugLog("Power meter should now be active.")
-
-            debugLog(string.format(
-                "Waiting for power level %d. Estimated time: %.3f seconds.",
+                "Power target: %d | Target Y: %.6f",
                 power,
-                powerWait
+                targetY
             ))
 
-            if not waitWhileEnabled(powerWait, currentId) then
+            local marker = waitForMarker(currentId)
+
+            if not marker then
                 return false
             end
 
-            debugLog(string.format(
-                "Target power level %d reached. Clicking now!",
-                power
-            ))
+            local previousY = nil
 
-            return true
+            local sawDescending = false
+            local sawAscending = false
+
+            local startTime = os.clock()
+
+            if power >= 10 then
+                debugLog(
+                    "Detection mode: FIRST PASS (Y decreasing)."
+                )
+            else
+                debugLog(
+                    "Detection mode: SECOND PASS (Y increasing)."
+                )
+            end
+
+            while stillRunning(currentId) do
+                if not marker.Parent then
+                    marker = getThrowMarker()
+
+                    if not marker then
+                        error("ThrowSequence Marker disappeared.")
+                    end
+                end
+
+                local currentY = marker.Position.Y.Scale
+
+                if previousY ~= nil then
+                    local difference = currentY - previousY
+
+                    -- Detect downward movement.
+                    if difference < -DIRECTION_EPSILON then
+                        sawDescending = true
+                    end
+
+                    -- Detect reversal after reaching the upper end.
+                    if sawDescending
+                        and difference > DIRECTION_EPSILON then
+
+                        if not sawAscending then
+                            sawAscending = true
+
+                            debugLog(
+                                "Marker reversed direction. Second pass started."
+                            )
+                        end
+                    end
+
+                    -- POWER 10-20:
+                    -- Catch target while Y decreases.
+                    if power >= 10 and sawDescending then
+                        if currentY <= targetY + MARKER_TOLERANCE then
+                            debugLog(string.format(
+                                "POWER %d CAUGHT! Y: %.6f",
+                                power,
+                                currentY
+                            ))
+
+                            return true
+                        end
+                    end
+
+                    -- POWER 1-9:
+                    -- Wait for reversal, then catch while Y increases.
+                    if power < 10 and sawAscending then
+                        if currentY >= targetY - MARKER_TOLERANCE then
+                            debugLog(string.format(
+                                "POWER %d CAUGHT! Y: %.6f",
+                                power,
+                                currentY
+                            ))
+
+                            return true
+                        end
+                    end
+                end
+
+                previousY = currentY
+
+                if os.clock() - startTime >= MARKER_TIMEOUT then
+                    error(string.format(
+                        "Power %d detection timed out. Last Y: %.6f | Target Y: %.6f",
+                        power,
+                        currentY,
+                        targetY
+                    ))
+                end
+
+                RunService.RenderStepped:Wait()
+            end
+
+            return false
         end
 
         --==================================================
@@ -392,14 +530,17 @@ function GameModule.Register(api)
                 return nil, nil, nil
             end
 
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            local rootPart = character:FindFirstChild("HumanoidRootPart")
+            local humanoid =
+                character:FindFirstChildOfClass("Humanoid")
+
+            local rootPart =
+                character:FindFirstChild("HumanoidRootPart")
 
             return character, humanoid, rootPart
         end
 
         --==================================================
-        -- DYNAMIC WAYPOINT DISTANCE
+        -- WAYPOINT DISTANCE
         --==================================================
 
         local function getWaypointDistance(rootPart, waypoint)
@@ -411,7 +552,8 @@ function GameModule.Register(api)
         end
 
         local function hasReachedWaypoint(rootPart, waypoint)
-            local distance = getWaypointDistance(rootPart, waypoint)
+            local distance =
+                getWaypointDistance(rootPart, waypoint)
 
             debugLog(string.format(
                 "Waypoint distance: %.2f studs",
@@ -439,7 +581,8 @@ function GameModule.Register(api)
                     return false
                 end
 
-                local rootPart = character:FindFirstChild("HumanoidRootPart")
+                local rootPart =
+                    character:FindFirstChild("HumanoidRootPart")
 
                 if not rootPart then
                     return false
@@ -447,9 +590,7 @@ function GameModule.Register(api)
 
                 if hasReachedWaypoint(rootPart, waypoint) then
                     debugLog(
-                        "Waypoint "
-                        .. index
-                        .. " already reached. Skipping."
+                        "Waypoint " .. index .. " already reached. Skipping."
                     )
 
                     continue
@@ -477,7 +618,8 @@ function GameModule.Register(api)
                         return false
                     end
 
-                    rootPart = character:FindFirstChild("HumanoidRootPart")
+                    rootPart =
+                        character:FindFirstChild("HumanoidRootPart")
 
                     if not rootPart then
                         return false
@@ -552,7 +694,8 @@ function GameModule.Register(api)
                     return false
                 end
 
-                rootPart = character:FindFirstChild("HumanoidRootPart")
+                rootPart =
+                    character:FindFirstChild("HumanoidRootPart")
 
                 if not rootPart then
                     return false
@@ -594,7 +737,11 @@ function GameModule.Register(api)
                 end)
 
                 if not computed then
-                    debugLog("Path calculation error: " .. tostring(computeError))
+                    debugLog(
+                        "Path calculation error: "
+                        .. tostring(computeError)
+                    )
+
                     task.wait(0.5)
                     continue
                 end
@@ -621,7 +768,8 @@ function GameModule.Register(api)
                 )
 
                 if success then
-                    rootPart = character:FindFirstChild("HumanoidRootPart")
+                    rootPart =
+                        character:FindFirstChild("HumanoidRootPart")
 
                     if rootPart then
                         local finalDistance =
@@ -721,7 +869,7 @@ function GameModule.Register(api)
                             break
                         end
 
-                        -- Capture the selected power for this cycle.
+                        -- Capture selected power for this cycle.
                         local targetPower = selectedSpeed
 
                         debugLog(
@@ -729,7 +877,7 @@ function GameModule.Register(api)
                             .. targetPower
                         )
 
-                        -- 2. WAIT FOR ANIMATION AND POWER LEVEL
+                        -- 2. WAIT FOR REAL MARKER POSITION
                         if not waitForSelectedPower(
                             targetPower,
                             currentId
