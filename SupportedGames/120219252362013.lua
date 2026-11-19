@@ -1,4 +1,4 @@
-
+--123123123123
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -637,7 +637,11 @@ function GameModule.Register(api)
             end
         end)
 
-        -- Auto 2x: try getconnections first when Solara exposes it; use mouse fallback if needed.
+        -- Auto 2x: use a non-mouse touch event first, then an event-connection
+        -- activation if the executor exposes it. Mouse input is the last fallback.
+        local auto2xTouchId = 100
+        local touchInputSupported = nil
+
         local function findTapBonusButton()
             local trainingSequence = playerGui:FindFirstChild("TrainingSequence")
             if not trainingSequence then return nil, nil end
@@ -674,7 +678,7 @@ function GameModule.Register(api)
                 and currentButton.Visible and currentButton.Active, currentButton
         end
 
-        -- Some Solara builds may not expose getconnections, so detect support safely.
+        -- Optional executor event-connection route. Solara may not expose getconnections.
         local function tryGetConnectionsActivation(button)
             if not button or not button:IsA("GuiButton") then
                 return false
@@ -712,7 +716,6 @@ function GameModule.Register(api)
                                 end)
                             end
 
-                            -- Some implementations expose Function but not Fire.
                             if not firedThisConnection then
                                 local callback
                                 pcall(function()
@@ -732,37 +735,141 @@ function GameModule.Register(api)
                 return firedAny
             end
 
-            -- Activated is preferred. MouseButton1Click is only checked if no
-            -- Activated connection could be fired.
-            local okActivated = triggerSignalConnections(button.Activated)
-            if okActivated then
+            if triggerSignalConnections(button.Activated) then
                 return true
             end
-
             return triggerSignalConnections(button.MouseButton1Click)
         end
 
-        local function mouseClickTapBonus(button)
+        -- Try a touchscreen tap at the button center. This does not move the mouse
+        -- and does not send MouseButton1. Some Solara builds block this Roblox service.
+        local function touchTapBonus(button, expectedObject)
+            if not button or not button:IsA("GuiButton") then
+                return false
+            end
+            if touchInputSupported == false then
+                return false
+            end
+
+            local virtualInputManager = VirtualInputManager
+            if not virtualInputManager then
+                touchInputSupported = false
+                warn("[BZHUB AUTO 2X] VirtualInputManager is unavailable.")
+                return false
+            end
+
+            local sendTouchEvent
+            local methodOk = pcall(function()
+                sendTouchEvent = virtualInputManager.SendTouchEvent
+            end)
+            if not methodOk or type(sendTouchEvent) ~= "function" then
+                touchInputSupported = false
+                warn("[BZHUB AUTO 2X] This Solara build does not expose SendTouchEvent.")
+                return false
+            end
+
+            local center = button.AbsolutePosition + (button.AbsoluteSize / 2)
+            auto2xTouchId += 1
+            local touchId = auto2xTouchId
+            local beginState = Enum.UserInputState.Begin.Value
+            local endState = Enum.UserInputState.End.Value
+
+            local beginOk, beginError = pcall(function()
+                virtualInputManager:SendTouchEvent(touchId, beginState, center.X, center.Y)
+            end)
+            if not beginOk then
+                touchInputSupported = false
+                warn("[BZHUB AUTO 2X] Touch input is blocked by this Solara build: " .. tostring(beginError))
+                return false
+            end
+
+            touchInputSupported = true
+            task.wait(0.12)
+
+            local endOk, endError = pcall(function()
+                virtualInputManager:SendTouchEvent(touchId, endState, center.X, center.Y)
+            end)
+            if not endOk then
+                pcall(function()
+                    virtualInputManager:SendTouchEvent(
+                        touchId,
+                        Enum.UserInputState.Cancel.Value,
+                        center.X,
+                        center.Y
+                    )
+                end)
+                warn("[BZHUB AUTO 2X] Touch release failed: " .. tostring(endError))
+                return false
+            end
+
+            debugLog("Auto 2x: touchscreen tap sent without mouse input.")
+
+            -- Give the game's Activated handler and UI update time to run.
+            local deadline = os.clock() + 0.55
+            repeat
+                task.wait(0.05)
+                local stillVisible = tapBonusStillExists(expectedObject)
+                if not stillVisible then
+                    return true
+                end
+            until os.clock() >= deadline
+
+            return false
+        end
+
+        -- Last-resort mouse path. Press and release while still over the button,
+        -- then wait for the input to be processed BEFORE restoring the old cursor.
+        local function mouseClickTapBonus(button, expectedObject)
             if not button or not button:IsA("GuiButton") then return false end
             if not button.Visible or not button.Active then return false end
-            if type(mousemoveabs) ~= "function" or type(mouse1click) ~= "function" then
-                warn("[BZHUB AUTO 2X] Mouse fallback is unavailable in this executor.")
+            if type(mousemoveabs) ~= "function" then
+                warn("[BZHUB AUTO 2X] Mouse movement is unavailable in this executor.")
                 return false
             end
 
             local oldPosition = UserInputService:GetMouseLocation()
             local center = button.AbsolutePosition + (button.AbsoluteSize / 2)
             local moved = false
+            local isPressed = false
 
             local ok, err = pcall(function()
                 mousemoveabs(center.X, center.Y)
                 moved = true
-                task.wait(0.14)
-                mouse1click()
-                task.wait(0.08)
+                task.wait(0.18)
+
+                if type(mouse1press) == "function" and type(mouse1release) == "function" then
+                    mouse1press()
+                    isPressed = true
+                    task.wait(0.12)
+                    mouse1release()
+                    isPressed = false
+                elseif type(mouse1click) == "function" then
+                    mouse1click()
+                else
+                    error("No supported mouse click function is available")
+                end
             end)
 
-            -- Always try to put the cursor back where it was.
+            if isPressed and type(mouse1release) == "function" then
+                pcall(mouse1release)
+                isPressed = false
+            end
+
+            if ok then
+                -- Keep the pointer over the button until the click has had time
+                -- to pass through Roblox input handling and the game UI reacts.
+                local deadline = os.clock() + 0.65
+                repeat
+                    task.wait(0.05)
+                    local stillVisible = tapBonusStillExists(expectedObject)
+                    if not stillVisible then
+                        break
+                    end
+                until os.clock() >= deadline
+                task.wait(0.12)
+            end
+
+            -- Restore only after press+release and the processing window above.
             if moved then
                 pcall(function()
                     mousemoveabs(oldPosition.X, oldPosition.Y)
@@ -773,7 +880,7 @@ function GameModule.Register(api)
                 warn("[BZHUB AUTO 2X] Mouse fallback failed: " .. tostring(err))
                 return false
             end
-            return true
+            return not tapBonusStillExists(expectedObject)
         end
 
         local function attemptAuto2x(button, tapBonusObject)
@@ -781,22 +888,28 @@ function GameModule.Register(api)
                 return false
             end
 
-            -- First try the button's event connections without moving the cursor.
-            local connectionAttempted = tryGetConnectionsActivation(button)
-            if connectionAttempted then
-                task.wait(0.3)
-                local stillVisible, refreshedButton = tapBonusStillExists(tapBonusObject)
-                if not stillVisible then
-                    return true
-                end
-                button = refreshedButton or button
+            -- Preferred non-MB1 route: send a touch tap to the ImageButton center.
+            local touchWorked = touchTapBonus(button, tapBonusObject)
+            if touchWorked then
+                return true
             end
 
-            -- If the bonus is still present (or event connections are unsupported),
-            -- use Solara's mouse input as the reliable fallback.
+            -- Try executor event connections next, if this Solara build exposes them.
+            local connectionAttempted = tryGetConnectionsActivation(button)
+            if connectionAttempted then
+                local deadline = os.clock() + 0.35
+                repeat
+                    task.wait(0.05)
+                    local stillVisible = tapBonusStillExists(tapBonusObject)
+                    if not stillVisible then return true end
+                until os.clock() >= deadline
+            end
+
+            -- Fallback only if touch/event activation did not remove the bonus.
+            debugLog("Auto 2x: non-mouse activation did not remove the button; trying mouse fallback.")
             local stillVisible, currentButton = tapBonusStillExists(tapBonusObject)
             if stillVisible and currentButton then
-                mouseClickTapBonus(currentButton)
+                mouseClickTapBonus(currentButton, tapBonusObject)
             end
 
             return not tapBonusStillExists(tapBonusObject)
@@ -820,13 +933,13 @@ function GameModule.Register(api)
                             warn("[BZHUB AUTO 2X] TapBonus exists but no GuiButton was found.")
                             task.wait(0.2)
                         else
-                            -- Give the bonus a moment to appear before clicking it with the mouse.
+                            -- Give the bonus a moment to appear before attempting activation.
                             task.wait(0.22)
                             if not (trainEnabled and auto2xEnabled and auto2xWorkerId == thisWorkerId) then
                                 break
                             end
 
-                            -- Try getconnections first; mouse is used only if the bonus remains.
+                            -- Try non-MB1 activation first; mouse is used only if the bonus remains.
                             attemptAuto2x(clickButton, tapBonusObject)
                             task.wait(0.35)
 
