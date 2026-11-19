@@ -2124,9 +2124,6 @@ function BZHUB_API.AddCategory(name, text, callback)
         false
     )
 
-    if name == "Farm" then
-        button.Text = "   " .. string.upper(text)
-    end
 
     local page = create("Frame", {
         Name = name .. "Page",
