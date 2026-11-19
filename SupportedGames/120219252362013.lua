@@ -1,4 +1,4 @@
---123213123123123
+
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -637,8 +637,9 @@ function GameModule.Register(api)
             end
         end)
 
-        -- Auto 2x: detect TapBonus continuously. When it appears, move the
-        -- cursor to its center, click once, then restore the previous position.
+        -- Auto 2x: detect TapBonus continuously. After a short reaction delay,
+        -- teleport the cursor to its center, pause briefly, click once, then
+        -- immediately restore the previous cursor position.
         local function findTapBonusButton()
             local trainingSequence = playerGui:FindFirstChild("TrainingSequence")
             if not trainingSequence then return nil, nil end
@@ -684,11 +685,19 @@ function GameModule.Register(api)
             local moved = false
 
             local ok, err = pcall(function()
+                -- Give the bonus a brief moment to settle after it appears.
+                task.wait(0.22)
+
+                -- Solara moves the cursor directly to the target coordinates.
                 mousemoveabs(targetX, targetY)
                 moved = true
-                task.wait(0.06)
+
+                -- Short, deliberate pause so the game registers the cursor position.
+                task.wait(0.14)
                 mouse1click()
-                task.wait(0.06)
+
+                -- Tiny release pause, then restore the original cursor position.
+                task.wait(0.08)
             end)
 
             -- Restore the cursor even if the click call errors.
