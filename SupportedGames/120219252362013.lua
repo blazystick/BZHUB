@@ -22,7 +22,6 @@ function GameModule.Register(api)
         local MIN_DELAY = 1
         local MAX_DELAY = 20
 
-        -- 8. SEVIYE = 1 SANİYE
         local CLICK_DELAYS = {
             [1] = 0.125,
             [2] = 0.250,
@@ -49,6 +48,11 @@ function GameModule.Register(api)
         local AFTER_CLICK_DELAY = 1
         local AFTER_RESPAWN_DELAY = 6
 
+        -- Dynamic waypoint settings
+        local WAYPOINT_REACH_DISTANCE = 6
+        local WAYPOINT_TIMEOUT = 15
+        local MAX_PATH_RETRIES = 3
+
         local selectedSpeed = 1
         local isEnabled = false
         local isDragging = false
@@ -59,7 +63,7 @@ function GameModule.Register(api)
         --==================================================
 
         local function debugLog(message)
-            print("[BZHUB FARM DEBUG] " .. message)
+            print("[BZHUB FARM DEBUG] " .. tostring(message))
         end
 
         --==================================================
@@ -341,73 +345,78 @@ function GameModule.Register(api)
         end
 
         --==================================================
-        -- PATHFINDING MOVEMENT
+        -- GET CHARACTER REFERENCES
         --==================================================
 
-        local function moveToStarterArea(currentId)
-            debugLog("Finding path to StarterArea...")
-
+        local function getCharacterReferences()
             local character = player.Character
 
             if not character then
-                error("Character not found.")
+                return nil, nil, nil
             end
 
             local humanoid = character:FindFirstChildOfClass("Humanoid")
             local rootPart = character:FindFirstChild("HumanoidRootPart")
 
-            if not humanoid or not rootPart then
-                error("Humanoid or HumanoidRootPart not found.")
+            return character, humanoid, rootPart
+        end
+
+        --==================================================
+        -- DYNAMIC WAYPOINT DISTANCE
+        --==================================================
+
+        local function getWaypointDistance(rootPart, waypoint)
+            if not rootPart or not waypoint then
+                return math.huge
             end
 
-            local targetPosition = getStarterAreaPosition()
+            return (rootPart.Position - waypoint.Position).Magnitude
+        end
 
-            if not stillRunning(currentId) then
-                return false
-            end
+        local function hasReachedWaypoint(rootPart, waypoint)
+            local distance = getWaypointDistance(rootPart, waypoint)
 
-            local path = PathfindingService:CreatePath({
-                AgentRadius = 2,
-                AgentHeight = 5,
-                AgentCanJump = true,
-                AgentCanClimb = true,
-                WaypointSpacing = 4
-            })
+            debugLog(string.format(
+                "Waypoint distance: %.2f studs",
+                distance
+            ))
 
-            debugLog("Calculating route...")
+            return distance <= WAYPOINT_REACH_DISTANCE
+        end
 
-            path:ComputeAsync(
-                rootPart.Position,
-                targetPosition
-            )
+        --==================================================
+        -- FOLLOW PATH
+        --==================================================
 
-            if not stillRunning(currentId) then
-                return false
-            end
-
-            if path.Status ~= Enum.PathStatus.Success then
-                error("Pathfinding failed: " .. tostring(path.Status))
-            end
-
+        local function followPath(path, character, humanoid, currentId)
             local waypoints = path:GetWaypoints()
 
             debugLog("Route found. Waypoints: " .. #waypoints)
 
             for index, waypoint in ipairs(waypoints) do
-
                 if not stillRunning(currentId) then
                     return false
                 end
 
-                -- Refresh character references
                 if player.Character ~= character then
                     return false
                 end
 
-                rootPart = character:FindFirstChild("HumanoidRootPart")
+                local rootPart = character:FindFirstChild("HumanoidRootPart")
 
                 if not rootPart then
-                    error("HumanoidRootPart disappeared.")
+                    return false
+                end
+
+                -- Skip waypoints that are already close enough.
+                if hasReachedWaypoint(rootPart, waypoint) then
+                    debugLog(
+                        "Waypoint "
+                        .. index
+                        .. " already reached. Skipping."
+                    )
+
+                    continue
                 end
 
                 if waypoint.Action == Enum.PathWaypointAction.Jump then
@@ -428,15 +437,33 @@ function GameModule.Register(api)
                 local reached = false
 
                 while stillRunning(currentId) do
-                    local distance =
-                        (rootPart.Position - waypoint.Position).Magnitude
+                    if player.Character ~= character then
+                        return false
+                    end
 
-                    if distance <= 3 then
+                    rootPart = character:FindFirstChild("HumanoidRootPart")
+
+                    if not rootPart then
+                        return false
+                    end
+
+                    -- Calculate the real distance every iteration.
+                    local distance =
+                        getWaypointDistance(rootPart, waypoint)
+
+                    if distance <= WAYPOINT_REACH_DISTANCE then
                         reached = true
+
+                        debugLog(string.format(
+                            "Waypoint %d reached at %.2f studs.",
+                            index,
+                            distance
+                        ))
+
                         break
                     end
 
-                    if os.clock() - startTime >= 8 then
+                    if os.clock() - startTime >= WAYPOINT_TIMEOUT then
                         break
                     end
 
@@ -448,16 +475,145 @@ function GameModule.Register(api)
                 end
 
                 if not reached then
-                    error(
-                        "Could not reach waypoint "
+                    debugLog(
+                        "Waypoint timeout at "
                         .. index
+                        .. ". Recalculation required."
                     )
+
+                    return false
                 end
             end
 
-            debugLog("StarterArea reached successfully!")
-
             return true
+        end
+
+        --==================================================
+        -- PATHFINDING MOVEMENT
+        --==================================================
+
+        local function moveToStarterArea(currentId)
+            debugLog("Finding path to StarterArea...")
+
+            local character, humanoid, rootPart =
+                getCharacterReferences()
+
+            if not character or not humanoid or not rootPart then
+                error("Character references not found.")
+            end
+
+            local targetPosition = getStarterAreaPosition()
+
+            if not stillRunning(currentId) then
+                return false
+            end
+
+            for attempt = 1, MAX_PATH_RETRIES do
+                if not stillRunning(currentId) then
+                    return false
+                end
+
+                if player.Character ~= character then
+                    return false
+                end
+
+                rootPart = character:FindFirstChild("HumanoidRootPart")
+
+                if not rootPart then
+                    return false
+                end
+
+                -- If already near StarterArea, do not move again.
+                local targetDistance =
+                    (rootPart.Position - targetPosition).Magnitude
+
+                debugLog(string.format(
+                    "StarterArea distance: %.2f studs",
+                    targetDistance
+                ))
+
+                if targetDistance <= WAYPOINT_REACH_DISTANCE then
+                    debugLog("Already near StarterArea. No extra movement.")
+                    return true
+                end
+
+                local path = PathfindingService:CreatePath({
+                    AgentRadius = 2,
+                    AgentHeight = 5,
+                    AgentCanJump = true,
+                    AgentCanClimb = true,
+                    WaypointSpacing = 4
+                })
+
+                debugLog(
+                    "Calculating route. Attempt "
+                    .. attempt
+                    .. "/"
+                    .. MAX_PATH_RETRIES
+                )
+
+                local computed, computeError = pcall(function()
+                    path:ComputeAsync(
+                        rootPart.Position,
+                        targetPosition
+                    )
+                end)
+
+                if not computed then
+                    debugLog("Path calculation error: " .. tostring(computeError))
+                    task.wait(0.5)
+                    continue
+                end
+
+                if not stillRunning(currentId) then
+                    return false
+                end
+
+                if path.Status ~= Enum.PathStatus.Success then
+                    debugLog(
+                        "Pathfinding status: "
+                        .. tostring(path.Status)
+                    )
+
+                    task.wait(0.5)
+                    continue
+                end
+
+                local success = followPath(
+                    path,
+                    character,
+                    humanoid,
+                    currentId
+                )
+
+                if success then
+                    rootPart = character:FindFirstChild("HumanoidRootPart")
+
+                    if rootPart then
+                        local finalDistance =
+                            (rootPart.Position - targetPosition).Magnitude
+
+                        debugLog(string.format(
+                            "Final StarterArea distance: %.2f studs",
+                            finalDistance
+                        ))
+
+                        if finalDistance <= WAYPOINT_REACH_DISTANCE then
+                            debugLog("StarterArea reached successfully!")
+                            return true
+                        end
+                    end
+                end
+
+                if not stillRunning(currentId) then
+                    return false
+                end
+
+                debugLog("Recalculating route...")
+                task.wait(0.5)
+            end
+
+            error("Could not reach StarterArea after path retries.")
         end
 
         --==================================================
@@ -500,7 +656,6 @@ function GameModule.Register(api)
                         and newHumanoid.Health > 0 then
 
                         debugLog("Character respawned!")
-
                         return true
                     end
                 end
