@@ -21,14 +21,14 @@ function GameModule.Register(api)
         local MIN_DELAY = 1
         local MAX_DELAY = 20
 
-        -- HER SEVİYENİN SÜRESİNİ BURADAN DEĞİŞTİREBİLİRSİN
+        -- HER SEVİYENİN BEKLEME SÜRESİ
         local CLICK_DELAYS = {
             [1] = 0.10,
-            [2] = 0.20,
-            [3] = 0.30,
-            [4] = 0.50,
-            [5] = 0.70,
-            [6] = 1.00,
+            [2] = 0.15,
+            [3] = 0.25,
+            [4] = 0.35,
+            [5] = 0.50,
+            [6] = 0.65,
             [7] = 0.80,
             [8] = 1.00,
             [9] = 1.20,
@@ -44,6 +44,9 @@ function GameModule.Register(api)
             [19] = 4.00,
             [20] = 5.00
         }
+
+        -- İKİ TIKLAMA ARASINDAKİ SÜRE
+        local REPEAT_DELAY = 6
 
         local selectedSpeed = 1
         local isEnabled = false
@@ -192,12 +195,10 @@ function GameModule.Register(api)
             sliderFill.Size = UDim2.new(percentage, 0, 1, 0)
             sliderKnob.Position = UDim2.new(percentage, 0, 0.5, 0)
 
-            local delay = CLICK_DELAYS[selectedSpeed]
-
             sliderLabel.Text = string.format(
-                "Click Delay: %d  |  %.2f seconds",
+                "Click Delay: %d | %.2f seconds",
                 selectedSpeed,
-                delay
+                CLICK_DELAYS[selectedSpeed]
             )
         end
 
@@ -278,6 +279,8 @@ function GameModule.Register(api)
                 game,
                 0
             )
+
+            debugLog("One click completed.")
         end
 
         --==================================================
@@ -316,7 +319,7 @@ function GameModule.Register(api)
 
             local startTime = os.clock()
 
-            while isEnabled and os.clock() - startTime < 10 do
+            while isEnabled do
                 local distance = (rootPart.Position - targetPosition).Magnitude
 
                 if distance <= 5 then
@@ -324,14 +327,14 @@ function GameModule.Register(api)
                     return true
                 end
 
+                if os.clock() - startTime >= 10 then
+                    error("Movement timed out.")
+                end
+
                 task.wait(0.1)
             end
 
-            if not isEnabled then
-                return false
-            end
-
-            error("Could not reach StarterArea.")
+            return false
         end
 
         --==================================================
@@ -348,22 +351,33 @@ function GameModule.Register(api)
 
                     debugLog("Farm started.")
 
+                    -- MOVE ONLY ONCE AT START
                     if not moveToStarterArea() then
                         return
                     end
 
+                    -- CLICK LOOP
                     while isEnabled and currentId == actionId do
+
                         local delay = CLICK_DELAYS[selectedSpeed]
 
                         debugLog(string.format(
-                            "Clicking. Level: %d | Delay: %.2f seconds",
-                            selectedSpeed,
+                            "Waiting %.2f seconds before click.",
                             delay
                         ))
 
+                        task.wait(delay)
+
+                        if not isEnabled or currentId ~= actionId then
+                            break
+                        end
+
+                        -- ONLY ONE CLICK
                         performClick()
 
-                        task.wait(delay)
+                        debugLog("Waiting 6 seconds for next click.")
+
+                        task.wait(REPEAT_DELAY)
                     end
 
                 end)
@@ -373,7 +387,6 @@ function GameModule.Register(api)
 
                     if currentId == actionId then
                         isEnabled = false
-
                         sliderContainer.Visible = true
                         toggleButton.Text = "Farm: OFF"
                         toggleButton.TextColor3 =
