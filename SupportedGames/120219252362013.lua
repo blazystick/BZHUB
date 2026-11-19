@@ -1,4 +1,4 @@
---123123123
+
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -254,26 +254,89 @@ function GameModule.Register(api)
             updateHud(key, currentStatusDetail, progress)
         end
 
+        --==================================================
+        -- VERTICAL SCROLL CONTAINER (mouse wheel + middle mouse drag)
+        --==================================================
+
+        local farmScroll = Instance.new("ScrollingFrame")
+        farmScroll.Name = "FarmVerticalScroll"
+        farmScroll.Position = UDim2.fromOffset(0, 0)
+        farmScroll.Size = UDim2.new(1, 0, 1, 0)
+        farmScroll.BackgroundTransparency = 1
+        farmScroll.BorderSizePixel = 0
+        farmScroll.ScrollBarThickness = 4
+        farmScroll.ScrollBarImageColor3 = Color3.fromRGB(105, 125, 150)
+        farmScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+        farmScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        farmScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+        farmScroll.Active = true
+        farmScroll.Parent = page
+
+        local farmContent = Instance.new("Frame")
+        farmContent.Name = "FarmContent"
+        farmContent.BackgroundTransparency = 1
+        farmContent.Size = UDim2.new(1, -8, 0, 0)
+        farmContent.AutomaticSize = Enum.AutomaticSize.Y
+        farmContent.Parent = farmScroll
+
+        local farmList = Instance.new("UIListLayout")
+        farmList.Name = "VerticalLayout"
+        farmList.SortOrder = Enum.SortOrder.LayoutOrder
+        farmList.Padding = UDim.new(0, 10)
+        farmList.Parent = farmContent
+
+        local farmPadding = Instance.new("UIPadding")
+        farmPadding.PaddingTop = UDim.new(0, 10)
+        farmPadding.PaddingBottom = UDim.new(0, 12)
+        farmPadding.PaddingLeft = UDim.new(0, 10)
+        farmPadding.PaddingRight = UDim.new(0, 10)
+        farmPadding.Parent = farmContent
+
+        local middleDrag = false
+        local middleDragStartY = 0
+        local middleCanvasStartY = 0
+        farmScroll.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton3 then
+                middleDrag = true
+                middleDragStartY = input.Position.Y
+                middleCanvasStartY = farmScroll.CanvasPosition.Y
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if middleDrag and input.UserInputType == Enum.UserInputType.MouseMovement then
+                local delta = input.Position.Y - middleDragStartY
+                local maxY = math.max(0, farmScroll.AbsoluteCanvasSize.Y - farmScroll.AbsoluteWindowSize.Y)
+                farmScroll.CanvasPosition = Vector2.new(0, math.clamp(middleCanvasStartY - delta, 0, maxY))
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton3 then
+                middleDrag = false
+            end
+        end)
+
         local title = Instance.new("TextLabel")
         title.Name = "AutoThrowTitle"
-        title.Size = UDim2.new(1, -20, 0, 30)
-        title.Position = UDim2.fromOffset(10, 10)
+        title.Size = UDim2.new(1, 0, 0, 30)
+        title.Position = UDim2.new(0, 0, 0, 0)
         title.BackgroundTransparency = 1
         title.Text = tr("title")
         title.TextSize = 18
         title.TextXAlignment = Enum.TextXAlignment.Left
         title.TextColor3 = TEXT
         title.Font = Enum.Font.GothamBold
-        title.Parent = page
+        title.LayoutOrder = 1
+        title.Parent = farmContent
 
         -- Main combined card: toggle + power slider.
         local mainCard = Instance.new("Frame")
         mainCard.Name = "AutoThrowCard"
-        mainCard.Position = UDim2.fromOffset(10, 55)
-        mainCard.Size = UDim2.new(1, -20, 0, 132)
+        mainCard.Position = UDim2.new(0, 0, 0, 0)
+        mainCard.Size = UDim2.new(1, 0, 0, 132)
         mainCard.BackgroundColor3 = CARD
         mainCard.BorderSizePixel = 0
-        mainCard.Parent = page
+        mainCard.LayoutOrder = 2
+        mainCard.Parent = farmContent
 
         local cardCorner = Instance.new("UICorner")
         cardCorner.CornerRadius = UDim.new(0, 12)
@@ -295,15 +358,24 @@ function GameModule.Register(api)
 
         local toggleLabel = Instance.new("TextLabel")
         toggleLabel.Name = "AutoThrowLabel"
-        toggleLabel.Position = UDim2.fromOffset(14, 7)
-        toggleLabel.Size = UDim2.new(1, -112, 0, 38)
-        toggleLabel.BackgroundTransparency = 1
+        toggleLabel.Position = UDim2.fromOffset(12, 8)
+        toggleLabel.Size = UDim2.fromOffset(112, 29)
+        toggleLabel.BackgroundColor3 = Color3.fromRGB(75, 31, 42)
+        toggleLabel.BackgroundTransparency = 0.05
         toggleLabel.Text = "Auto Throw"
         toggleLabel.TextColor3 = TEXT
         toggleLabel.TextSize = 14
         toggleLabel.Font = Enum.Font.GothamSemibold
         toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
         toggleLabel.Parent = mainCard
+        local throwLabelCorner = Instance.new("UICorner")
+        throwLabelCorner.CornerRadius = UDim.new(0, 8)
+        throwLabelCorner.Parent = toggleLabel
+        local throwLabelStroke = Instance.new("UIStroke")
+        throwLabelStroke.Color = Color3.fromRGB(242, 72, 82)
+        throwLabelStroke.Transparency = 0.35
+        throwLabelStroke.Thickness = 1
+        throwLabelStroke.Parent = toggleLabel
 
         local infoButton = Instance.new("TextButton")
         infoButton.Name = "InfoButton"
@@ -451,12 +523,13 @@ function GameModule.Register(api)
 
         local trainCard = Instance.new("Frame")
         trainCard.Name = "AutoTrainCard"
-        trainCard.Position = UDim2.fromOffset(10, 198)
-        trainCard.Size = UDim2.new(1, -20, 0, 62)
+        trainCard.Position = UDim2.new(0, 0, 0, 0)
+        trainCard.Size = UDim2.new(1, 0, 0, 62)
         trainCard.BackgroundColor3 = CARD
         trainCard.BorderSizePixel = 0
         trainCard.ClipsDescendants = true
-        trainCard.Parent = page
+        trainCard.LayoutOrder = 3
+        trainCard.Parent = farmContent
 
         local trainCardCorner = Instance.new("UICorner")
         trainCardCorner.CornerRadius = UDim.new(0, 12)
@@ -478,15 +551,24 @@ function GameModule.Register(api)
 
         local trainLabel = Instance.new("TextLabel")
         trainLabel.Name = "AutoTrainLabel"
-        trainLabel.Position = UDim2.fromOffset(14, 7)
-        trainLabel.Size = UDim2.new(1, -115, 0, 38)
-        trainLabel.BackgroundTransparency = 1
+        trainLabel.Position = UDim2.fromOffset(12, 8)
+        trainLabel.Size = UDim2.fromOffset(105, 29)
+        trainLabel.BackgroundColor3 = Color3.fromRGB(75, 31, 42)
+        trainLabel.BackgroundTransparency = 0.05
         trainLabel.Text = "Auto Train"
         trainLabel.TextColor3 = TEXT
         trainLabel.TextSize = 14
         trainLabel.Font = Enum.Font.GothamSemibold
         trainLabel.TextXAlignment = Enum.TextXAlignment.Left
         trainLabel.Parent = trainCard
+        local trainLabelCorner = Instance.new("UICorner")
+        trainLabelCorner.CornerRadius = UDim.new(0, 8)
+        trainLabelCorner.Parent = trainLabel
+        local trainLabelStroke = Instance.new("UIStroke")
+        trainLabelStroke.Color = TRAIN_RED
+        trainLabelStroke.Transparency = 0.35
+        trainLabelStroke.Thickness = 1
+        trainLabelStroke.Parent = trainLabel
 
         local trainStateLabel = Instance.new("TextLabel")
         trainStateLabel.Name = "TrainState"
@@ -614,7 +696,7 @@ function GameModule.Register(api)
                 auto2xRow.Visible = true
                 auto2xRow.BackgroundTransparency = 1
                 auto2xRow.Position = UDim2.fromOffset(12, 55)
-                makeTween(trainCard, 0.28, {Size = UDim2.new(1, -20, 0, 116)})
+                makeTween(trainCard, 0.28, {Size = UDim2.new(1, 0, 0, 116)})
                 makeTween(auto2xRow, 0.28, {
                     Position = UDim2.fromOffset(12, 66),
                     BackgroundTransparency = 0.12
@@ -624,7 +706,7 @@ function GameModule.Register(api)
             else
                 auto2xEnabled = false
                 setRedSwitch(auto2xSwitch, auto2xKnob, auto2xSwitchStroke, false, false)
-                local collapse = makeTween(trainCard, 0.24, {Size = UDim2.new(1, -20, 0, 62)})
+                local collapse = makeTween(trainCard, 0.24, {Size = UDim2.new(1, 0, 0, 62)})
                 makeTween(auto2xRow, 0.18, {
                     Position = UDim2.fromOffset(12, 54),
                     BackgroundTransparency = 1
@@ -648,11 +730,12 @@ function GameModule.Register(api)
 
         local equipBestCard = Instance.new("Frame")
         equipBestCard.Name = "AutoEquipBestPetCard"
-        equipBestCard.Position = UDim2.fromOffset(10, 326)
-        equipBestCard.Size = UDim2.new(1, -20, 0, 62)
+        equipBestCard.Position = UDim2.new(0, 0, 0, 0)
+        equipBestCard.Size = UDim2.new(1, 0, 0, 62)
         equipBestCard.BackgroundColor3 = CARD
         equipBestCard.BorderSizePixel = 0
-        equipBestCard.Parent = page
+        equipBestCard.LayoutOrder = 4
+        equipBestCard.Parent = farmContent
 
         local equipBestCorner = Instance.new("UICorner")
         equipBestCorner.CornerRadius = UDim.new(0, 12)
@@ -674,15 +757,24 @@ function GameModule.Register(api)
 
         local equipBestLabel = Instance.new("TextLabel")
         equipBestLabel.Name = "AutoEquipBestPetLabel"
-        equipBestLabel.Position = UDim2.fromOffset(14, 7)
-        equipBestLabel.Size = UDim2.new(1, -198, 0, 38)
-        equipBestLabel.BackgroundTransparency = 1
+        equipBestLabel.Position = UDim2.fromOffset(12, 8)
+        equipBestLabel.Size = UDim2.fromOffset(165, 29)
+        equipBestLabel.BackgroundColor3 = Color3.fromRGB(31, 76, 54)
+        equipBestLabel.BackgroundTransparency = 0.05
         equipBestLabel.Text = "Auto Equip Best Pet"
         equipBestLabel.TextColor3 = TEXT
         equipBestLabel.TextSize = 13
         equipBestLabel.Font = Enum.Font.GothamSemibold
         equipBestLabel.TextXAlignment = Enum.TextXAlignment.Left
         equipBestLabel.Parent = equipBestCard
+        local equipBestLabelCorner = Instance.new("UICorner")
+        equipBestLabelCorner.CornerRadius = UDim.new(0, 8)
+        equipBestLabelCorner.Parent = equipBestLabel
+        local equipBestLabelStroke = Instance.new("UIStroke")
+        equipBestLabelStroke.Color = EQUIP_GREEN
+        equipBestLabelStroke.Transparency = 0.35
+        equipBestLabelStroke.Thickness = 1
+        equipBestLabelStroke.Parent = equipBestLabel
 
         local equipBestSwitch = Instance.new("TextButton")
         equipBestSwitch.Name = "AutoEquipBestPetSwitch"
@@ -694,6 +786,19 @@ function GameModule.Register(api)
         equipBestSwitch.Text = ""
         equipBestSwitch.AutoButtonColor = false
         equipBestSwitch.Parent = equipBestCard
+
+        local equipStateLabel = Instance.new("TextLabel")
+        equipStateLabel.Name = "EquipState"
+        equipStateLabel.AnchorPoint = Vector2.new(1, 0)
+        equipStateLabel.Position = UDim2.new(1, -13, 0, 43)
+        equipStateLabel.Size = UDim2.fromOffset(95, 16)
+        equipStateLabel.BackgroundTransparency = 1
+        equipStateLabel.Text = "OFF"
+        equipStateLabel.TextColor3 = MUTED
+        equipStateLabel.TextSize = 9
+        equipStateLabel.Font = Enum.Font.GothamBold
+        equipStateLabel.TextXAlignment = Enum.TextXAlignment.Right
+        equipStateLabel.Parent = equipBestCard
 
         local equipSwitchCorner = Instance.new("UICorner")
         equipSwitchCorner.CornerRadius = UDim.new(1, 0)
@@ -716,40 +821,6 @@ function GameModule.Register(api)
         local equipKnobCorner = Instance.new("UICorner")
         equipKnobCorner.CornerRadius = UDim.new(1, 0)
         equipKnobCorner.Parent = equipSwitchKnob
-
-        local equipDivider = Instance.new("Frame")
-        equipDivider.Name = "ControlsDivider"
-        equipDivider.AnchorPoint = Vector2.new(1, 0.5)
-        equipDivider.Position = UDim2.new(1, -80, 0.5, 0)
-        equipDivider.Size = UDim2.fromOffset(1, 27)
-        equipDivider.BackgroundColor3 = Color3.fromRGB(150, 170, 160)
-        equipDivider.BackgroundTransparency = 0.62
-        equipDivider.BorderSizePixel = 0
-        equipDivider.Parent = equipBestCard
-
-        local equipOnceButton = Instance.new("TextButton")
-        equipOnceButton.Name = "EquipBestOnceButton"
-        equipOnceButton.AnchorPoint = Vector2.new(1, 0)
-        equipOnceButton.Position = UDim2.new(1, -88, 0, 10)
-        equipOnceButton.Size = UDim2.fromOffset(96, 29)
-        equipOnceButton.BackgroundColor3 = Color3.fromRGB(31, 76, 54)
-        equipOnceButton.BorderSizePixel = 0
-        equipOnceButton.Text = "EQUIP BEST"
-        equipOnceButton.TextColor3 = EQUIP_GREEN_BRIGHT
-        equipOnceButton.TextSize = 10
-        equipOnceButton.Font = Enum.Font.GothamBold
-        equipOnceButton.AutoButtonColor = false
-        equipOnceButton.Parent = equipBestCard
-
-        local equipOnceCorner = Instance.new("UICorner")
-        equipOnceCorner.CornerRadius = UDim.new(0, 8)
-        equipOnceCorner.Parent = equipOnceButton
-
-        local equipOnceStroke = Instance.new("UIStroke")
-        equipOnceStroke.Color = EQUIP_GREEN
-        equipOnceStroke.Transparency = 0.5
-        equipOnceStroke.Thickness = 1
-        equipOnceStroke.Parent = equipOnceButton
 
         local function setEquipSwitchVisual(enabled, instant)
             local knobPosition = enabled
@@ -797,11 +868,11 @@ function GameModule.Register(api)
             task.spawn(function()
                 while autoEquipBestEnabled and workerId == autoEquipBestWorkerId do
                     invokeEquipBest()
-                    for _ = 1, 80 do
+                    for _ = 1, 10 do
                         if not autoEquipBestEnabled or workerId ~= autoEquipBestWorkerId then
                             break
                         end
-                        task.wait(0.1)
+                        task.wait(0.5)
                     end
                 end
             end)
@@ -809,8 +880,8 @@ function GameModule.Register(api)
 
         equipBestSwitch.MouseButton1Click:Connect(function()
             autoEquipBestEnabled = not autoEquipBestEnabled
-            equipOnceButton.Visible = not autoEquipBestEnabled
-            equipDivider.Visible = not autoEquipBestEnabled
+            equipStateLabel.Text = autoEquipBestEnabled and "ON" or "OFF"
+            equipStateLabel.TextColor3 = autoEquipBestEnabled and EQUIP_GREEN_BRIGHT or MUTED
             setEquipSwitchVisual(autoEquipBestEnabled, false)
             makeTween(equipBestStroke, 0.2, {
                 Transparency = autoEquipBestEnabled and 0.08 or 0.3,
@@ -826,11 +897,6 @@ function GameModule.Register(api)
             end
         end)
 
-        equipOnceButton.MouseButton1Click:Connect(function()
-            if not autoEquipBestEnabled then
-                invokeEquipBest()
-            end
-        end)
 
         -- Auto 2x: use a non-mouse touch event first, then an event-connection
         -- activation if the executor exposes it. Mouse input is the last fallback.
@@ -1162,6 +1228,7 @@ function GameModule.Register(api)
         infoPanel.Visible = false
         infoPanel.ZIndex = 80
         infoPanel.Parent = page
+        infoPanel.ZIndex = 80
 
         local infoPanelCorner = Instance.new("UICorner")
         infoPanelCorner.CornerRadius = UDim.new(0, 12)
@@ -1400,7 +1467,7 @@ function GameModule.Register(api)
                     sliderContainer.Position = UDim2.fromOffset(12, 69)
                     sliderContainer.Size = UDim2.new(1, -24, 0, 54)
                     sliderContainer.GroupTransparency = 0
-                    mainCard.Size = UDim2.new(1, -20, 0, 132)
+                    mainCard.Size = UDim2.new(1, 0, 0, 132)
                     trainCard.Position = UDim2.fromOffset(10, 198)
                 else
                     sliderContainer.Position = UDim2.fromOffset(12, 54)
@@ -1408,7 +1475,7 @@ function GameModule.Register(api)
                     sliderContainer.GroupTransparency = 1
                     mainCard.Size = UDim2.new(1, -20, 0, 66)
                     trainCard.Position = UDim2.fromOffset(10, 132)
-                    makeTween(mainCard, 0.3, {Size = UDim2.new(1, -20, 0, 132)})
+                    makeTween(mainCard, 0.3, {Size = UDim2.new(1, 0, 0, 132)})
                     makeTween(trainCard, 0.3, {Position = UDim2.fromOffset(10, 198)})
                     makeTween(sliderContainer, 0.28, {
                         Position = UDim2.fromOffset(12, 69),
