@@ -21,10 +21,10 @@ function GameModule.Register(api)
         -- CONFIGURATION
         --==================================================
 
-        local MIN_POWER = 1
+        local MIN_POWER = 0
         local MAX_POWER = 20
 
-        local POWER_1_Y = 0.995735705
+        local POWER_0_Y = 0.995735705
         local POWER_10_Y = 0.555865407
         local POWER_20_Y = 0.00212187553
 
@@ -296,10 +296,10 @@ function GameModule.Register(api)
             )
 
             if power <= 10 then
-                local alpha = (power - 1) / 9
+                local alpha = power / 10
 
-                return POWER_1_Y
-                    + (POWER_10_Y - POWER_1_Y) * alpha
+                return POWER_0_Y
+                    + (POWER_10_Y - POWER_0_Y) * alpha
             end
 
             local alpha = (power - 10) / 10
