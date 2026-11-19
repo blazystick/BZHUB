@@ -2114,17 +2114,17 @@ if gameSupported and game.PlaceId == 120219252362013 then
             local url = "https://raw.githubusercontent.com/blazystick/BZHUB/refs/heads/main/SupportedGames/120219252362013"
 
             local source = game:HttpGet(url)
-            local moduleScript = loadstring(source)()
 
-            assert(
-                type(moduleScript) == "table",
-                "Game module must return a table"
-            )
+            assert(type(source) == "string", "Invalid module source")
 
-            assert(
-                type(moduleScript.Register) == "function",
-                "Game module is missing Register function"
-            )
+            local compiled, compileError = loadstring(source)
+
+            assert(compiled, compileError or "Compilation failed")
+
+            local moduleScript = compiled()
+
+            assert(type(moduleScript) == "table", "Module must return a table")
+            assert(type(moduleScript.Register) == "function", "Register function missing")
 
             moduleScript.Register(BZHUB_API)
         end)
