@@ -10,7 +10,8 @@ function GameModule.Register(api)
         local VirtualInputManager = game:GetService("VirtualInputManager")
 
         local player = Players.LocalPlayer
-        local TARGET_POSITION = Vector3.new(0, 5.59802532, -45)
+        local starterArea = workspace:WaitForChild("StarterArea")
+        local TARGET_POSITION = starterArea:GetPivot().Position
 
         local isRunning = false
 
