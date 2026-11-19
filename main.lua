@@ -2011,6 +2011,7 @@ local function selectCategory(name)
     local newPage = pages[name]
 
     if not newPage then
+        warn("[BZHUB] Page not found:", name)
         return
     end
 
@@ -2053,9 +2054,18 @@ local function selectCategory(name)
 
     newPage.Position = UDim2.fromOffset(direction * 30, 0)
 
-    local moveAnimation = tween(newPage, 0.32, {
-        Position = UDim2.fromOffset(0, 0)
-    }, Enum.EasingStyle.Quint)
+    local success, moveAnimation = pcall(function()
+        return tween(newPage, 0.32, {
+            Position = UDim2.fromOffset(0, 0)
+        }, Enum.EasingStyle.Quint)
+    end)
+
+    if not success or not moveAnimation then
+        newPage.Position = UDim2.fromOffset(0, 0)
+        switchingPage = false
+        warn("[BZHUB] Page animation failed:", moveAnimation)
+        return
+    end
 
     moveAnimation.Completed:Connect(function()
         if transitionId ~= pageTransitionId then
@@ -2064,6 +2074,13 @@ local function selectCategory(name)
 
         newPage.Position = UDim2.fromOffset(0, 0)
         switchingPage = false
+    end)
+
+    task.delay(0.6, function()
+        if transitionId == pageTransitionId then
+            newPage.Position = UDim2.fromOffset(0, 0)
+            switchingPage = false
+        end
     end)
 end
 currentCategory = "Home"
