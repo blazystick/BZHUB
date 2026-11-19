@@ -104,12 +104,13 @@ function GameModule.Register(api)
                     humanoid:MoveTo(TARGET_POSITION)
 
                     local reached = humanoid.MoveToFinished:Wait()
+                    local distance = (rootPart.Position - TARGET_POSITION).Magnitude
 
-                    if not reached then
-                        error("Movement failed or timed out.")
+                    if not reached and distance > 5 then
+                        error("Movement failed. Distance: " .. tostring(distance))
                     end
 
-                    debugLog("Movement completed!")
+                    debugLog("Movement completed! Distance: " .. tostring(distance))
 
                     -- WAIT
                     actionButton.Text = "Waiting..."
