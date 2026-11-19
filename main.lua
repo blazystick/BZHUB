@@ -2119,10 +2119,16 @@ function BZHUB_API.AddCategory(name, text, callback)
 
     local button = createCategory(
         name,
-        text,
+        initialText,
         90 + ((gameCategoryCount - 1) * 45),
         false
     )
+
+    if name == "Farm" then
+        local padding = Instance.new("UIPadding")
+        padding.PaddingLeft = UDim.new(0, 18)
+        padding.Parent = button
+    end
 
     local page = create("Frame", {
         Name = name .. "Page",
