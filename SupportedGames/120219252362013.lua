@@ -1,7 +1,7 @@
 local GameModule = {}
 
 function GameModule.Register(api)
-    api.AddCategory("Farm", "Farm", function(page)
+    local farmButton = api.AddCategory("Farm", "FARM", function(page)
         local title = Instance.new("TextLabel")
         title.Name = "FarmTitle"
         title.Size = UDim2.new(1, -20, 0, 30)
@@ -12,6 +12,10 @@ function GameModule.Register(api)
         title.TextXAlignment = Enum.TextXAlignment.Left
         title.Parent = page
     end)
+
+    if farmButton then
+        farmButton.Text = "       FARM"
+    end
 end
 
 return GameModule
