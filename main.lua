@@ -2125,9 +2125,7 @@ function BZHUB_API.AddCategory(name, text, callback)
     )
 
     if name == "Farm" then
-        local padding = Instance.new("UIPadding")
-        padding.PaddingLeft = UDim.new(0, 18)
-        padding.Parent = button
+        button.Text = "       " .. string.upper(text)
     end
 
     local page = create("Frame", {
