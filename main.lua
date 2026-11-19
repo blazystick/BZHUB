@@ -2062,7 +2062,8 @@ local function selectCategory(name)
         switchingPage = false
     end)
 end
-
+currentCategory = "Home"
+pages.Home.Visible = true
 -- GAME MODULE SYSTEM
 local BZHUB_API = {}
 
