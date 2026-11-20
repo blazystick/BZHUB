@@ -3331,6 +3331,8 @@ function GameModule.Register(api)
         sellAllButton.BorderSizePixel = 0
         sellAllButton.Text = "SELL ALL ANIMALS"
         sellAllButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        sellAllButton.TextTransparency = 0
+        sellAllButton.TextStrokeTransparency = 1
         sellAllButton.TextSize = 13
         sellAllButton.Font = Enum.Font.GothamBold
         sellAllButton.AutoButtonColor = false
@@ -3346,7 +3348,7 @@ function GameModule.Register(api)
         sellGradient.Rotation = 0
         sellGradient.Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0.00, Color3.fromRGB(235, 35, 35)),
-            ColorSequenceKeypoint.new(1.00, Color3.fromRGB(65, 0, 0))
+            ColorSequenceKeypoint.new(1.00, Color3.fromRGB(35, 0, 0))
         })
         sellGradient.Parent = sellAllButton
 
