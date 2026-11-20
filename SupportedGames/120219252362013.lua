@@ -3337,7 +3337,7 @@ function GameModule.Register(api)
         -- PAW IMAGE URL
         --==================================================
     
-        local PAW_IMAGE_URL = "https://imgsharehub.com/api/image/proxy?id=o1yiph05&token=eyJpbWFnZUlkIjoibzF5aXBoMDUiLCJ0aW1lc3RhbXAiOjE3OTUxOTU2MTcwNjcsInNpZ25hdHVyZSI6ImE5YzJlZDUwZmI5YWNjODE2NmE0ZjE4MjczY2NlMDJhMGViZjE0NmVmZjE4ZDhjMWQwMzgwZDRiZWVmYWY2N2UifQ&v=1795195613100"
+        local PAW_IMAGE_URL = "https://imgsharehub.com/api/image/proxy?id=emsrxl77&token=eyJpbWFnZUlkIjoiZW1zcnhsNzciLCJ0aW1lc3RhbXAiOjE3OTUxOTYyODkzMTUsInNpZ25hdHVyZSI6ImE0NjdkYTU0YzY4OGYxZWVmOTg4Y2NkNGY5ZGE2N2Y3MjI2N2I3YThlMjc4YTk4MTcyMjRjM2Q4OTIzMjU5ODMifQ&v=1795196288974"
     
         local PAW_FILE = "BZHUB_PawLogo.png"
         local pawAsset = nil
