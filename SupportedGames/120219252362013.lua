@@ -3227,5 +3227,5 @@ function GameModule.Register(api)
 
     end)
 end
---123123123123
-return GameModulesw
+
+return GameModule
