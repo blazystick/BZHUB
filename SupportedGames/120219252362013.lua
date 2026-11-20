@@ -3346,8 +3346,7 @@ function GameModule.Register(api)
         sellGradient.Rotation = 0
         sellGradient.Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0.00, Color3.fromRGB(235, 35, 35)),
-            ColorSequenceKeypoint.new(0.50, Color3.fromRGB(65, 0, 0)),
-            ColorSequenceKeypoint.new(1.00, Color3.fromRGB(235, 35, 35))
+            ColorSequenceKeypoint.new(1.00, Color3.fromRGB(65, 0, 0))
         })
         sellGradient.Parent = sellAllButton
 
