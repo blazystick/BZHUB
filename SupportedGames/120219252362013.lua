@@ -3318,6 +3318,7 @@ function GameModule.Register(api)
         end)
     end)
     
+    
     api.AddCategory("Upgrades", "UPGRADES", function(page)
     
         --==================================================
@@ -3340,18 +3341,13 @@ function GameModule.Register(api)
         --==================================================
     
         local Players = game:GetService("Players")
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
     
         local player = Players.LocalPlayer
         local controllers = player:WaitForChild("PlayerScripts")
             :WaitForChild("Client")
             :WaitForChild("Controllers")
     
-        local DataController = require(controllers:WaitForChild("DataController"))
-        local EventSellConfirm = require(controllers:WaitForChild("EventSellConfirm"))
-        local Remotes = require(
-            ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes")
-        )
+        local SellShop = require(controllers:WaitForChild("SellShop"))
     
         local sellBusy = false
     
@@ -3506,7 +3502,7 @@ function GameModule.Register(api)
         end)
     
         --==================================================
-        -- SELL ALL FUNCTION
+        -- OPEN GAME SELL SHOP
         --==================================================
     
         sellButton.MouseButton1Click:Connect(function()
@@ -3516,75 +3512,34 @@ function GameModule.Register(api)
             end
     
             sellBusy = true
-            sellButton.Text = "..."
+            sellButton.Text = "OPENING..."
             sellButton.BackgroundColor3 = Color3.fromRGB(65, 70, 85)
     
             task.spawn(function()
     
                 local success, err = pcall(function()
     
-                    local animals = DataController:Get("Animals") or {}
-                    local eligibleAnimals = {}
-    
-                    for id, entry in pairs(animals) do
-    
-                        if not entry.Placed and not entry.Bought then
-    
-                            table.insert(eligibleAnimals, {
-                                Id = id,
-                                Entry = entry
-                            })
-    
-                        end
-    
+                    if not SellShop.IsOpen() then
+                        SellShop.Open()
                     end
-    
-                    if #eligibleAnimals == 0 then
-                        sellButton.Text = "NO ANIMALS"
-                        task.wait(1.5)
-                        return
-                    end
-    
-                    local choice = EventSellConfirm.AskAsync(
-                        eligibleAnimals,
-                        {
-                            IsBatch = true
-                        }
-                    )
-    
-                    if choice == "Keep" then
-                        return
-                    end
-    
-                    if choice == "SellOthers" then
-                        Remotes.Invoke("Plot_SellAll", {
-                            KeepEventOnly = true
-                        })
-                    else
-                        Remotes.Invoke("Plot_SellAll")
-                    end
-    
-                    sellButton.Text = "DONE"
-                    task.wait(1.5)
     
                 end)
     
                 if not success then
-                    warn("[BZHUB] Sell All Error:", err)
+                    warn("[BZHUB] SellShop Error:", err)
                     sellButton.Text = "FAILED"
-                    task.wait(1.5)
+                else
+                    sellButton.Text = "OPENED"
                 end
+    
+                task.wait(1.2)
     
                 sellBusy = false
                 sellButton.Text = "SELL"
                 sellButton.BackgroundColor3 = RED_DARK
-    
             end)
-    
         end)
-    
     end)
-
 end
 
 return GameModule
