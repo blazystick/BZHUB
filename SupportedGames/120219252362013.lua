@@ -1,6 +1,7 @@
+
 --==================================================
--- BZHUB AUTOMATIONS
--- PART 1 / 4
+-- BZHUB TOOLS
+-- THROW FOOD FOR ANIMALS
 --==================================================
 
 local GameModule = {}
@@ -1137,6 +1138,7 @@ function GameModule.Register(api)
         --==================================================
         -- END OF AUTOMATIONS
         --==================================================
+    end)
     api.AddCategory("Upgrades", "UPGRADES", function(page)
     
         --==================================================
