@@ -3324,7 +3324,7 @@ function GameModule.Register(api)
     
 
     
-    api.AddCategory("Upgrades", "UPGRADES", function(page)
+        api.AddCategory("Upgrades", "UPGRADES", function(page)
     
         --==================================================
         -- COLORS
@@ -3353,6 +3353,8 @@ function GameModule.Register(api)
         local player = Players.LocalPlayer
         local sellBusy = false
     
+        local CHECK_DELAY = 0.05
+    
         --==================================================
         -- GUI REFERENCES
         --==================================================
@@ -3360,26 +3362,16 @@ function GameModule.Register(api)
         local function getSellObjects()
     
             local playerGui = player:FindFirstChild("PlayerGui")
-            if not playerGui then
-                return nil
-            end
+            if not playerGui then return nil end
     
             local sellGui = playerGui:FindFirstChild("SellShop")
-            if not sellGui then
-                return nil
-            end
+            if not sellGui then return nil end
     
             local panel = sellGui:FindFirstChild("SellPanel")
-            if not panel then
-                return nil
-            end
-    
-            local body = panel:FindFirstChild("Body")
+            local body = panel and panel:FindFirstChild("Body")
             local content = body and body:FindFirstChild("Content")
     
-            if not content then
-                return nil
-            end
+            if not content then return nil end
     
             local summary = content:FindFirstChild("Summary")
             local sellAll = summary and summary:FindFirstChild("SellAll")
@@ -3399,12 +3391,8 @@ function GameModule.Register(api)
         local function getEventSellButton()
     
             local playerGui = player:FindFirstChild("PlayerGui")
-            local eventGui = playerGui
-                and playerGui:FindFirstChild("EventSellConfirm")
-    
-            local eventPanel = eventGui
-                and eventGui:FindFirstChild("EventSellPanel")
-    
+            local eventGui = playerGui and playerGui:FindFirstChild("EventSellConfirm")
+            local eventPanel = eventGui and eventGui:FindFirstChild("EventSellPanel")
             local body = eventPanel and eventPanel:FindFirstChild("Body")
             local content = body and body:FindFirstChild("Content")
     
@@ -3413,9 +3401,7 @@ function GameModule.Register(api)
     
         local function isVisible(object)
     
-            if not object then
-                return false
-            end
+            if not object then return false end
     
             local current = object
     
@@ -3447,7 +3433,7 @@ function GameModule.Register(api)
                     return result
                 end
     
-                task.wait(0.1)
+                task.wait(CHECK_DELAY)
     
             until os.clock() - started >= timeout
     
@@ -3464,7 +3450,7 @@ function GameModule.Register(api)
         end
     
         --==================================================
-        -- MOUSE CLICK
+        -- FAST MOUSE CLICK
         --==================================================
     
         local function clickButton(button)
@@ -3473,7 +3459,7 @@ function GameModule.Register(api)
                 return false
             end
     
-            if not isVisible(button) then
+            if not isVisible(button) or not button.Active then
                 return false
             end
     
@@ -3485,19 +3471,19 @@ function GameModule.Register(api)
             local y = math.floor(position.Y + size.Y / 2 + inset.Y)
     
             VirtualInputManager:SendMouseMoveEvent(x, y, game)
-            task.wait(0.2)
+            task.wait(0.03)
     
             VirtualInputManager:SendMouseButtonEvent(
                 x, y, 0, true, game, 0
             )
     
-            task.wait(0.12)
+            task.wait(0.03)
     
             VirtualInputManager:SendMouseButtonEvent(
                 x, y, 0, false, game, 0
             )
     
-            task.wait(0.35)
+            task.wait(0.04)
     
             return true
         end
@@ -3554,7 +3540,7 @@ function GameModule.Register(api)
                 return false, oldCFrame
             end
     
-            task.wait(1.5)
+            task.wait(0.25)
     
             return true, oldCFrame
         end
@@ -3565,22 +3551,18 @@ function GameModule.Register(api)
     
         local function teleportBack(oldCFrame)
     
-            if not oldCFrame then
-                return false
-            end
+            if not oldCFrame then return false end
     
             local character = player.Character
             local root = character and character:FindFirstChild("HumanoidRootPart")
     
-            if not root then
-                return false
-            end
+            if not root then return false end
     
             local success = pcall(function()
                 root.CFrame = oldCFrame
             end)
     
-            task.wait(1)
+            task.wait(0.2)
     
             return success
         end
@@ -3638,7 +3620,7 @@ function GameModule.Register(api)
                                 error("Character died")
                             end
     
-                            task.wait(0.1)
+                            task.wait(CHECK_DELAY)
                         end
     
                         if (root.Position - waypoint.Position).Magnitude >= 4 then
@@ -3648,12 +3630,11 @@ function GameModule.Register(api)
                     end
     
                     if reached then
-                        task.wait(1)
                         return true
                     end
                 end
     
-                task.wait(0.5)
+                task.wait(0.1)
             end
     
             return false
@@ -3671,7 +3652,7 @@ function GameModule.Register(api)
                 error("Could not walk to SellPlace")
             end
     
-            task.wait(1.5)
+            task.wait(0.2)
         end
     
         --==================================================
@@ -3706,7 +3687,7 @@ function GameModule.Register(api)
                     clickButton(current.SellAll)
                 end
     
-                task.wait(0.4)
+                task.wait(CHECK_DELAY)
     
             until os.clock() - sellStarted >= 15
     
@@ -3715,8 +3696,7 @@ function GameModule.Register(api)
             end
     
             --==================================================
-            -- FIRST CONFIRMATION: YES
-            -- EVENT OVERLAY AWARE
+            -- FIRST CONFIRMATION
             --==================================================
     
             local firstYes = waitUntil(function()
@@ -3741,15 +3721,11 @@ function GameModule.Register(api)
                 local current = getSellObjects()
                 local eventSell = getEventSellButton()
     
-                -- Event confirmation appeared.
-                -- First Yes has already been accepted.
                 if eventSell and isVisible(eventSell) then
                     firstConfirmed = true
                     break
                 end
     
-                -- No event confirmation:
-                -- first confirmation disappeared.
                 if not current or not current.Yes or not isVisible(current.Yes) then
                     firstConfirmed = true
                     break
@@ -3759,15 +3735,13 @@ function GameModule.Register(api)
                     clickButton(current.Yes)
                 end
     
-                task.wait(0.4)
+                task.wait(CHECK_DELAY)
     
             until os.clock() - firstStarted >= 15
     
             if not firstConfirmed then
                 error("First confirmation was not accepted")
             end
-    
-            task.wait(0.5)
     
             --==================================================
             -- OPTIONAL EVENT CONFIRMATION
@@ -3784,8 +3758,6 @@ function GameModule.Register(api)
             end, 10)
     
             if eventSellButton then
-    
-                -- Wait until the button becomes active.
     
                 local buttonReady = waitUntil(function()
     
@@ -3815,8 +3787,6 @@ function GameModule.Register(api)
                     error("Event Sell button did not become active")
                 end
     
-                -- Retry until the event confirmation closes.
-    
                 local confirmed = false
                 local started = os.clock()
     
@@ -3831,7 +3801,7 @@ function GameModule.Register(api)
                         clickButton(eventSellButton)
                     end
     
-                    task.wait(0.4)
+                    task.wait(CHECK_DELAY)
     
                 until os.clock() - started >= 15
     
@@ -3844,7 +3814,7 @@ function GameModule.Register(api)
                 end
             end
     
-            task.wait(1.5)
+            task.wait(0.2)
         end
     
         --==================================================
@@ -3854,23 +3824,24 @@ function GameModule.Register(api)
         local function runSellAutomation()
     
             local character, humanoid, root = getCharacter()
-    
             local originalCFrame = root.CFrame
     
-            -- If GUI is already open, do not move.
+            -- GUI already open: sell immediately.
     
             if isSellGuiOpen() then
                 performSale()
                 return
             end
     
-            -- First try teleporting to SellPlace.
+            -- First try teleporting.
     
             local teleportSuccess = false
     
             local success, savedCFrame = pcall(function()
+    
                 local result, oldCFrame = teleportToSellPlace()
                 teleportSuccess = result
+    
                 return oldCFrame
             end)
     
@@ -3885,17 +3856,15 @@ function GameModule.Register(api)
                 if opened then
     
                     performSale()
-    
                     teleportBack(originalCFrame)
+    
                     return
                 end
-    
-                -- GUI did not open: return and try walking.
     
                 teleportBack(originalCFrame)
             end
     
-            -- Fallback: walk normally to SellPlace.
+            -- Fallback: walk normally.
     
             walkToSellPlace()
     
@@ -3911,8 +3880,6 @@ function GameModule.Register(api)
     
                 error("Sell GUI did not open")
             end
-    
-            -- GUI opened: sell and walk back.
     
             performSale()
     
@@ -4060,12 +4027,14 @@ function GameModule.Register(api)
         --==================================================
     
         sellButton.MouseEnter:Connect(function()
+    
             if not sellBusy then
                 sellButton.BackgroundColor3 = RED
             end
         end)
     
         sellButton.MouseLeave:Connect(function()
+    
             if not sellBusy then
                 sellButton.BackgroundColor3 = RED_DARK
             end
@@ -4096,7 +4065,7 @@ function GameModule.Register(api)
                     sellButton.Text = "FAILED"
                 end
     
-                task.wait(1.5)
+                task.wait(1)
     
                 sellBusy = false
                 sellButton.Text = "SELL"
