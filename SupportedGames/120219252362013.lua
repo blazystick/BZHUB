@@ -3322,6 +3322,7 @@ function GameModule.Register(api)
     
     
     
+
     api.AddCategory("Upgrades", "UPGRADES", function(page)
     
         --==================================================
@@ -3368,7 +3369,11 @@ function GameModule.Register(api)
             end
     
             local panel = sellGui:FindFirstChild("SellPanel")
-            local body = panel and panel:FindFirstChild("Body")
+            if not panel then
+                return nil
+            end
+    
+            local body = panel:FindFirstChild("Body")
             local content = body and body:FindFirstChild("Content")
     
             if not content then
@@ -3384,32 +3389,11 @@ function GameModule.Register(api)
     
             return {
                 Gui = sellGui,
-                Panel = panel,
-                Content = content,
                 SellAll = sellAll,
-                Confirm = confirm,
-                Yes = yes
+                Yes = yes,
+                Confirm = confirm
             }
         end
-    
-        local function getEventSellButton()
-    
-            local playerGui = player:FindFirstChild("PlayerGui")
-            local eventGui = playerGui
-                and playerGui:FindFirstChild("EventSellConfirm")
-    
-            local eventPanel = eventGui
-                and eventGui:FindFirstChild("EventSellPanel")
-    
-            local body = eventPanel and eventPanel:FindFirstChild("Body")
-            local content = body and body:FindFirstChild("Content")
-    
-            return content and content:FindFirstChild("Sell")
-        end
-    
-        --==================================================
-        -- VISIBILITY
-        --==================================================
     
         local function isVisible(object)
     
@@ -3464,104 +3448,42 @@ function GameModule.Register(api)
         end
     
         --==================================================
-        -- CHECK TOPMOST GUI
+        -- MOUSE CLICK
         --==================================================
     
-        local function isButtonOnTop(button, x, y)
-    
-            local playerGui = player:FindFirstChild("PlayerGui")
-    
-            if not playerGui then
-                return false
-            end
-    
-            local guiObjects = playerGui:GetGuiObjectsAtPosition(x, y)
-    
-            if not guiObjects or #guiObjects == 0 then
-                return false
-            end
-    
-            local topObject = guiObjects[1]
-            local current = topObject
-    
-            while current and current ~= playerGui do
-    
-                if current == button then
-                    return true
-                end
-    
-                current = current.Parent
-            end
-    
-            return false
-        end
-    
-        --==================================================
-        -- SAFE MOUSE CLICK
-        --==================================================
-    
-        
         local function clickButton(button)
-        
+    
             if not button or not button:IsA("GuiButton") then
                 return false
             end
-        
+    
             if not isVisible(button) then
                 return false
             end
-        
+    
             local position = button.AbsolutePosition
             local size = button.AbsoluteSize
             local inset = GuiService:GetGuiInset()
-        
+    
             local x = math.floor(position.X + size.X / 2 + inset.X)
             local y = math.floor(position.Y + size.Y / 2 + inset.Y)
-        
+    
             VirtualInputManager:SendMouseMoveEvent(x, y, game)
             task.wait(0.2)
-        
+    
             VirtualInputManager:SendMouseButtonEvent(
                 x, y, 0, true, game, 0
             )
-        
+    
             task.wait(0.12)
-        
+    
             VirtualInputManager:SendMouseButtonEvent(
                 x, y, 0, false, game, 0
             )
-        
+    
             task.wait(0.35)
-        
+    
             return true
-        end
-
-    
-        --==================================================
-        -- CLICK RETRY
-        --==================================================
-    
-        local function clickUntil(buttonGetter, successCheck, timeout)
-    
-            local started = os.clock()
-    
-            repeat
-    
-                if successCheck() then
-                    return true
-                end
-    
-                local success, button = pcall(buttonGetter)
-    
-                if success and button and isVisible(button) then
-                    clickButton(button)
-                end
-    
-                task.wait(0.3)
-    
-            until os.clock() - started >= timeout
-    
-            return successCheck()
         end
     
         --==================================================
@@ -3609,10 +3531,7 @@ function GameModule.Register(api)
             local oldCFrame = root.CFrame
     
             local success = pcall(function()
-    
-                local rotation = oldCFrame - oldCFrame.Position
-                root.CFrame = CFrame.new(targetPosition) * rotation
-    
+                root.CFrame = CFrame.new(targetPosition) * (oldCFrame - oldCFrame.Position)
             end)
     
             if not success then
@@ -3740,135 +3659,6 @@ function GameModule.Register(api)
         end
     
         --==================================================
-        -- FIRST CONFIRMATION
-        --==================================================
-    
-        local function confirmFirstSale()
-    
-            local confirmed = clickUntil(
-    
-                function()
-                    local objects = getSellObjects()
-                    return objects and objects.Yes
-                end,
-    
-                function()
-    
-                    local objects = getSellObjects()
-    
-                    if not objects then
-                        return true
-                    end
-    
-                    if objects.Yes and isVisible(objects.Yes) then
-                        return false
-                    end
-    
-                    local eventButton = getEventSellButton()
-    
-                    if eventButton and isVisible(eventButton) then
-                        return true
-                    end
-    
-                    return objects.Confirm
-                        and not isVisible(objects.Confirm)
-                end,
-    
-                15
-            )
-    
-            if not confirmed then
-                error("First confirmation failed")
-            end
-    
-            return true
-        end
-    
-        --==================================================
-        -- EVENT CONFIRMATION
-        --==================================================
-    
-        local function confirmEventSale()
-    
-            -- Wait for the optional event confirmation.
-            local eventButton = waitUntil(function()
-    
-                local button = getEventSellButton()
-    
-                if button and isVisible(button) then
-                    return button
-                end
-    
-            end, 5)
-    
-            -- No event confirmation means there is nothing else to confirm.
-            if not eventButton then
-                return true
-            end
-    
-            -- The button may appear before it becomes active.
-            -- Give the game time to finish its initial animation/setup.
-            task.wait(1.2)
-    
-            local ready = waitUntil(function()
-    
-                local button = getEventSellButton()
-    
-                if not button or not isVisible(button) then
-                    return nil
-                end
-    
-                if not button.Active then
-                    return nil
-                end
-    
-                local interactable = true
-    
-                pcall(function()
-                    interactable = button.Interactable
-                end)
-    
-                if not interactable then
-                    return nil
-                end
-    
-                return button
-    
-            end, 15)
-    
-            if not ready then
-                error("Event Sell button did not become active")
-            end
-    
-            -- Keep trying while the confirmation is still open.
-            local started = os.clock()
-    
-            repeat
-    
-                local button = getEventSellButton()
-    
-                if not button or not isVisible(button) then
-                    return true
-                end
-    
-                if button.Active then
-                    clickButton(button)
-                end
-    
-                task.wait(0.4)
-    
-            until os.clock() - started >= 15
-    
-            local finalButton = getEventSellButton()
-    
-            if not finalButton or not isVisible(finalButton) then
-                return true
-            end
-    
-            error("Event Sell confirmation did not close")
-        end
-    
-        --==================================================
         -- SELL ALL
         --==================================================
     
@@ -3880,36 +3670,161 @@ function GameModule.Register(api)
                 error("Sell All button not found")
             end
     
-            -- Click Sell All until the first confirmation appears.
+            --==================================================
+            -- SELL ALL BUTTON
+            --==================================================
     
-            local sellClicked = clickUntil(
+            local sellClicked = false
+            local sellStarted = os.clock()
     
-                function()
-                    local current = getSellObjects()
-                    return current and current.SellAll
-                end,
+            repeat
     
-                function()
+                local current = getSellObjects()
     
-                    local current = getSellObjects()
+                if current and current.Yes and isVisible(current.Yes) then
+                    sellClicked = true
+                    break
+                end
     
-                    return current
-                        and current.Yes
-                        and isVisible(current.Yes)
-                end,
+                if current and current.SellAll and isVisible(current.SellAll) then
+                    clickButton(current.SellAll)
+                end
     
-                15
-            )
+                task.wait(0.4)
+    
+            until os.clock() - sellStarted >= 15
     
             if not sellClicked then
                 error("Sell All confirmation did not appear")
             end
     
-            -- First Yes confirmation.
-            confirmFirstSale()
+            --==================================================
+            -- FIRST CONFIRMATION: YES
+            --==================================================
     
-            -- Optional event confirmation.
-            confirmEventSale()
+            local firstYes = waitUntil(function()
+    
+                local current = getSellObjects()
+    
+                if current and current.Yes and isVisible(current.Yes) then
+                    return current.Yes
+                end
+    
+            end, 12)
+    
+            if not firstYes then
+                error("First confirmation button did not appear")
+            end
+    
+            local firstConfirmed = false
+            local firstStarted = os.clock()
+    
+            repeat
+    
+                local current = getSellObjects()
+    
+                if not current or not current.Yes or not isVisible(current.Yes) then
+                    firstConfirmed = true
+                    break
+                end
+    
+                if current.Yes.Active then
+                    clickButton(current.Yes)
+                end
+    
+                task.wait(0.4)
+    
+            until os.clock() - firstStarted >= 15
+    
+            if not firstConfirmed then
+                error("First confirmation did not close")
+            end
+    
+            task.wait(0.5)
+    
+            --==================================================
+            -- OPTIONAL EVENT CONFIRMATION
+            --==================================================
+    
+            local eventSellButton = waitUntil(function()
+    
+                local playerGui = player:FindFirstChild("PlayerGui")
+                local eventGui = playerGui
+                    and playerGui:FindFirstChild("EventSellConfirm")
+    
+                local eventPanel = eventGui
+                    and eventGui:FindFirstChild("EventSellPanel")
+    
+                local body = eventPanel and eventPanel:FindFirstChild("Body")
+                local content = body and body:FindFirstChild("Content")
+                local sell = content and content:FindFirstChild("Sell")
+    
+                if sell and isVisible(sell) then
+                    return sell
+                end
+    
+            end, 10)
+    
+            if eventSellButton then
+    
+                -- Wait until the button becomes active.
+    
+                local buttonReady = waitUntil(function()
+    
+                    if not isVisible(eventSellButton) then
+                        return nil
+                    end
+    
+                    if not eventSellButton.Active then
+                        return nil
+                    end
+    
+                    if eventSellButton:IsA("TextButton")
+                        and eventSellButton.TextTransparency >= 1 then
+                        return nil
+                    end
+    
+                    if eventSellButton:IsA("ImageButton")
+                        and eventSellButton.ImageTransparency >= 1 then
+                        return nil
+                    end
+    
+                    return true
+    
+                end, 15)
+    
+                if not buttonReady then
+                    error("Event Sell button did not become active")
+                end
+    
+                -- Retry until the event confirmation closes.
+    
+                local confirmed = false
+                local started = os.clock()
+    
+                repeat
+    
+                    if not isVisible(eventSellButton) then
+                        confirmed = true
+                        break
+                    end
+    
+                    if eventSellButton.Active then
+                        clickButton(eventSellButton)
+                    end
+    
+                    task.wait(0.4)
+    
+                until os.clock() - started >= 15
+    
+                if not confirmed and not isVisible(eventSellButton) then
+                    confirmed = true
+                end
+    
+                if not confirmed then
+                    error("Event Sell confirmation did not close")
+                end
+            end
     
             task.wait(1.5)
         end
@@ -3921,28 +3836,29 @@ function GameModule.Register(api)
         local function runSellAutomation()
     
             local character, humanoid, root = getCharacter()
+    
             local originalCFrame = root.CFrame
     
-            -- If the GUI is already open, do not move.
+            -- If GUI is already open, do not move.
+    
             if isSellGuiOpen() then
                 performSale()
                 return
             end
     
-            -- First attempt: teleport to SellPlace.
-            local teleportSuccess = false
-            local savedCFrame = originalCFrame
+            -- First try teleporting to SellPlace.
     
-            local success, result, oldCFrame = pcall(function()
-                return teleportToSellPlace()
+            local teleportSuccess = false
+    
+            local success, savedCFrame = pcall(function()
+                local result, oldCFrame = teleportToSellPlace()
+                teleportSuccess = result
+                return oldCFrame
             end)
     
-            if success then
-                teleportSuccess = result
-                savedCFrame = oldCFrame or originalCFrame
-            end
+            if success and teleportSuccess then
     
-            if teleportSuccess then
+                originalCFrame = savedCFrame or originalCFrame
     
                 local opened = waitUntil(function()
                     return isSellGuiOpen()
@@ -3952,19 +3868,17 @@ function GameModule.Register(api)
     
                     performSale()
     
-                    -- Return to the original position.
-                    if not teleportBack(savedCFrame) then
-                        warn("[BZHUB] Could not teleport back")
-                    end
-    
+                    teleportBack(originalCFrame)
                     return
                 end
     
-                -- GUI did not open: return before walking.
-                teleportBack(savedCFrame)
+                -- GUI did not open: return and try walking.
+    
+                teleportBack(originalCFrame)
             end
     
             -- Fallback: walk normally to SellPlace.
+    
             walkToSellPlace()
     
             local openedByWalking = waitUntil(function()
@@ -3973,18 +3887,18 @@ function GameModule.Register(api)
     
             if not openedByWalking then
     
-                -- No GUI: walk back without selling.
-                if not walkToPosition(savedCFrame.Position) then
+                if not walkToPosition(originalCFrame.Position) then
                     error("GUI did not open and return path failed")
                 end
     
                 error("Sell GUI did not open")
             end
     
-            -- Sell and walk back to the original position.
+            -- GUI opened: sell and walk back.
+    
             performSale()
     
-            if not walkToPosition(savedCFrame.Position) then
+            if not walkToPosition(originalCFrame.Position) then
                 error("Sale completed, but return path failed")
             end
         end
