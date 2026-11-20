@@ -1,5 +1,7 @@
-
-
+--==================================================
+-- BZHUB AUTOMATIONS
+-- PART 1 / 4
+--==================================================
 
 local GameModule = {}
 
@@ -15,6 +17,9 @@ function GameModule.Register(api)
         local VirtualInputManager = game:GetService("VirtualInputManager")
         local PathfindingService = game:GetService("PathfindingService")
         local RunService = game:GetService("RunService")
+        local TweenService = game:GetService("TweenService")
+        local LocalizationService = game:GetService("LocalizationService")
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
         local player = Players.LocalPlayer
         local playerGui = player:WaitForChild("PlayerGui")
@@ -36,7 +41,6 @@ function GameModule.Register(api)
 
         local AFTER_CLICK_DELAY = 1
         local INITIAL_STARTER_WAIT = 6
-
         local WAYPOINT_REACH_DISTANCE = 6
         local WAYPOINT_TIMEOUT = 15
         local THROW_WAYPOINT_TIMEOUT = 10
@@ -45,100 +49,149 @@ function GameModule.Register(api)
         local MAX_PATH_RETRIES = 3
 
         local selectedSpeed = 1
+
         local isEnabled = false
         local trainEnabled = false
+        local auto2xEnabled = false
         local autoEquipBestEnabled = false
+
         local autoEquipBestWorkerId = 0
-        local isDragging = false
+        local auto2xWorkerId = 0
         local actionId = 0
         local trainActionId = 0
+        local automationCycleId = 0
+
+        local isDragging = false
         local activeHudMode = "throw"
+        local firstCycle = true
+
+        local automationRunning = false
+        local automationStatus = "IDLE"
+        local successfulThrows = 0
+        local completedResets = 0
+
         local startTrain
         local stopTrain
-
-        -- İlk başlangıçta 6 saniye bekle.
-        -- Sonraki döngülerde ThrowReadyAt beklenecek.
-        local firstCycle = true
+        local startAuto2x
+        local stopAuto2x
+        local startAutoThrow
+        local stopAutoThrow
+        local invokeEquipBest
+        local setAutoThrowEnabled
+        local setAutoTrainEnabled
+        local setAuto2xEnabled
 
         --==================================================
         -- DEBUG
         --==================================================
 
         local function debugLog(message)
-            print("[BZHUB FARM DEBUG] " .. tostring(message))
+            print("[BZHUB AUTOMATIONS] " .. tostring(message))
         end
 
         --==================================================
-        -- AUTO THROW UI
+        -- COLORS
         --==================================================
-
-        local TweenService = game:GetService("TweenService")
-        local LocalizationService = game:GetService("LocalizationService")
 
         local ACCENT = Color3.fromRGB(45, 155, 255)
         local ACCENT_BRIGHT = Color3.fromRGB(85, 190, 255)
+
         local PANEL = Color3.fromRGB(15, 20, 29)
         local CARD = Color3.fromRGB(17, 23, 33)
+
         local TEXT = Color3.fromRGB(225, 233, 245)
         local MUTED = Color3.fromRGB(145, 160, 180)
 
+        local TRAIN_RED = Color3.fromRGB(242, 72, 82)
+        local TRAIN_RED_BRIGHT = Color3.fromRGB(255, 105, 112)
+
+        local EQUIP_GREEN = Color3.fromRGB(65, 205, 125)
+        local EQUIP_GREEN_BRIGHT = Color3.fromRGB(105, 235, 155)
+
+        --==================================================
+        -- TRANSLATIONS
+        --==================================================
+
         local translations = {
             English = {
-                title = "AUTO THROW",
+                title = "AUTOMATIONS",
                 power = "Power Level",
                 info = "i",
-                infoTitle = "AUTO THROW STATUS",
+
+                infoTitle = "AUTOMATIONS STATUS",
                 infoHint = "Live information about the automation.",
-                idle = "Auto Throw is currently disabled.",
+
+                idle = "Automation is currently disabled.",
                 starting = "Starting the automation...",
                 moving = "Moving to the throw area. Please do not interfere.",
-                initialWait = "Waiting 6 seconds at the starting area. Please leave it untouched.",
-                cooldown = "Waiting for the throw cooldown / protection. Do not touch anything; movement will resume when the timer ends.",
-                marker = "Waiting for the selected power level in the throw meter.",
-                throwing = "Power reached. Sending the throw input...",
-                resetting = "Throw completed. Resetting the character...",
+                initialWait = "Waiting at the starting area.",
+                cooldown = "Waiting for the throw cooldown.",
+                marker = "Waiting for the selected power level.",
+                throwing = "Sending the throw input...",
+                resetting = "Resetting the character...",
                 stopped = "Auto Throw has been stopped.",
-                error = "An error occurred: ",
+
+                trainMoving = "Moving to TrainingSpot...",
+                training = "Training is active.",
+                trainStopping = "Leaving the training area...",
+                trainStopped = "Auto Train stopped.",
+
                 enabled = "ENABLED",
                 disabled = "DISABLED",
                 close = "CLOSE"
             },
+
             Turkish = {
-                title = "AUTO THROW",
+                title = "AUTOMATIONS",
                 power = "Güç Seviyesi",
                 info = "i",
-                infoTitle = "AUTO THROW DURUMU",
+
+                infoTitle = "AUTOMATIONS DURUMU",
                 infoHint = "Otomasyonun anlık durumu.",
-                idle = "Auto Throw şu anda kapalı.",
+
+                idle = "Otomasyon şu anda kapalı.",
                 starting = "Otomasyon başlatılıyor...",
-                moving = "Atış alanına yürünüyor. Lütfen müdahale etmeyin.",
-                initialWait = "Başlangıç alanında 6 saniye bekleniyor. Lütfen dokunmayın.",
-                cooldown = "Atış bekleme süresi / koruma bitene kadar bekleniyor. Hiçbir şeye dokunmayın; süre bitince hareket başlayacak.",
-                marker = "Atış göstergesinde seçilen güç seviyesi bekleniyor.",
-                throwing = "Seçilen güç yakalandı. Atış girdisi gönderiliyor...",
-                resetting = "Atış tamamlandı. Karakter sıfırlanıyor...",
+                moving = "Atış alanına gidiliyor.",
+                initialWait = "Başlangıç alanında bekleniyor.",
+                cooldown = "Atış bekleme süresi bekleniyor.",
+                marker = "Seçilen güç seviyesi bekleniyor.",
+                throwing = "Atış gerçekleştiriliyor...",
+                resetting = "Karakter sıfırlanıyor...",
                 stopped = "Auto Throw durduruldu.",
-                error = "Bir hata oluştu: ",
+
+                trainMoving = "TrainingSpot konumuna gidiliyor...",
+                training = "Antrenman aktif.",
+                trainStopping = "Antrenmandan çıkılıyor...",
+                trainStopped = "Auto Train durduruldu.",
+
                 enabled = "AÇIK",
                 disabled = "KAPALI",
                 close = "KAPAT"
             },
+
             Russian = {
-                title = "АВТО БРОСОК",
+                title = "АВТОМАТИЗАЦИЯ",
                 power = "Уровень силы",
                 info = "i",
-                infoTitle = "СТАТУС АВТОБРОСКА",
+
+                infoTitle = "СТАТУС АВТОМАТИЗАЦИИ",
                 infoHint = "Текущий статус автоматизации.",
-                idle = "Автобросок сейчас выключен.",
+
+                idle = "Автоматизация выключена.",
                 starting = "Запуск автоматизации...",
-                moving = "Персонаж идет к зоне броска. Пожалуйста, не вмешивайтесь.",
-                initialWait = "Ожидание 6 секунд в стартовой зоне. Пожалуйста, не трогайте ничего.",
-                cooldown = "Ожидание перезарядки / защиты броска. Ничего не трогайте; движение начнется после окончания таймера.",
-                marker = "Ожидание выбранного уровня силы на индикаторе броска.",
-                throwing = "Нужная сила достигнута. Отправка команды броска...",
-                resetting = "Бросок завершен. Персонаж перезапускается...",
+                moving = "Персонаж идет к зоне броска.",
+                initialWait = "Ожидание в стартовой зоне.",
+                cooldown = "Ожидание перезарядки.",
+                marker = "Ожидание выбранного уровня силы.",
+                throwing = "Выполнение броска...",
+                resetting = "Перезапуск персонажа...",
                 stopped = "Автобросок остановлен.",
-                error = "Произошла ошибка: ",
+
+                trainMoving = "Перемещение к TrainingSpot...",
+                training = "Тренировка активна.",
+                trainStopping = "Выход из тренировки...",
+                trainStopped = "Автотренировка остановлена.",
+
                 enabled = "ВКЛ",
                 disabled = "ВЫКЛ",
                 close = "ЗАКРЫТЬ"
@@ -154,6 +207,10 @@ function GameModule.Register(api)
             return language[key] or translations.English[key] or key
         end
 
+        --==================================================
+        -- TWEEN HELPER
+        --==================================================
+
         local function makeTween(object, duration, properties, style, direction)
             local tween = TweenService:Create(
                 object,
@@ -164,13 +221,19 @@ function GameModule.Register(api)
                 ),
                 properties
             )
+
             tween:Play()
             return tween
         end
 
+        --==================================================
+        -- STATUS VARIABLES
+        --==================================================
+
         local statusText
         local currentStatus = "idle"
         local currentStatusDetail = ""
+
         local hudGui
         local hudFill
         local hudStateText
@@ -178,8 +241,14 @@ function GameModule.Register(api)
         local hudProgressTween
         local hudVisible = false
 
+        --==================================================
+        -- HUD PROGRESS
+        --==================================================
+
         local function setHudProgress(progress)
-            if not hudFill or not hudFill.Parent then return end
+            if not hudFill or not hudFill.Parent then
+                return
+            end
 
             if hudProgressTween then
                 hudProgressTween:Cancel()
@@ -187,60 +256,56 @@ function GameModule.Register(api)
             end
 
             if type(progress) == "number" then
-                hudFill.Size = UDim2.new(math.clamp(progress, 0, 1), 0, 1, 0)
-            else
-                hudFill.Size = UDim2.new(0.18, 0, 1, 0)
-                hudProgressTween = TweenService:Create(
-                    hudFill,
-                    TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-                    {Size = UDim2.new(0.88, 0, 1, 0)}
+                hudFill.Size = UDim2.new(
+                    math.clamp(progress, 0, 1),
+                    0,
+                    1,
+                    0
                 )
-                hudProgressTween:Play()
+            else
+                hudFill.Size = UDim2.new(0, 0, 1, 0)
             end
         end
 
         local function updateHud(key, detail, progress)
-            if not hudGui then return end
+            if not hudGui then
+                return
+            end
+
             if hudStateText then
-                local mode = (activeHudMode == "train") and "AUTO TRAIN" or "AUTO THROW"
-                local enabled = (activeHudMode == "train") and trainEnabled or isEnabled
-                hudStateText.Text = mode .. "   /   " .. (enabled and "ON" or "OFF")
+                local mode = activeHudMode == "train"
+                    and "AUTO TRAIN"
+                    or "AUTO THROW"
+
+                local enabled = activeHudMode == "train"
+                    and trainEnabled
+                    or isEnabled
+
+                hudStateText.Text = mode .. "   /   " ..
+                    (enabled and "ON" or "OFF")
             end
+
             if hudInfoText then
-                local message
-                if key == "cooldown" then
-                    message = detail ~= "" and ("Protection cooldown: " .. detail) or "Waiting for protection cooldown..."
-                elseif key == "initialWait" then
-                    message = detail ~= "" and ("Starting wait: " .. detail) or "Waiting at starting position..."
-                elseif key == "moving" then
-                    message = "Walking to position..."
-                elseif key == "marker" then
-                    message = "Waiting for throw power..."
-                elseif key == "throwing" then
-                    message = "Throwing..."
-                elseif key == "resetting" then
-                    message = "Respawning character..."
-                elseif key == "starting" then
-                    message = "Starting Auto Throw..."
-                elseif key == "trainMoving" then
-                    message = "Walking to TrainingSpot..."
-                elseif key == "training" then
-                    message = "Training is active."
-                elseif key == "trainStopping" then
-                    message = "Leaving the training area..."
-                elseif key == "trainStopped" then
-                    message = "Auto Train stopped."
-                elseif key == "trainError" then
-                    message = "Auto Train error: " .. tostring(detail or "")
-                elseif key == "stopped" then
-                    message = "Auto Throw stopped."
-                elseif key == "error" then
-                    message = "Error: " .. tostring(detail or "")
-                else
-                    message = tr(key)
-                end
-                hudInfoText.Text = message
+                local messages = {
+                    cooldown = "Waiting for protection cooldown...",
+                    initialWait = "Waiting at starting position...",
+                    moving = "Walking to position...",
+                    marker = "Waiting for throw power...",
+                    throwing = "Throwing...",
+                    resetting = "Respawning character...",
+                    starting = "Starting Auto Throw...",
+                    trainMoving = "Walking to TrainingSpot...",
+                    training = "Training is active.",
+                    trainStopping = "Leaving the training area...",
+                    trainStopped = "Auto Train stopped.",
+                    stopped = "Auto Throw stopped."
+                }
+
+                hudInfoText.Text = messages[key]
+                    or (detail and tostring(detail))
+                    or tr(key)
             end
+
             if isEnabled or trainEnabled then
                 hudGui.Enabled = true
                 hudVisible = true
@@ -248,6 +313,7 @@ function GameModule.Register(api)
             else
                 hudGui.Enabled = false
                 hudVisible = false
+
                 if hudProgressTween then
                     hudProgressTween:Cancel()
                     hudProgressTween = nil
@@ -260,19 +326,23 @@ function GameModule.Register(api)
             currentStatusDetail = detail or ""
 
             if statusText and statusText.Parent then
-                local message = tr(key)
+                statusText.Text = tr(key)
+
                 if key == "error" and currentStatusDetail ~= "" then
-                    message = message .. currentStatusDetail
+                    statusText.Text ..= currentStatusDetail
                 end
-                statusText.Text = message
             end
 
             updateHud(key, currentStatusDetail, progress)
         end
 
+        --==================================================
+        -- MAIN TITLE
+        --==================================================
+
         local title = Instance.new("TextLabel")
-        title.Name = "AutoThrowTitle"
-        title.Size = UDim2.new(1, -20, 0, 30)
+        title.Name = "AutomationsTitle"
+        title.Size = UDim2.new(1, -125, 0, 30)
         title.Position = UDim2.fromOffset(10, 10)
         title.BackgroundTransparency = 1
         title.Text = tr("title")
@@ -282,7 +352,72 @@ function GameModule.Register(api)
         title.Font = Enum.Font.GothamBold
         title.Parent = page
 
-        -- Main combined card: toggle + power slider.
+        --==================================================
+        -- MAIN AUTOMATION START / STOP BUTTON
+        --==================================================
+
+        local automationButton = Instance.new("TextButton")
+        automationButton.Name = "AutomationStartButton"
+        automationButton.AnchorPoint = Vector2.new(1, 0)
+        automationButton.Position = UDim2.new(1, -10, 0, 10)
+        automationButton.Size = UDim2.fromOffset(92, 29)
+        automationButton.BackgroundColor3 = Color3.fromRGB(238, 242, 248)
+        automationButton.BorderSizePixel = 0
+        automationButton.Text = "START"
+        automationButton.TextColor3 = Color3.fromRGB(15, 20, 29)
+        automationButton.TextSize = 11
+        automationButton.Font = Enum.Font.GothamBold
+        automationButton.AutoButtonColor = false
+        automationButton.Parent = page
+
+        local automationButtonCorner = Instance.new("UICorner")
+        automationButtonCorner.CornerRadius = UDim.new(0, 8)
+        automationButtonCorner.Parent = automationButton
+
+        local automationButtonStroke = Instance.new("UIStroke")
+        automationButtonStroke.Color = Color3.fromRGB(255, 255, 255)
+        automationButtonStroke.Transparency = 0.25
+        automationButtonStroke.Thickness = 1
+        automationButtonStroke.Parent = automationButton
+
+        local automationButtonScale = Instance.new("UIScale")
+        automationButtonScale.Scale = 1
+        automationButtonScale.Parent = automationButton
+
+        automationButton.MouseEnter:Connect(function()
+            makeTween(automationButtonScale, 0.14, {
+                Scale = 1.07
+            })
+        end)
+
+        automationButton.MouseLeave:Connect(function()
+            makeTween(automationButtonScale, 0.14, {
+                Scale = 1
+            })
+        end)
+
+        local function updateAutomationButton()
+            if automationRunning then
+                automationButton.Text = "STOP"
+                automationButton.BackgroundColor3 =
+                    Color3.fromRGB(235, 75, 85)
+
+                automationButton.TextColor3 =
+                    Color3.fromRGB(255, 255, 255)
+            else
+                automationButton.Text = "START"
+                automationButton.BackgroundColor3 =
+                    Color3.fromRGB(238, 242, 248)
+
+                automationButton.TextColor3 =
+                    Color3.fromRGB(15, 20, 29)
+            end
+        end
+
+        --==================================================
+        -- MAIN COMBINED CARD
+        --==================================================
+
         local mainCard = Instance.new("Frame")
         mainCard.Name = "AutoThrowCard"
         mainCard.Position = UDim2.fromOffset(10, 55)
@@ -303,9 +438,17 @@ function GameModule.Register(api)
 
         local cardGradient = Instance.new("UIGradient")
         cardGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 31, 47)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 19, 28))
+            ColorSequenceKeypoint.new(
+                0,
+                Color3.fromRGB(20, 31, 47)
+            ),
+
+            ColorSequenceKeypoint.new(
+                1,
+                Color3.fromRGB(14, 19, 28)
+            )
         })
+
         cardGradient.Rotation = 15
         cardGradient.Parent = mainCard
 
@@ -399,7 +542,10 @@ function GameModule.Register(api)
         separator.BorderSizePixel = 0
         separator.Parent = mainCard
 
-        -- Power slider is integrated into the same card.
+        --==================================================
+        -- POWER SLIDER
+        --==================================================
+
         local sliderContainer = Instance.new("CanvasGroup")
         sliderContainer.Name = "ClickSpeedSlider"
         sliderContainer.Position = UDim2.fromOffset(12, 69)
@@ -456,2105 +602,541 @@ function GameModule.Register(api)
         knobCorner.CornerRadius = UDim.new(1, 0)
         knobCorner.Parent = sliderKnob
 
+        -- DEVAM: PART 2
         --==================================================
-        -- AUTO TRAIN CARD (UI CONTROL)
+        -- AUTO TRAIN / AUTO 2X WORKERS
         --==================================================
-
-        local TRAIN_RED = Color3.fromRGB(242, 72, 82)
-        local TRAIN_RED_BRIGHT = Color3.fromRGB(255, 105, 112)
-        local auto2xEnabled = false
-
-        local trainCard = Instance.new("Frame")
-        trainCard.Name = "AutoTrainCard"
-        trainCard.Position = UDim2.fromOffset(10, 198)
-        trainCard.Size = UDim2.new(1, -20, 0, 62)
-        trainCard.BackgroundColor3 = CARD
-        trainCard.BorderSizePixel = 0
-        trainCard.ClipsDescendants = true
-        trainCard.Parent = page
-
-        local trainCardCorner = Instance.new("UICorner")
-        trainCardCorner.CornerRadius = UDim.new(0, 12)
-        trainCardCorner.Parent = trainCard
-
-        local trainCardStroke = Instance.new("UIStroke")
-        trainCardStroke.Color = TRAIN_RED
-        trainCardStroke.Thickness = 1.35
-        trainCardStroke.Transparency = 0.3
-        trainCardStroke.Parent = trainCard
-
-        local trainCardGradient = Instance.new("UIGradient")
-        trainCardGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(42, 23, 31)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(19, 18, 27))
-        })
-        trainCardGradient.Rotation = 15
-        trainCardGradient.Parent = trainCard
-
-        local trainLabel = Instance.new("TextLabel")
-        trainLabel.Name = "AutoTrainLabel"
-        trainLabel.Position = UDim2.fromOffset(14, 7)
-        trainLabel.Size = UDim2.new(1, -115, 0, 38)
-        trainLabel.BackgroundTransparency = 1
-        trainLabel.Text = "Auto Train"
-        trainLabel.TextColor3 = TEXT
-        trainLabel.TextSize = 14
-        trainLabel.Font = Enum.Font.GothamSemibold
-        trainLabel.TextXAlignment = Enum.TextXAlignment.Left
-        trainLabel.Parent = trainCard
-
-        local trainStateLabel = Instance.new("TextLabel")
-        trainStateLabel.Name = "TrainState"
-        trainStateLabel.AnchorPoint = Vector2.new(1, 0)
-        trainStateLabel.Position = UDim2.new(1, -13, 0, 43)
-        trainStateLabel.Size = UDim2.fromOffset(95, 16)
-        trainStateLabel.BackgroundTransparency = 1
-        trainStateLabel.Text = "OFF"
-        trainStateLabel.TextColor3 = MUTED
-        trainStateLabel.TextSize = 9
-        trainStateLabel.Font = Enum.Font.GothamBold
-        trainStateLabel.TextXAlignment = Enum.TextXAlignment.Right
-        trainStateLabel.Parent = trainCard
-
-        local function makeTrainSwitch(name, parent, position, size)
-            local button = Instance.new("TextButton")
-            button.Name = name
-            button.AnchorPoint = Vector2.new(1, 0)
-            button.Position = position
-            button.Size = size
-            button.BackgroundColor3 = Color3.fromRGB(53, 48, 59)
-            button.BorderSizePixel = 0
-            button.Text = ""
-            button.AutoButtonColor = false
-            button.Parent = parent
-
-            local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(1, 0)
-            corner.Parent = button
-
-            local outline = Instance.new("UIStroke")
-            outline.Color = TRAIN_RED
-            outline.Transparency = 0.48
-            outline.Thickness = 1
-            outline.Parent = button
-
-            local knob = Instance.new("Frame")
-            knob.Name = "Knob"
-            knob.Position = UDim2.fromOffset(3, 3)
-            knob.Size = UDim2.fromOffset(23, 23)
-            knob.BackgroundColor3 = Color3.fromRGB(235, 237, 244)
-            knob.BorderSizePixel = 0
-            knob.Parent = button
-
-            local knobCorner = Instance.new("UICorner")
-            knobCorner.CornerRadius = UDim.new(1, 0)
-            knobCorner.Parent = knob
-
-            return button, knob, outline
+        
+        local auto2xWorkerId = 0
+        local auto2xRunning = false
+        local trainWorkerId = 0
+        
+        local function isAutomationRunning()
+            return automationRunning == true
         end
-
-        local trainSwitch, trainKnob, trainSwitchStroke = makeTrainSwitch(
-            "AutoTrainSwitch", trainCard,
-            UDim2.new(1, -12, 0, 10), UDim2.fromOffset(70, 29)
-        )
-
-        local auto2xRow = Instance.new("Frame")
-        auto2xRow.Name = "Auto2xRow"
-        auto2xRow.Position = UDim2.fromOffset(12, 66)
-        auto2xRow.Size = UDim2.new(1, -24, 0, 38)
-        auto2xRow.BackgroundColor3 = Color3.fromRGB(28, 22, 31)
-        auto2xRow.BackgroundTransparency = 0.12
-        auto2xRow.BorderSizePixel = 0
-        auto2xRow.Visible = false
-        auto2xRow.Parent = trainCard
-
-        local auto2xCorner = Instance.new("UICorner")
-        auto2xCorner.CornerRadius = UDim.new(0, 8)
-        auto2xCorner.Parent = auto2xRow
-
-        local auto2xStroke = Instance.new("UIStroke")
-        auto2xStroke.Color = TRAIN_RED
-        auto2xStroke.Thickness = 1
-        auto2xStroke.Transparency = 0.58
-        auto2xStroke.Parent = auto2xRow
-
-        local auto2xLabel = Instance.new("TextLabel")
-        auto2xLabel.Position = UDim2.fromOffset(11, 0)
-        auto2xLabel.Size = UDim2.new(1, -105, 1, 0)
-        auto2xLabel.BackgroundTransparency = 1
-        auto2xLabel.Text = "Auto 2x"
-        auto2xLabel.TextColor3 = TEXT
-        auto2xLabel.TextSize = 11
-        auto2xLabel.Font = Enum.Font.GothamMedium
-        auto2xLabel.TextXAlignment = Enum.TextXAlignment.Left
-        auto2xLabel.Parent = auto2xRow
-
-        local auto2xSwitch, auto2xKnob, auto2xSwitchStroke = makeTrainSwitch(
-            "Auto2xSwitch", auto2xRow,
-            UDim2.new(1, -8, 0.5, -14), UDim2.fromOffset(62, 28)
-        )
-        auto2xKnob.Size = UDim2.fromOffset(22, 22)
-
-        local function setRedSwitch(button, knob, outline, enabled, instant)
-            local targetPosition = enabled
-                and UDim2.new(1, -26, 0, 3)
-                or UDim2.fromOffset(3, 3)
-            local targetColor = enabled
-                and Color3.fromRGB(137, 39, 53)
-                or Color3.fromRGB(53, 48, 59)
-            if instant then
-                knob.Position = targetPosition
-                button.BackgroundColor3 = targetColor
-                outline.Transparency = enabled and 0.08 or 0.48
-            else
-                makeTween(knob, 0.2, {Position = targetPosition})
-                makeTween(button, 0.2, {BackgroundColor3 = targetColor})
-                makeTween(outline, 0.2, {Transparency = enabled and 0.08 or 0.48})
-            end
-        end
-
-        local equipBestCard
-
-        trainSwitch.MouseButton1Click:Connect(function()
-            trainEnabled = not trainEnabled
-            trainStateLabel.Text = trainEnabled and "ON" or "OFF"
-            trainStateLabel.TextColor3 = trainEnabled and TRAIN_RED_BRIGHT or MUTED
-            setRedSwitch(trainSwitch, trainKnob, trainSwitchStroke, trainEnabled, false)
-
-            if trainEnabled then
-                auto2xRow.Visible = true
-                auto2xRow.BackgroundTransparency = 1
-                auto2xRow.Position = UDim2.fromOffset(12, 55)
-                makeTween(trainCard, 0.28, {Size = UDim2.new(1, -20, 0, 116)})
-                makeTween(equipBestCard, 0.28, {Position = UDim2.fromOffset(10, trainCard.Position.Y.Offset + 116 + 10)})
-                makeTween(auto2xRow, 0.28, {
-                    Position = UDim2.fromOffset(12, 66),
-                    BackgroundTransparency = 0.12
-                })
-                makeTween(trainCardStroke, 0.22, {Transparency = 0.08, Thickness = 1.8})
-                if startTrain then startTrain() end
-            else
-                auto2xEnabled = false
-                setRedSwitch(auto2xSwitch, auto2xKnob, auto2xSwitchStroke, false, false)
-                local collapse = makeTween(trainCard, 0.24, {Size = UDim2.new(1, -20, 0, 62)})
-                makeTween(equipBestCard, 0.24, {Position = UDim2.fromOffset(10, trainCard.Position.Y.Offset + 62 + 10)})
-                makeTween(auto2xRow, 0.18, {
-                    Position = UDim2.fromOffset(12, 54),
-                    BackgroundTransparency = 1
-                })
-                makeTween(trainCardStroke, 0.22, {Transparency = 0.3, Thickness = 1.35})
-                collapse.Completed:Connect(function()
-                    if not trainEnabled then
-                        auto2xRow.Visible = false
-                    end
-                end)
-                if stopTrain then stopTrain() end
-            end
-        end)
-
-        auto2xSwitch.MouseButton1Click:Connect(function()
-            if not trainEnabled then return end
-            auto2xEnabled = not auto2xEnabled
-            setRedSwitch(auto2xSwitch, auto2xKnob, auto2xSwitchStroke, auto2xEnabled, false)
-        end)
-
-        --==================================================
-        -- AUTO EQUIP BEST PET CARD
-        --==================================================
-
-        local EQUIP_GREEN = Color3.fromRGB(65, 205, 125)
-        local EQUIP_GREEN_BRIGHT = Color3.fromRGB(105, 235, 155)
-
-        equipBestCard = Instance.new("Frame")
-        equipBestCard.Name = "AutoEquipBestPetCard"
-        equipBestCard.Position = UDim2.fromOffset(10, trainCard.Position.Y.Offset + trainCard.Size.Y.Offset + 10)
-        equipBestCard.Size = UDim2.new(1, -20, 0, 62)
-        equipBestCard.BackgroundColor3 = CARD
-        equipBestCard.BorderSizePixel = 0
-        equipBestCard.Parent = page
-
-        local equipBestCorner = Instance.new("UICorner")
-        equipBestCorner.CornerRadius = UDim.new(0, 12)
-        equipBestCorner.Parent = equipBestCard
-
-        local equipBestStroke = Instance.new("UIStroke")
-        equipBestStroke.Color = EQUIP_GREEN
-        equipBestStroke.Thickness = 1.35
-        equipBestStroke.Transparency = 0.3
-        equipBestStroke.Parent = equipBestCard
-
-        local equipBestGradient = Instance.new("UIGradient")
-        equipBestGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 39, 32)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 24, 22))
-        })
-        equipBestGradient.Rotation = 15
-        equipBestGradient.Parent = equipBestCard
-
-        local equipBestLabel = Instance.new("TextLabel")
-        equipBestLabel.Name = "AutoEquipBestPetLabel"
-        equipBestLabel.Position = UDim2.fromOffset(14, 7)
-        equipBestLabel.Size = UDim2.new(1, -198, 0, 38)
-        equipBestLabel.BackgroundTransparency = 1
-        equipBestLabel.Text = "Auto Equip Best Pet"
-        equipBestLabel.TextColor3 = TEXT
-        equipBestLabel.TextSize = 13
-        equipBestLabel.Font = Enum.Font.GothamSemibold
-        equipBestLabel.TextXAlignment = Enum.TextXAlignment.Left
-        equipBestLabel.Parent = equipBestCard
-
-        local equipBestSwitch = Instance.new("TextButton")
-        equipBestSwitch.Name = "AutoEquipBestPetSwitch"
-        equipBestSwitch.AnchorPoint = Vector2.new(1, 0)
-        equipBestSwitch.Position = UDim2.new(1, -12, 0, 10)
-        equipBestSwitch.Size = UDim2.fromOffset(60, 29)
-        equipBestSwitch.BackgroundColor3 = Color3.fromRGB(48, 58, 55)
-        equipBestSwitch.BorderSizePixel = 0
-        equipBestSwitch.Text = ""
-        equipBestSwitch.AutoButtonColor = false
-        equipBestSwitch.Parent = equipBestCard
-
-        local equipSwitchCorner = Instance.new("UICorner")
-        equipSwitchCorner.CornerRadius = UDim.new(1, 0)
-        equipSwitchCorner.Parent = equipBestSwitch
-
-        local equipSwitchStroke = Instance.new("UIStroke")
-        equipSwitchStroke.Color = EQUIP_GREEN
-        equipSwitchStroke.Transparency = 0.48
-        equipSwitchStroke.Thickness = 1
-        equipSwitchStroke.Parent = equipBestSwitch
-
-        local equipSwitchKnob = Instance.new("Frame")
-        equipSwitchKnob.Name = "Knob"
-        equipSwitchKnob.Position = UDim2.fromOffset(3, 3)
-        equipSwitchKnob.Size = UDim2.fromOffset(23, 23)
-        equipSwitchKnob.BackgroundColor3 = Color3.fromRGB(235, 242, 238)
-        equipSwitchKnob.BorderSizePixel = 0
-        equipSwitchKnob.Parent = equipBestSwitch
-
-        local equipKnobCorner = Instance.new("UICorner")
-        equipKnobCorner.CornerRadius = UDim.new(1, 0)
-        equipKnobCorner.Parent = equipSwitchKnob
-
-        local equipDivider = Instance.new("Frame")
-        equipDivider.Name = "ControlsDivider"
-        equipDivider.AnchorPoint = Vector2.new(1, 0.5)
-        equipDivider.Position = UDim2.new(1, -80, 0.5, 0)
-        equipDivider.Size = UDim2.fromOffset(1, 27)
-        equipDivider.BackgroundColor3 = Color3.fromRGB(150, 170, 160)
-        equipDivider.BackgroundTransparency = 0.62
-        equipDivider.BorderSizePixel = 0
-        equipDivider.Parent = equipBestCard
-
-        local equipOnceButton = Instance.new("TextButton")
-        equipOnceButton.Name = "EquipBestOnceButton"
-        equipOnceButton.AnchorPoint = Vector2.new(1, 0)
-        equipOnceButton.Position = UDim2.new(1, -88, 0, 10)
-        equipOnceButton.Size = UDim2.fromOffset(96, 29)
-        equipOnceButton.BackgroundColor3 = Color3.fromRGB(31, 76, 54)
-        equipOnceButton.BorderSizePixel = 0
-        equipOnceButton.Text = "EQUIP BEST"
-        equipOnceButton.TextColor3 = EQUIP_GREEN_BRIGHT
-        equipOnceButton.TextSize = 10
-        equipOnceButton.Font = Enum.Font.GothamBold
-        equipOnceButton.AutoButtonColor = false
-        equipOnceButton.Parent = equipBestCard
-
-        local equipOnceCorner = Instance.new("UICorner")
-        equipOnceCorner.CornerRadius = UDim.new(0, 8)
-        equipOnceCorner.Parent = equipOnceButton
-
-        local equipOnceStroke = Instance.new("UIStroke")
-        equipOnceStroke.Color = EQUIP_GREEN
-        equipOnceStroke.Transparency = 0.5
-        equipOnceStroke.Thickness = 1
-        equipOnceStroke.Parent = equipOnceButton
-
-        local function setEquipSwitchVisual(enabled, instant)
-            local knobPosition = enabled
-                and UDim2.new(1, -26, 0, 3)
-                or UDim2.fromOffset(3, 3)
-            local switchColor = enabled
-                and Color3.fromRGB(35, 112, 70)
-                or Color3.fromRGB(48, 58, 55)
-            if instant then
-                equipSwitchKnob.Position = knobPosition
-                equipBestSwitch.BackgroundColor3 = switchColor
-                equipSwitchStroke.Transparency = enabled and 0.08 or 0.48
-            else
-                makeTween(equipSwitchKnob, 0.2, {Position = knobPosition})
-                makeTween(equipBestSwitch, 0.2, {BackgroundColor3 = switchColor})
-                makeTween(equipSwitchStroke, 0.2, {Transparency = enabled and 0.08 or 0.48})
-            end
-        end
-
-        local function invokeEquipBest()
-            local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-            local remote = remotes and remotes:FindFirstChild("Plot_EquipBest")
-            if not remote or not remote:IsA("RemoteFunction") then
-                debugLog("Equip Best failed: Plot_EquipBest RemoteFunction was not found.")
-                return false
-            end
-
-            local success, result = pcall(function()
-                return remote:InvokeServer()
-            end)
-
-            if success then
-                debugLog("Equip Best invoked successfully. Result: " .. tostring(result))
-                return true
-            end
-
-            warn("[BZHUB EQUIP BEST ERROR] " .. tostring(result))
-            return false
-        end
-
-        local function startAutoEquipBest()
-            autoEquipBestWorkerId += 1
-            local workerId = autoEquipBestWorkerId
-
-            task.spawn(function()
-                while autoEquipBestEnabled and workerId == autoEquipBestWorkerId do
-                    invokeEquipBest()
-                    for _ = 1, 80 do
-                        if not autoEquipBestEnabled or workerId ~= autoEquipBestWorkerId then
-                            break
-                        end
-                        task.wait(0.1)
-                    end
-                end
-            end)
-        end
-
-        equipBestSwitch.MouseButton1Click:Connect(function()
-            autoEquipBestEnabled = not autoEquipBestEnabled
-            equipOnceButton.Visible = true
-            equipDivider.Visible = true
-            equipOnceButton.Active = not autoEquipBestEnabled
-            equipOnceButton.Selectable = not autoEquipBestEnabled
-            equipOnceButton.Text = autoEquipBestEnabled and "×" or "EQUIP BEST"
-            equipOnceButton.TextSize = autoEquipBestEnabled and 22 or 10
-            equipOnceButton.TextColor3 = autoEquipBestEnabled and Color3.fromRGB(255, 105, 112) or EQUIP_GREEN_BRIGHT
-            equipOnceButton.BackgroundColor3 = autoEquipBestEnabled and Color3.fromRGB(65, 35, 40) or Color3.fromRGB(31, 76, 54)
-            equipOnceStroke.Color = autoEquipBestEnabled and Color3.fromRGB(242, 72, 82) or EQUIP_GREEN
-            equipOnceStroke.Transparency = autoEquipBestEnabled and 0.12 or 0.5
-            setEquipSwitchVisual(autoEquipBestEnabled, false)
-            makeTween(equipBestStroke, 0.2, {
-                Transparency = autoEquipBestEnabled and 0.08 or 0.3,
-                Thickness = autoEquipBestEnabled and 1.8 or 1.35
-            })
-
-            if autoEquipBestEnabled then
-                debugLog("Auto Equip Best Pet enabled.")
-                startAutoEquipBest()
-            else
-                autoEquipBestWorkerId += 1
-                debugLog("Auto Equip Best Pet disabled.")
-            end
-        end)
-
-        equipOnceButton.MouseButton1Click:Connect(function()
-            if not autoEquipBestEnabled then
-                invokeEquipBest()
-            end
-        end)
-
-        -- Animated information panel slides in from the right.
-        local infoPanel = Instance.new("Frame")
-        infoPanel.Name = "AutoThrowInfoPanel"
-        infoPanel.AnchorPoint = Vector2.new(1, 0)
-        infoPanel.Position = UDim2.new(1, 275, 0, 55)
-        infoPanel.Size = UDim2.fromOffset(255, 190)
-        infoPanel.BackgroundColor3 = PANEL
-        infoPanel.BorderSizePixel = 0
-        infoPanel.Visible = false
-        infoPanel.ZIndex = 80
-        infoPanel.Parent = page
-
-        local infoPanelCorner = Instance.new("UICorner")
-        infoPanelCorner.CornerRadius = UDim.new(0, 12)
-        infoPanelCorner.Parent = infoPanel
-
-        local infoPanelStroke = Instance.new("UIStroke")
-        infoPanelStroke.Color = ACCENT
-        infoPanelStroke.Thickness = 1.3
-        infoPanelStroke.Transparency = 0.18
-        infoPanelStroke.Parent = infoPanel
-
-        local infoPanelTitle = Instance.new("TextLabel")
-        infoPanelTitle.Position = UDim2.fromOffset(13, 12)
-        infoPanelTitle.Size = UDim2.new(1, -48, 0, 20)
-        infoPanelTitle.BackgroundTransparency = 1
-        infoPanelTitle.Text = tr("infoTitle")
-        infoPanelTitle.TextColor3 = ACCENT_BRIGHT
-        infoPanelTitle.TextSize = 11
-        infoPanelTitle.Font = Enum.Font.GothamBold
-        infoPanelTitle.TextXAlignment = Enum.TextXAlignment.Left
-        infoPanelTitle.ZIndex = 81
-        infoPanelTitle.Parent = infoPanel
-
-        local closeInfoButton = Instance.new("TextButton")
-        closeInfoButton.AnchorPoint = Vector2.new(1, 0)
-        closeInfoButton.Position = UDim2.new(1, -10, 0, 9)
-        closeInfoButton.Size = UDim2.fromOffset(25, 25)
-        closeInfoButton.BackgroundColor3 = Color3.fromRGB(32, 43, 58)
-        closeInfoButton.BorderSizePixel = 0
-        closeInfoButton.Text = "×"
-        closeInfoButton.TextColor3 = TEXT
-        closeInfoButton.TextSize = 18
-        closeInfoButton.Font = Enum.Font.GothamMedium
-        closeInfoButton.ZIndex = 82
-        closeInfoButton.Parent = infoPanel
-
-        local closeCorner = Instance.new("UICorner")
-        closeCorner.CornerRadius = UDim.new(1, 0)
-        closeCorner.Parent = closeInfoButton
-
-        --==================================================
-        -- INDEPENDENT TOP STATUS HUD
-        -- This ScreenGui is independent from the BZHUB page and prefers
-        -- the executor/CoreGui layer so it can sit above ordinary game GUIs.
-        --==================================================
-
-        hudGui = Instance.new("ScreenGui")
-        hudGui.Name = "BZHUB_AutoThrow_StatusHUD"
-        hudGui.ResetOnSpawn = false
-        hudGui.IgnoreGuiInset = true
-        -- Use the highest practical DisplayOrder so the HUD stays above
-        -- other ScreenGuis sharing the same GUI layer.
-        hudGui.DisplayOrder = 2147483647
-        hudGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-        hudGui.Enabled = false
-
-        -- Prefer the executor's hidden UI container (usually hosted under
-        -- CoreGui). This can place the HUD above ordinary PlayerGui menus.
-        -- If unavailable, fall back safely without breaking the module.
-        local hudParent
-        local getHiddenUI = gethui or get_hidden_gui
-        if type(getHiddenUI) == "function" then
-            local ok, hiddenUI = pcall(getHiddenUI)
-            if ok and typeof(hiddenUI) == "Instance" then
-                hudParent = hiddenUI
-            end
-        end
-
-        if not hudParent then
-            local coreGui = game:GetService("CoreGui")
-            local coreGuiOk = pcall(function()
-                hudGui.Parent = coreGui
-            end)
-            if coreGuiOk and hudGui.Parent == coreGui then
-                hudParent = coreGui
-            end
-        end
-
-        if hudParent then
-            hudGui.Parent = hudParent
-        else
-            hudGui.Parent = playerGui
-        end
-
-        local hudContainer = Instance.new("Frame")
-        hudContainer.Name = "StatusContainer"
-        hudContainer.ZIndex = 100000
-        hudContainer.AnchorPoint = Vector2.new(0.5, 0)
-        hudContainer.Position = UDim2.new(0.5, 0, 0, 88)
-        hudContainer.Size = UDim2.fromOffset(390, 78)
-        hudContainer.BackgroundColor3 = Color3.fromRGB(8, 13, 22)
-        hudContainer.BackgroundTransparency = 0.12
-        hudContainer.BorderSizePixel = 0
-        hudContainer.Active = false
-        hudContainer.Parent = hudGui
-
-        local hudContainerCorner = Instance.new("UICorner")
-        hudContainerCorner.CornerRadius = UDim.new(0, 12)
-        hudContainerCorner.Parent = hudContainer
-
-        local hudContainerStroke = Instance.new("UIStroke")
-        hudContainerStroke.Color = Color3.fromRGB(48, 151, 245)
-        hudContainerStroke.Thickness = 1.15
-        hudContainerStroke.Transparency = 0.22
-        hudContainerStroke.Parent = hudContainer
-
-        local hudContainerGradient = Instance.new("UIGradient")
-        hudContainerGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 29, 47)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(7, 12, 20))
-        })
-        hudContainerGradient.Rotation = 90
-        hudContainerGradient.Parent = hudContainer
-
-        local hudAccent = Instance.new("Frame")
-        hudAccent.Name = "AccentLine"
-        hudAccent.Position = UDim2.fromOffset(12, 10)
-        hudAccent.Size = UDim2.fromOffset(3, 18)
-        hudAccent.BackgroundColor3 = ACCENT_BRIGHT
-        hudAccent.BorderSizePixel = 0
-        hudAccent.Parent = hudContainer
-
-        local hudAccentCorner = Instance.new("UICorner")
-        hudAccentCorner.CornerRadius = UDim.new(1, 0)
-        hudAccentCorner.Parent = hudAccent
-
-        hudStateText = Instance.new("TextLabel")
-        hudStateText.Name = "State"
-        hudStateText.Position = UDim2.fromOffset(23, 7)
-        hudStateText.Size = UDim2.new(1, -46, 0, 24)
-        hudStateText.BackgroundTransparency = 1
-        hudStateText.Text = "AUTO THROW  /  ON"
-        hudStateText.TextColor3 = Color3.fromRGB(239, 246, 255)
-        hudStateText.TextSize = 12
-        hudStateText.Font = Enum.Font.GothamBold
-        hudStateText.TextXAlignment = Enum.TextXAlignment.Left
-        hudStateText.TextYAlignment = Enum.TextYAlignment.Center
-        hudStateText.Active = false
-        hudStateText.Parent = hudContainer
-
-        local hudDivider = Instance.new("Frame")
-        hudDivider.Name = "Divider"
-        hudDivider.Position = UDim2.fromOffset(12, 34)
-        hudDivider.Size = UDim2.new(1, -24, 0, 1)
-        hudDivider.BackgroundColor3 = Color3.fromRGB(66, 126, 184)
-        hudDivider.BackgroundTransparency = 0.45
-        hudDivider.BorderSizePixel = 0
-        hudDivider.Parent = hudContainer
-
-        local hudBar = Instance.new("Frame")
-        hudBar.Name = "ProgressBar"
-        hudBar.Position = UDim2.fromOffset(12, 43)
-        hudBar.Size = UDim2.new(1, -24, 0, 24)
-        hudBar.BackgroundColor3 = Color3.fromRGB(5, 12, 22)
-        hudBar.BackgroundTransparency = 0.08
-        hudBar.BorderSizePixel = 0
-        hudBar.ClipsDescendants = true
-        hudBar.Parent = hudContainer
-
-        local hudBarCorner = Instance.new("UICorner")
-        hudBarCorner.CornerRadius = UDim.new(0, 7)
-        hudBarCorner.Parent = hudBar
-
-        local hudBarStroke = Instance.new("UIStroke")
-        hudBarStroke.Color = Color3.fromRGB(42, 104, 161)
-        hudBarStroke.Thickness = 1
-        hudBarStroke.Transparency = 0.42
-        hudBarStroke.Parent = hudBar
-
-        hudFill = Instance.new("Frame")
-        hudFill.Name = "BlueProgress"
-        hudFill.Size = UDim2.new(0, 0, 1, 0)
-        hudFill.BackgroundColor3 = ACCENT
-        hudFill.BackgroundTransparency = 0.02
-        hudFill.BorderSizePixel = 0
-        hudFill.Parent = hudBar
-
-        local hudFillCorner = Instance.new("UICorner")
-        hudFillCorner.CornerRadius = UDim.new(0, 7)
-        hudFillCorner.Parent = hudFill
-
-        local hudFillGradient = Instance.new("UIGradient")
-        hudFillGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(27, 112, 218)),
-            ColorSequenceKeypoint.new(0.55, Color3.fromRGB(42, 157, 255)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(104, 205, 255))
-        })
-        hudFillGradient.Parent = hudFill
-
-        hudInfoText = Instance.new("TextLabel")
-        hudInfoText.Name = "Status"
-        hudInfoText.Position = UDim2.fromOffset(10, 0)
-        hudInfoText.Size = UDim2.new(1, -20, 1, 0)
-        hudInfoText.BackgroundTransparency = 1
-        hudInfoText.Text = "Starting..."
-        hudInfoText.TextColor3 = Color3.fromRGB(255, 255, 255)
-        hudInfoText.TextSize = 10
-        hudInfoText.Font = Enum.Font.GothamSemibold
-        hudInfoText.TextXAlignment = Enum.TextXAlignment.Center
-        hudInfoText.TextYAlignment = Enum.TextYAlignment.Center
-        hudInfoText.TextWrapped = false
-        hudInfoText.TextTruncate = Enum.TextTruncate.AtEnd
-        hudInfoText.ZIndex = 3
-        hudInfoText.Parent = hudBar
-
-        -- Keep every HUD element on a high ZIndex inside its ScreenGui.
-        for _, hudObject in ipairs(hudContainer:GetDescendants()) do
-            if hudObject:IsA("GuiObject") then
-                hudObject.ZIndex = math.max(hudObject.ZIndex, 100001)
-            end
-        end
-
-        local infoHint = Instance.new("TextLabel")
-        infoHint.Position = UDim2.fromOffset(13, 39)
-        infoHint.Size = UDim2.new(1, -26, 0, 28)
-        infoHint.BackgroundTransparency = 1
-        infoHint.Text = tr("infoHint")
-        infoHint.TextColor3 = MUTED
-        infoHint.TextSize = 9
-        infoHint.Font = Enum.Font.Gotham
-        infoHint.TextWrapped = true
-        infoHint.TextXAlignment = Enum.TextXAlignment.Left
-        infoHint.TextYAlignment = Enum.TextYAlignment.Top
-        infoHint.ZIndex = 81
-        infoHint.Parent = infoPanel
-
-        local statusDot = Instance.new("Frame")
-        statusDot.Position = UDim2.fromOffset(14, 82)
-        statusDot.Size = UDim2.fromOffset(7, 7)
-        statusDot.BackgroundColor3 = Color3.fromRGB(115, 130, 150)
-        statusDot.BorderSizePixel = 0
-        statusDot.ZIndex = 82
-        statusDot.Parent = infoPanel
-
-        local statusDotCorner = Instance.new("UICorner")
-        statusDotCorner.CornerRadius = UDim.new(1, 0)
-        statusDotCorner.Parent = statusDot
-
-        statusText = Instance.new("TextLabel")
-        statusText.Name = "StatusText"
-        statusText.Position = UDim2.fromOffset(28, 75)
-        statusText.Size = UDim2.new(1, -42, 0, 100)
-        statusText.BackgroundTransparency = 1
-        statusText.Text = tr("idle")
-        statusText.TextColor3 = TEXT
-        statusText.TextSize = 10
-        statusText.Font = Enum.Font.Gotham
-        statusText.TextWrapped = true
-        statusText.TextXAlignment = Enum.TextXAlignment.Left
-        statusText.TextYAlignment = Enum.TextYAlignment.Top
-        statusText.ZIndex = 81
-        statusText.Parent = infoPanel
-
-        local sliderVisible = true
-        local sliderTween
-
-        local function setPowerSliderVisible(visible, instant)
-            sliderVisible = visible
-            if sliderTween then
-                sliderTween:Cancel()
-                sliderTween = nil
-            end
-
-            if visible then
-                sliderContainer.Visible = true
-                sliderContainer.Active = true
-                sliderTrack.Active = true
-                sliderKnob.Active = true
-                if instant then
-                    sliderContainer.Position = UDim2.fromOffset(12, 69)
-                    sliderContainer.Size = UDim2.new(1, -24, 0, 54)
-                    sliderContainer.GroupTransparency = 0
-                    mainCard.Size = UDim2.new(1, -20, 0, 132)
-                    trainCard.Position = UDim2.fromOffset(10, 198)
-                    equipBestCard.Position = UDim2.fromOffset(10, 198 + trainCard.Size.Y.Offset + 10)
-                else
-                    sliderContainer.Position = UDim2.fromOffset(12, 54)
-                    sliderContainer.Size = UDim2.new(1, -24, 0, 0)
-                    sliderContainer.GroupTransparency = 1
-                    mainCard.Size = UDim2.new(1, -20, 0, 66)
-                    trainCard.Position = UDim2.fromOffset(10, 132)
-                    equipBestCard.Position = UDim2.fromOffset(10, 132 + trainCard.Size.Y.Offset + 10)
-                    makeTween(mainCard, 0.3, {Size = UDim2.new(1, -20, 0, 132)})
-                    makeTween(trainCard, 0.3, {Position = UDim2.fromOffset(10, 198)})
-                    makeTween(equipBestCard, 0.3, {Position = UDim2.fromOffset(10, 198 + trainCard.Size.Y.Offset + 10)})
-                    makeTween(sliderContainer, 0.28, {
-                        Position = UDim2.fromOffset(12, 69),
-                        Size = UDim2.new(1, -24, 0, 54)
-                    })
-                    sliderTween = TweenService:Create(
-                        sliderContainer,
-                        TweenInfo.new(0.24, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-                        {GroupTransparency = 0}
-                    )
-                    sliderTween:Play()
-                end
-            else
-                sliderContainer.Active = false
-                sliderTrack.Active = false
-                sliderKnob.Active = false
-                isDragging = false
-                if instant then
-                    sliderContainer.Visible = false
-                    sliderContainer.Position = UDim2.fromOffset(12, 54)
-                    sliderContainer.Size = UDim2.new(1, -24, 0, 0)
-                    sliderContainer.GroupTransparency = 1
-                    mainCard.Size = UDim2.new(1, -20, 0, 66)
-                    trainCard.Position = UDim2.fromOffset(10, 132)
-                    equipBestCard.Position = UDim2.fromOffset(10, 132 + trainCard.Size.Y.Offset + 10)
-                else
-                    makeTween(mainCard, 0.28, {Size = UDim2.new(1, -20, 0, 66)})
-                    makeTween(trainCard, 0.28, {Position = UDim2.fromOffset(10, 132)})
-                    makeTween(equipBestCard, 0.28, {Position = UDim2.fromOffset(10, 132 + trainCard.Size.Y.Offset + 10)})
-                    makeTween(sliderContainer, 0.25, {
-                        Position = UDim2.fromOffset(12, 52),
-                        Size = UDim2.new(1, -24, 0, 0)
-                    })
-                    sliderTween = TweenService:Create(
-                        sliderContainer,
-                        TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
-                        {GroupTransparency = 1}
-                    )
-                    sliderTween:Play()
-                    sliderTween.Completed:Connect(function()
-                        if not sliderVisible and sliderContainer.Parent then
-                            sliderContainer.Visible = false
-                        end
-                    end)
-                end
-            end
-        end
-
-        local infoOpen = false
-
-        local function refreshLanguage()
-            title.Text = tr("title")
-            infoPanelTitle.Text = tr("infoTitle")
-            infoHint.Text = tr("infoHint")
-            sliderLabel.Text = string.format("%s: %d", tr("power"), selectedSpeed)
-            stateLabel.Text = isEnabled and "ON" or "OFF"
-            local message = tr(currentStatus)
-            if currentStatus == "error" and currentStatusDetail ~= "" then
-                message = message .. currentStatusDetail
-            end
-            statusText.Text = message
-        end
-
-        local function setSwitchVisual(enabled, instant)
-            local knobPosition = enabled
-                and UDim2.fromOffset(44, 3)
-                or UDim2.fromOffset(3, 3)
-
-            local switchColor = enabled
-                and Color3.fromRGB(20, 105, 180)
-                or Color3.fromRGB(43, 53, 68)
-
-            local strokeTransparency = enabled and 0.08 or 0.55
-            local knobColor = enabled
-                and Color3.fromRGB(255, 255, 255)
-                or Color3.fromRGB(220, 230, 242)
-
-            if instant then
-                switchKnob.Position = knobPosition
-                switchButton.BackgroundColor3 = switchColor
-                switchStroke.Transparency = strokeTransparency
-                switchKnob.BackgroundColor3 = knobColor
-                cardStroke.Transparency = enabled and 0.05 or 0.28
-            else
-                makeTween(switchKnob, 0.22, {Position = knobPosition})
-                makeTween(switchButton, 0.22, {BackgroundColor3 = switchColor})
-                makeTween(switchStroke, 0.22, {Transparency = strokeTransparency})
-                makeTween(switchKnob, 0.22, {BackgroundColor3 = knobColor})
-                makeTween(cardStroke, 0.25, {
-                    Transparency = enabled and 0.05 or 0.28,
-                    Thickness = enabled and 1.8 or 1.35
-                })
-            end
-
-            stateLabel.Text = enabled and "ON" or "OFF"
-            stateLabel.TextColor3 = enabled and ACCENT_BRIGHT or MUTED
-            setPowerSliderVisible(not enabled, instant)
-            if hudStateText then
-                hudStateText.Text = "AUTO THROW   /   " .. (enabled and "ON" or "OFF")
-            end
-            if hudGui then
-                hudGui.Enabled = enabled
-            end
-        end
-
-        local function openInfo()
-            if infoOpen then return end
-            refreshLanguage()
-            infoOpen = true
-            infoPanel.Visible = true
-            infoPanel.Position = UDim2.new(1, 275, 0, 55)
-            infoPanel.BackgroundTransparency = 0.15
-            infoPanelStroke.Transparency = 0.7
-
-            makeTween(infoPanel, 0.32, {
-                Position = UDim2.new(1, -10, 0, 55),
-                BackgroundTransparency = 0
-            })
-            makeTween(infoPanelStroke, 0.32, {Transparency = 0.18})
-        end
-
-        local function closeInfo()
-            if not infoOpen then return end
-            infoOpen = false
-
-            local closeTween = makeTween(infoPanel, 0.26, {
-                Position = UDim2.new(1, 275, 0, 55),
-                BackgroundTransparency = 0.2
-            }, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
-
-            makeTween(infoPanelStroke, 0.2, {Transparency = 0.75})
-            closeTween.Completed:Connect(function()
-                if not infoOpen and infoPanel.Parent then
-                    infoPanel.Visible = false
-                end
-            end)
-        end
-
-        infoButton.MouseButton1Click:Connect(function()
-            if infoOpen then
-                closeInfo()
-            else
-                openInfo()
-            end
-        end)
-
-        closeInfoButton.MouseButton1Click:Connect(closeInfo)
-
-        infoButton.MouseEnter:Connect(function()
-            makeTween(infoButton, 0.15, {
-                BackgroundColor3 = Color3.fromRGB(32, 62, 91)
-            })
-        end)
-        infoButton.MouseLeave:Connect(function()
-            makeTween(infoButton, 0.15, {
-                BackgroundColor3 = Color3.fromRGB(24, 42, 62)
-            })
-        end)
-
-        local function updateSlider(value)
-            if isEnabled then return end
-            selectedSpeed = math.clamp(
-                math.floor(value + 0.5),
-                MIN_POWER,
-                MAX_POWER
-            )
-
-            local percentage =
-                (selectedSpeed - MIN_POWER) / (MAX_POWER - MIN_POWER)
-
-            makeTween(sliderFill, 0.08, {
-                Size = UDim2.new(percentage, 0, 1, 0)
-            }, Enum.EasingStyle.Quad)
-
-            makeTween(sliderKnob, 0.08, {
-                Position = UDim2.new(percentage, 0, 0.5, 0)
-            }, Enum.EasingStyle.Quad)
-
-            sliderLabel.Text = string.format(
-                "%s: %d",
-                tr("power"),
-                selectedSpeed
-            )
-        end
-
-        local function updateSliderFromInput(input)
-            local trackWidth = sliderTrack.AbsoluteSize.X
-            if trackWidth <= 0 then return end
-
-            local relativeX =
-                input.Position.X - sliderTrack.AbsolutePosition.X
-
-            local percentage = math.clamp(relativeX / trackWidth, 0, 1)
-            local value = MIN_POWER + percentage * (MAX_POWER - MIN_POWER)
-            updateSlider(value)
-        end
-
-        sliderTrack.InputBegan:Connect(function(input)
-            if isEnabled or not sliderVisible then return end
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                isDragging = true
-                updateSliderFromInput(input)
-            end
-        end)
-
-        sliderKnob.InputBegan:Connect(function(input)
-            if isEnabled or not sliderVisible then return end
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                isDragging = true
-            end
-        end)
-
-        UserInputService.InputChanged:Connect(function(input)
-            if not isDragging or isEnabled or not sliderVisible then return end
-            if input.UserInputType == Enum.UserInputType.MouseMovement
-                or input.UserInputType == Enum.UserInputType.Touch then
-                updateSliderFromInput(input)
-            end
-        end)
-
-        UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                isDragging = false
-            end
-        end)
-
-        switchButton.MouseEnter:Connect(function()
-            makeTween(switchStroke, 0.15, {Transparency = isEnabled and 0 or 0.3})
-        end)
-        switchButton.MouseLeave:Connect(function()
-            makeTween(switchStroke, 0.15, {Transparency = isEnabled and 0.08 or 0.55})
-        end)
-
-        updateSlider(selectedSpeed)
-        setPowerSliderVisible(true, true)
-        setSwitchVisual(false, true)
-        refreshLanguage()
-        if hudGui then hudGui.Enabled = false end
-
-                --==================================================
-        -- SESSION CHECK
-        --==================================================
-
-        local function stillRunning(currentId)
-            return isEnabled and actionId == currentId
-        end
-
-        --==================================================
-        -- CANCELLABLE WAIT
-        --==================================================
-
-        local function waitWhileEnabled(seconds, currentId)
-            local startTime = os.clock()
-            local lastSecond = -1
-
-            while os.clock() - startTime < seconds do
-                if not stillRunning(currentId) then
+        
+        local function waitWhileRunning(duration, workerId)
+            local elapsed = 0
+        
+            while elapsed < duration do
+                if not isAutomationRunning() then
                     return false
                 end
-
-                local elapsed = os.clock() - startTime
-                local remaining = math.max(0, seconds - elapsed)
-                local shown = math.ceil(remaining)
-
-                if shown ~= lastSecond then
-                    lastSecond = shown
-                    setStatus(currentStatus, string.format("%ds remaining", shown),
-                        math.clamp(elapsed / math.max(seconds, 0.01), 0, 1))
-                else
-                    setHudProgress(math.clamp(elapsed / math.max(seconds, 0.01), 0, 1))
+        
+                if workerId and workerId ~= automationWorkerId then
+                    return false
                 end
-
-                task.wait(0.05)
+        
+                local step = math.min(0.1, duration - elapsed)
+                task.wait(step)
+                elapsed += step
             end
-
-            return stillRunning(currentId)
+        
+            return isAutomationRunning()
         end
-
-        --==================================================
-        -- THROW COOLDOWN
-        --==================================================
-
-        local function waitForThrowCooldown(currentId)
-            setStatus("cooldown")
-            debugLog("Waiting for ThrowReadyAt cooldown...")
-
-            local lastDisplayedSecond = -1
-
-            while stillRunning(currentId) do
-                local readyAt = player:GetAttribute("ThrowReadyAt")
-
-                if type(readyAt) == "number" then
-                    local remaining = math.max(
-                        0,
-                        readyAt - workspace:GetServerTimeNow()
-                    )
-
-                    local displayedSecond = math.ceil(remaining)
-
-                    if displayedSecond ~= lastDisplayedSecond then
-                        lastDisplayedSecond = displayedSecond
-                        setStatus("cooldown", string.format("%ds remaining", displayedSecond))
-                        debugLog(string.format(
-                            "Throw cooldown remaining: %.2f seconds",
-                            remaining
-                        ))
+        
+        local function getCharacter()
+            return player.Character
+        end
+        
+        local function getHumanoid()
+            local character = getCharacter()
+            return character and character:FindFirstChildOfClass("Humanoid")
+        end
+        
+        local function pressSpace()
+            pcall(function()
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+                task.wait(0.05)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+            end)
+        end
+        
+        local function findTrainingSpot()
+            local candidates = {
+                workspace:FindFirstChild("TrainingSpot", true),
+                workspace:FindFirstChild("Training", true)
+            }
+        
+            for _, candidate in ipairs(candidates) do
+                if candidate then
+                    if candidate:IsA("BasePart") then
+                        return candidate
                     end
-
-                    if remaining <= 0 then
-                        debugLog("Throw cooldown finished! Starting movement.")
-                        return true
+        
+                    if candidate:IsA("Model") then
+                        return candidate.PrimaryPart
+                            or candidate:FindFirstChildWhichIsA("BasePart", true)
                     end
-                else
-                    setStatus("cooldown", "Waiting for cooldown timer...")
-                    debugLog("ThrowReadyAt not available yet. Waiting...")
                 end
-
-                task.wait(0.05)
             end
-
-            return false
+        
+            return nil
         end
-
-        --==================================================
-        -- POWER TARGET CALCULATION
-        --==================================================
-
-        local function getTargetY(power)
-            power = math.clamp(
-                math.floor(power + 0.5),
-                MIN_POWER,
-                MAX_POWER
-            )
-
-            if power <= 10 then
-                local alpha = power / 10
-
-                return POWER_0_Y
-                    + (POWER_10_Y - POWER_0_Y) * alpha
+        
+        local function moveToTrainingSpot()
+            local character = getCharacter()
+            local humanoid = getHumanoid()
+            local spot = findTrainingSpot()
+        
+            if not character or not humanoid or not spot then
+                return false
             end
-
-            local alpha = (power - 10) / 10
-
-            return POWER_10_Y
-                + (POWER_20_Y - POWER_10_Y) * alpha
+        
+            local root = character:FindFirstChild("HumanoidRootPart")
+            if not root then
+                return false
+            end
+        
+            root.CFrame = spot.CFrame + Vector3.new(0, 3, 0)
+            return true
         end
-
-        --==================================================
-        -- FIND THROW MARKER
-        --==================================================
-
-        local function getThrowMarker()
-            local sequence = playerGui:FindFirstChild("ThrowSequence")
-
+        
+        startTrain = function()
+            if trainWorkerId > 0 then
+                return
+            end
+        
+            trainWorkerId += 1
+            local thisWorker = trainWorkerId
+        
+            task.spawn(function()
+                while trainEnabled and thisWorker == trainWorkerId do
+                    if not moveToTrainingSpot() then
+                        task.wait(0.5)
+                    else
+                        break
+                    end
+                end
+        
+                while trainEnabled and thisWorker == trainWorkerId do
+                    task.wait(0.2)
+                end
+            end)
+        end
+        
+        stopTrain = function()
+            trainWorkerId += 1
+            trainEnabled = false
+            pressSpace()
+        end
+        
+        local function findTapBonus()
+            local sequence = playerGui:FindFirstChild("TrainingSequence")
             if not sequence then
                 return nil
             end
-
-            local meter = sequence:FindFirstChild("Meter")
-            if not meter then
+        
+            local layer = sequence:FindFirstChild("TapBonusLayer")
+            if not layer then
                 return nil
             end
-
-            local bar = meter:FindFirstChild("Bar")
-            if not bar then
-                return nil
+        
+            local tapBonus = layer:FindFirstChild("TapBonus")
+            if tapBonus and tapBonus.Visible then
+                return tapBonus
             end
-
-            return bar:FindFirstChild("Marker")
-        end
-
-        --==================================================
-        -- WAIT FOR THROW MARKER
-        --==================================================
-
-        local function waitForMarker(currentId)
-            setStatus("marker")
-            debugLog("Waiting for ThrowSequence Marker...")
-
-            local startTime = os.clock()
-
-            while stillRunning(currentId) do
-                local marker = getThrowMarker()
-
-                if marker and marker:IsA("GuiObject") then
-                    debugLog("ThrowSequence Marker found!")
-                    return marker
-                end
-
-                if os.clock() - startTime >= MARKER_TIMEOUT then
-                    error("ThrowSequence Marker not found. Timed out.")
-                end
-
-                task.wait(0.03)
-            end
-
+        
             return nil
         end
-
-        --==================================================
-        -- REAL MARKER POWER DETECTION
-        --==================================================
-
-        local function waitForSelectedPower(power, currentId)
-            local targetY = getTargetY(power)
-
-            debugLog(string.format(
-                "Power target: %d | Target Y: %.6f",
-                power,
-                targetY
-            ))
-
-            local marker = waitForMarker(currentId)
-
-            if not marker then
+        
+        local function clickTapBonus(target)
+            if not target or not target.Parent then
                 return false
             end
-
-            local previousY = nil
-
-            local sawDescending = false
-            local sawAscending = false
-
-            local startTime = os.clock()
-
-            if power >= 10 then
-                debugLog("Detection mode: FIRST PASS (Y decreasing).")
-            else
-                debugLog("Detection mode: SECOND PASS (Y increasing).")
-            end
-
-            while stillRunning(currentId) do
-                if not marker.Parent then
-                    marker = getThrowMarker()
-
-                    if not marker then
-                        error("ThrowSequence Marker disappeared.")
-                    end
-                end
-
-                local currentY = marker.Position.Y.Scale
-
-                if previousY ~= nil then
-                    local difference = currentY - previousY
-
-                    if difference < -DIRECTION_EPSILON then
-                        sawDescending = true
-                    end
-
-                    if sawDescending
-                        and difference > DIRECTION_EPSILON then
-
-                        if not sawAscending then
-                            sawAscending = true
-
-                            debugLog(
-                                "Marker reversed direction. Second pass started."
-                            )
-                        end
-                    end
-
-                    if power >= 10 and sawDescending then
-                        if currentY <= targetY + MARKER_TOLERANCE then
-                            debugLog(string.format(
-                                "POWER %d CAUGHT! Y: %.6f",
-                                power,
-                                currentY
-                            ))
-
-                            return true
-                        end
-                    end
-
-                    if power < 10 and sawAscending then
-                        if currentY >= targetY - MARKER_TOLERANCE then
-                            debugLog(string.format(
-                                "POWER %d CAUGHT! Y: %.6f",
-                                power,
-                                currentY
-                            ))
-
-                            return true
-                        end
-                    end
-                end
-
-                previousY = currentY
-
-                if os.clock() - startTime >= MARKER_TIMEOUT then
-                    error(string.format(
-                        "Power %d detection timed out. Last Y: %.6f | Target Y: %.6f",
-                        power,
-                        currentY,
-                        targetY
-                    ))
-                end
-
-                RunService.RenderStepped:Wait()
-            end
-
-            return false
-        end
-
-        --==================================================
-        -- MOUSE CLICK
-        --==================================================
-
-        local function performClick(currentId)
-            if not stillRunning(currentId) then
+        
+            local position = target.AbsolutePosition
+            local size = target.AbsoluteSize
+        
+            if size.X <= 0 or size.Y <= 0 then
                 return false
             end
-
-            setStatus("throwing", "Sending throw input...", 0.9)
-            local mouseLocation = UserInputService:GetMouseLocation()
-
-            VirtualInputManager:SendMouseButtonEvent(
-                mouseLocation.X,
-                mouseLocation.Y,
-                0,
-                true,
-                game,
-                0
-            )
-
-            task.wait(0.05)
-
-            VirtualInputManager:SendMouseButtonEvent(
-                mouseLocation.X,
-                mouseLocation.Y,
-                0,
-                false,
-                game,
-                0
-            )
-
-            debugLog("MB1 click completed.")
-
+        
+            local x = position.X + size.X / 2
+            local y = position.Y + size.Y / 2
+        
+            pcall(function()
+                VirtualInputManager:SendMouseMoveEvent(x, y, game)
+                VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
+                task.wait(0.04)
+                VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
+            end)
+        
             return true
         end
-
-        --==================================================
-        -- GET STARTERAREA POSITION
-        --==================================================
-
-        local function getStarterAreaPosition()
-            local starterArea = workspace:WaitForChild("StarterArea")
-
-            if starterArea:IsA("BasePart") then
-                return starterArea.Position
+        
+        local function startAuto2x()
+            if auto2xRunning then
+                return
             end
-
-            return starterArea:GetPivot().Position
-        end
-
-        local function getCrossLineBehindPosition()
-            local starterArea = workspace:WaitForChild("StarterArea")
-            local crossLine = starterArea:WaitForChild("CrossLine")
-            local grass = workspace:WaitForChild("Lobby"):WaitForChild("Grass")
-
-            local crossPosition = crossLine:IsA("BasePart")
-                and crossLine.Position
-                or crossLine:GetPivot().Position
-
-            local grassPosition = grass:IsA("BasePart")
-                and grass.Position
-                or grass:GetPivot().Position
-
-            local towardGrass = Vector3.new(
-                grassPosition.X - crossPosition.X,
-                0,
-                grassPosition.Z - crossPosition.Z
-            )
-
-            if towardGrass.Magnitude < 0.001 then
-                error("Could not determine the Lobby.Grass side of CrossLine.")
-            end
-
-            return crossPosition + towardGrass.Unit * 3
-        end
-
-        --==================================================
-        -- GET CHARACTER REFERENCES
-        --==================================================
-
-        local function getCharacterReferences()
-            local character = player.Character
-
-            if not character then
-                return nil, nil, nil
-            end
-
-            local humanoid =
-                character:FindFirstChildOfClass("Humanoid")
-
-            local rootPart =
-                character:FindFirstChild("HumanoidRootPart")
-
-            return character, humanoid, rootPart
-        end
-
-        --==================================================
-        -- WAYPOINT DISTANCE
-        --==================================================
-
-        local function getWaypointDistance(rootPart, waypoint)
-            if not rootPart or not waypoint then
-                return math.huge
-            end
-
-            return (rootPart.Position - waypoint.Position).Magnitude
-        end
-
-        local function hasReachedWaypoint(rootPart, waypoint)
-            local distance =
-                getWaypointDistance(rootPart, waypoint)
-
-            debugLog(string.format(
-                "Waypoint distance: %.2f studs",
-                distance
-            ))
-
-            return distance <= WAYPOINT_REACH_DISTANCE
-        end
-
-        --==================================================
-        -- FOLLOW PATH
-        --==================================================
-
-        local function followPath(path, character, humanoid, currentId)
-            local waypoints = path:GetWaypoints()
-
-            debugLog("Route found. Waypoints: " .. #waypoints)
-
-            for index, waypoint in ipairs(waypoints) do
-                if not stillRunning(currentId) then
-                    return false
-                end
-
-                if player.Character ~= character then
-                    return false
-                end
-
-                local rootPart =
-                    character:FindFirstChild("HumanoidRootPart")
-
-                if not rootPart then
-                    return false
-                end
-
-                if hasReachedWaypoint(rootPart, waypoint) then
-                    debugLog(
-                        "Waypoint " .. index .. " already reached. Skipping."
-                    )
-
-                    continue
-                end
-
-                if waypoint.Action == Enum.PathWaypointAction.Jump then
-                    humanoid.Jump = true
-                    debugLog("Jumping over obstacle...")
-                end
-
-                debugLog(
-                    "Moving to waypoint "
-                    .. index
-                    .. "/"
-                    .. #waypoints
-                )
-
-                humanoid:MoveTo(waypoint.Position)
-
-                local startTime = os.clock()
-                local reached = false
-
-                while stillRunning(currentId) do
-                    if player.Character ~= character then
-                        return false
-                    end
-
-                    rootPart =
-                        character:FindFirstChild("HumanoidRootPart")
-
-                    if not rootPart then
-                        return false
-                    end
-
-                    local distance =
-                        getWaypointDistance(rootPart, waypoint)
-
-                    if distance <= WAYPOINT_REACH_DISTANCE then
-                        reached = true
-
-                        debugLog(string.format(
-                            "Waypoint %d reached at %.2f studs.",
-                            index,
-                            distance
-                        ))
-
-                        break
-                    end
-
-                    if os.clock() - startTime >= THROW_WAYPOINT_TIMEOUT then
-                        break
-                    end
-
-                    task.wait(THROW_PATH_CHECK_INTERVAL)
-                end
-
-                if not stillRunning(currentId) then
-                    return false
-                end
-
-                if not reached then
-                    debugLog(
-                        "Waypoint timeout at "
-                        .. index
-                        .. ". Recalculation required."
-                    )
-
-                    return false
-                end
-            end
-
-            return true
-        end
-
-        --==================================================
-        -- PATHFINDING MOVEMENT
-        --==================================================
-
-        local function moveToStarterArea(currentId)
-            setStatus("moving", nil)
-            debugLog("Teleporting 3 studs behind CrossLine on the Lobby.Grass side first...")
-
-            local character, humanoid, rootPart = getCharacterReferences()
-
-            if not character or not humanoid or not rootPart then
-                error("Character references not found.")
-            end
-
-            local targetPosition = getStarterAreaPosition()
-            local behindCrossLinePosition = getCrossLineBehindPosition()
-
-            if not stillRunning(currentId) then
-                return false
-            end
-
-            local originalCFrame = rootPart.CFrame
-            local function teleportAndVerify(position, label)
-                character, humanoid, rootPart = getCharacterReferences()
-
-                if not character or not rootPart then
-                    return false
-                end
-
-                local currentCFrame = rootPart.CFrame
-                local succeeded = pcall(function()
-                    rootPart.CFrame = CFrame.new(position) * (currentCFrame - currentCFrame.Position)
-                end)
-
-                if not succeeded then
-                    debugLog(label .. " teleport call failed.")
-                    return false
-                end
-
-                task.wait(TELEPORT_VERIFY_DELAY)
-
-                if not stillRunning(currentId) then
-                    return false
-                end
-
-                character, humanoid, rootPart = getCharacterReferences()
-
-                if character and rootPart
-                    and (rootPart.Position - position).Magnitude <= WAYPOINT_REACH_DISTANCE then
-                    debugLog(label .. " teleport succeeded.")
-                    return true
-                end
-
-                debugLog(label .. " teleport was rejected or did not reach the target.")
-                return false
-            end
-
-            -- Stage 1: land 3 studs beyond CrossLine toward workspace.Lobby.Grass.
-            local firstTeleportSucceeded = teleportAndVerify(
-                behindCrossLinePosition,
-                "CrossLine / Lobby.Grass side"
-            )
-
-            if not stillRunning(currentId) then
-                return false
-            end
-
-            if firstTeleportSucceeded then
-                -- Stage 2: from the CrossLine staging point, teleport into StarterArea.
-                if teleportAndVerify(targetPosition, "StarterArea") then
-                    return true
-                end
-            end
-
-            debugLog("Two-stage teleport failed. Falling back to pathfinding.")
-
-            -- Restore the original position before using the existing walking fallback.
-            character, humanoid, rootPart = getCharacterReferences()
-            if character and rootPart then
-                pcall(function()
-                    rootPart.CFrame = originalCFrame
-                end)
-            end
-            task.wait(0.08)
-
-            -- Fallback: preserve the existing obstacle-aware walking route.
-            character, humanoid, rootPart = getCharacterReferences()
-
-            if not character or not humanoid or not rootPart then
-                error("Character references not found after teleport attempt.")
-            end
-
-            for attempt = 1, MAX_PATH_RETRIES do
-                if not stillRunning(currentId) then
-                    return false
-                end
-
-                if player.Character ~= character then
-                    return false
-                end
-
-                rootPart = character:FindFirstChild("HumanoidRootPart")
-
-                if not rootPart then
-                    return false
-                end
-
-                local targetDistance = (rootPart.Position - targetPosition).Magnitude
-
-                if targetDistance <= WAYPOINT_REACH_DISTANCE then
-                    debugLog("StarterArea reached. No extra movement needed.")
-                    return true
-                end
-
-                local path = PathfindingService:CreatePath({
-                    AgentRadius = 2,
-                    AgentHeight = 5,
-                    AgentCanJump = true,
-                    AgentCanClimb = true,
-                    WaypointSpacing = 4
-                })
-
-                debugLog("Calculating walking route. Attempt " .. attempt .. "/" .. MAX_PATH_RETRIES)
-
-                local computed, computeError = pcall(function()
-                    path:ComputeAsync(rootPart.Position, targetPosition)
-                end)
-
-                if not computed then
-                    debugLog("Path calculation error: " .. tostring(computeError))
-                    task.wait(0.1)
-                    continue
-                end
-
-                if not stillRunning(currentId) then
-                    return false
-                end
-
-                if path.Status ~= Enum.PathStatus.Success then
-                    debugLog("Pathfinding status: " .. tostring(path.Status))
-                    task.wait(0.1)
-                    continue
-                end
-
-                local pathSuccess = followPath(path, character, humanoid, currentId)
-
-                if pathSuccess then
-                    rootPart = character:FindFirstChild("HumanoidRootPart")
-
-                    if rootPart then
-                        local finalDistance = (rootPart.Position - targetPosition).Magnitude
-
-                        if finalDistance <= WAYPOINT_REACH_DISTANCE then
-                            debugLog("StarterArea reached successfully by walking!")
-                            return true
-                        end
-                    end
-                end
-
-                if not stillRunning(currentId) then
-                    return false
-                end
-
-                debugLog("Recalculating walking route...")
-                task.wait(0.1)
-            end
-
-            error("Could not reach StarterArea after path retries.")
-        end
-
-        --==================================================
-        -- RESET CHARACTER
-        --==================================================
-
-        local function resetCharacter(currentId)
-            if not stillRunning(currentId) then
-                return false
-            end
-
-            local oldCharacter = player.Character
-
-            if not oldCharacter then
-                error("Character not found before reset.")
-            end
-
-            local humanoid =
-                oldCharacter:FindFirstChildOfClass("Humanoid")
-
-            if not humanoid then
-                error("Humanoid not found before reset.")
-            end
-
-            setStatus("resetting", "Respawning character...")
-            debugLog("Resetting character...")
-
-            humanoid.Health = 0
-
-            while stillRunning(currentId) do
-                local newCharacter = player.Character
-
-                if newCharacter and newCharacter ~= oldCharacter then
-                    local newHumanoid =
-                        newCharacter:FindFirstChildOfClass("Humanoid")
-
-                    local newRoot =
-                        newCharacter:FindFirstChild("HumanoidRootPart")
-
-                    if newHumanoid and newRoot
-                        and newHumanoid.Health > 0 then
-
-                        debugLog("Character respawned!")
-                        return true
-                    end
-                end
-
-                task.wait(0.1)
-            end
-
-            return false
-        end
-
-        --==================================================
-        -- AUTO TRAIN: FIND TRAINING SPOT AND EXIT CONTROL
-        --==================================================
-
-        local function findTrainingSpot()
-            local plotProps = workspace:FindFirstChild("LocalPlotProps")
-            if not plotProps then
-                plotProps = workspace:FindFirstChild("LocalPlotProps", true)
-            end
-            if not plotProps then
-                return nil, "LocalPlotProps was not found in Workspace."
-            end
-
-            local trainingArea = plotProps:FindFirstChild("TrainingArea")
-                or plotProps:FindFirstChild("TrainingArea", true)
-            if not trainingArea then
-                return nil, "TrainingArea was not found under LocalPlotProps."
-            end
-
-            local trainingSpot = trainingArea:FindFirstChild("TrainingSpot")
-                or trainingArea:FindFirstChild("TrainingSpot", true)
-            if not trainingSpot then
-                return nil, "TrainingSpot was not found under TrainingArea."
-            end
-
-            return trainingSpot
-        end
-
-        local function getTrainingSpotPosition(spot)
-            if spot:IsA("BasePart") then
-                return spot.Position
-            elseif spot:IsA("Model") then
-                return spot:GetPivot().Position
-            elseif spot:IsA("Attachment") then
-                return spot.WorldPosition
-            end
-            local part = spot:FindFirstChildWhichIsA("BasePart", true)
-            if part then return part.Position end
-            return nil
-        end
-
-        local function findTrainingStopButton()
-            local roots = {playerGui, workspace}
-            for _, root in ipairs(roots) do
-                for _, object in ipairs(root:GetDescendants()) do
-                    if object:IsA("GuiButton") then
-                        local buttonText = ""
-                        if object:IsA("TextButton") then
-                            buttonText = string.upper((object.Text or ""):gsub("%s+", ""))
-                        end
-                        local objectName = string.upper(object.Name or "")
-                        if buttonText == "STOP" or objectName == "STOP" or objectName:find("STOPTRAIN", 1, true) then
-                            return object
-                        end
-                    end
-                end
-            end
-            return nil
-        end
-
-        local function pressTrainingStopWithoutMouse()
-            local stopButton = findTrainingStopButton()
-            if not stopButton then
-                warn("[BZHUB AUTO TRAIN] STOP button was not found in PlayerGui or Workspace.")
-                return false, "STOP button not found"
-            end
-
-            debugLog("Training STOP control found: " .. stopButton:GetFullName())
-
-            -- Fire the GUI's click signal directly. This does not move/click the real mouse (MB1).
-            if typeof(firesignal) == "function" then
-                local ok, err = pcall(function()
-                    firesignal(stopButton.MouseButton1Click)
-                end)
-                if ok then
-                    debugLog("Training STOP signal fired without MB1.")
-                    return true
-                end
-                warn("[BZHUB AUTO TRAIN] Could not fire STOP signal: " .. tostring(err))
-                return false, tostring(err)
-            end
-
-            -- Some executors expose the button connections but not firesignal.
-            if typeof(getconnections) == "function" then
-                local ok, connections = pcall(function()
-                    return getconnections(stopButton.MouseButton1Click)
-                end)
-                if ok and type(connections) == "table" and #connections > 0 then
-                    local fired = false
-                    for _, connection in ipairs(connections) do
-                        if connection.Enabled and type(connection.Function) == "function" then
-                            local success = pcall(connection.Function)
-                            fired = fired or success
-                        end
-                    end
-                    if fired then
-                        debugLog("Training STOP callback invoked without MB1.")
-                        return true
-                    end
-                end
-            end
-
-            warn("[BZHUB AUTO TRAIN] Executor has no supported signal-fire function; STOP was not activated.")
-            return false, "Executor does not support signal firing"
-        end
-
-        startTrain = function()
-            trainActionId += 1
-            local thisTrainId = trainActionId
-
+        
+            auto2xRunning = true
+            auto2xWorkerId += 1
+        
+            local thisWorker = auto2xWorkerId
+        
             task.spawn(function()
-                local ok, err = pcall(function()
-                    activeHudMode = "train"
-                    setStatus("trainMoving", "Trying a quick teleport to TrainingSpot...")
-
-                    local spot, findError = findTrainingSpot()
-                    if not spot then error(findError) end
-                    local targetPosition = getTrainingSpotPosition(spot)
-                    if not targetPosition then error("TrainingSpot has no usable position.") end
-
-                    local character, humanoid, rootPart = getCharacterReferences()
-                    if not character or not humanoid or not rootPart then
-                        error("Character references are unavailable.")
-                    end
-
-                    if not trainEnabled or trainActionId ~= thisTrainId then return end
-
-                    local initialDistance = (rootPart.Position - targetPosition).Magnitude
-                    local reachedTrainingSpot = initialDistance <= WAYPOINT_REACH_DISTANCE
-
-                    if reachedTrainingSpot then
-                        debugLog("Already near TrainingSpot. No movement needed.")
+                while auto2xEnabled
+                    and auto2xRunning
+                    and thisWorker == auto2xWorkerId
+                    and isAutomationRunning()
+                do
+                    local target = findTapBonus()
+        
+                    if target then
+                        clickTapBonus(target)
+        
+                        while auto2xEnabled
+                            and auto2xRunning
+                            and thisWorker == auto2xWorkerId
+                            and target.Parent
+                            and target.Visible
+                            and isAutomationRunning()
+                        do
+                            task.wait(0.12)
+                            if target.Parent and target.Visible then
+                                clickTapBonus(target)
+                            end
+                        end
                     else
-                        -- First attempt: teleport directly to TrainingSpot.
-                        local originalCFrame = rootPart.CFrame
-                        local teleportWorked = pcall(function()
-                            rootPart.CFrame = CFrame.new(targetPosition)
-                                * (originalCFrame - originalCFrame.Position)
-                        end)
-
-                        if teleportWorked then
-                            task.wait(TELEPORT_VERIFY_DELAY)
-
-                            if not trainEnabled or trainActionId ~= thisTrainId then return end
-
-                            character, humanoid, rootPart = getCharacterReferences()
-                            if character and rootPart
-                                and (rootPart.Position - targetPosition).Magnitude <= WAYPOINT_REACH_DISTANCE then
-                                reachedTrainingSpot = true
-                                debugLog("Teleport to TrainingSpot succeeded.")
-                            else
-                                debugLog("TrainingSpot teleport failed. Falling back to pathfinding.")
-                                if character == player.Character and rootPart then
-                                    pcall(function()
-                                        rootPart.CFrame = originalCFrame
-                                    end)
-                                end
-                                task.wait(0.08)
-                            end
-                        else
-                            debugLog("TrainingSpot teleport attempt failed. Falling back to pathfinding.")
-                        end
+                        task.wait(0.08)
                     end
-
-                    -- Fallback: use obstacle-aware pathfinding with jumping.
-                    if not reachedTrainingSpot then
-                        character, humanoid, rootPart = getCharacterReferences()
-                        if not character or not humanoid or not rootPart then
-                            error("Character references are unavailable after teleport attempt.")
-                        end
-
-                        local arrived = false
-
-                        for attempt = 1, MAX_PATH_RETRIES do
-                            if not trainEnabled or trainActionId ~= thisTrainId then return end
-                            if player.Character ~= character then return end
-
-                            rootPart = character:FindFirstChild("HumanoidRootPart")
-                            if not rootPart then error("HumanoidRootPart disappeared.") end
-
-                            if (rootPart.Position - targetPosition).Magnitude <= WAYPOINT_REACH_DISTANCE then
-                                arrived = true
-                                break
-                            end
-
-                            local path = PathfindingService:CreatePath({
-                                AgentRadius = 2,
-                                AgentHeight = 5,
-                                AgentCanJump = true,
-                                AgentCanClimb = true,
-                                WaypointSpacing = 4
-                            })
-
-                            local computed, computeError = pcall(function()
-                                path:ComputeAsync(rootPart.Position, targetPosition)
-                            end)
-
-                            if not computed then
-                                debugLog("Auto Train path calculation failed: " .. tostring(computeError))
-                                task.wait(0.1)
-                                continue
-                            end
-
-                            if path.Status ~= Enum.PathStatus.Success then
-                                debugLog("Auto Train path status: " .. tostring(path.Status))
-                                task.wait(0.1)
-                                continue
-                            end
-
-                            local waypoints = path:GetWaypoints()
-                            local pathReached = true
-
-                            for index, waypoint in ipairs(waypoints) do
-                                if not trainEnabled or trainActionId ~= thisTrainId then return end
-                                if player.Character ~= character then return end
-
-                                rootPart = character:FindFirstChild("HumanoidRootPart")
-                                if not rootPart then error("HumanoidRootPart disappeared.") end
-
-                                if (rootPart.Position - waypoint.Position).Magnitude <= 3.5 then
-                                    continue
-                                end
-
-                                if waypoint.Action == Enum.PathWaypointAction.Jump then
-                                    humanoid.Jump = true
-                                end
-
-                                humanoid:MoveTo(waypoint.Position)
-                                local waypointStarted = os.clock()
-                                local waypointReached = false
-
-                                while trainEnabled and trainActionId == thisTrainId do
-                                    if player.Character ~= character then return end
-                                    rootPart = character:FindFirstChild("HumanoidRootPart")
-                                    if not rootPart then return end
-
-                                    if (rootPart.Position - waypoint.Position).Magnitude <= 3.5 then
-                                        waypointReached = true
-                                        break
-                                    end
-
-                                    if os.clock() - waypointStarted >= WAYPOINT_TIMEOUT then
-                                        break
-                                    end
-
-                                    task.wait(THROW_PATH_CHECK_INTERVAL)
-                                end
-
-                                if not trainEnabled or trainActionId ~= thisTrainId then return end
-                                if not waypointReached then
-                                    pathReached = false
-                                    debugLog("Auto Train waypoint timeout at " .. index .. "; recalculating path.")
-                                    break
-                                end
-                            end
-
-                            if pathReached then
-                                rootPart = character:FindFirstChild("HumanoidRootPart")
-                                if rootPart and (rootPart.Position - targetPosition).Magnitude <= WAYPOINT_REACH_DISTANCE then
-                                    arrived = true
-                                    break
-                                end
-                            end
-
-                            task.wait(0.1)
-                        end
-
-                        if not arrived then
-                            error("Could not reach TrainingSpot after teleport and pathfinding attempts.")
-                        end
-                    end
-
-                    if not trainEnabled or trainActionId ~= thisTrainId then return end
-                    setStatus("training", "TrainingSpot reached. Training is active.")
-                    debugLog("TrainingSpot reached. Waiting until Auto Train is disabled.")
-
-                    while trainEnabled and trainActionId == thisTrainId do
-                        task.wait(0.2)
-                    end
-                end)
-
-                if not ok and trainActionId == thisTrainId then
-                    warn("[BZHUB AUTO TRAIN ERROR] " .. tostring(err))
-                    setStatus("trainError", tostring(err))
+                end
+        
+                if thisWorker == auto2xWorkerId then
+                    auto2xRunning = false
                 end
             end)
         end
-
-        stopTrain = function()
-            trainActionId += 1
-            activeHudMode = isEnabled and "throw" or "train"
-            if trainEnabled then return end
-
-            setStatus("trainStopping", "Activating the game's STOP control...")
-            task.spawn(function()
-                local stopped, stopError = pressTrainingStopWithoutMouse()
-                if not stopped then
-                    debugLog("Could not activate STOP control: " .. tostring(stopError))
-                end
-                if isEnabled then
-                    activeHudMode = "throw"
-                    setStatus(currentStatus, currentStatusDetail)
-                else
-                    setStatus("trainStopped")
-                end
-            end)
+        
+        local function stopAuto2x()
+            auto2xEnabled = false
+            auto2xRunning = false
+            auto2xWorkerId += 1
         end
-
+        
         --==================================================
-        -- MAIN FARM LOOP
+        -- AUTOMATION CYCLE
         --==================================================
-
-        local function startFarm()
-            actionId += 1
-
-            local currentId = actionId
-
-            firstCycle = true
-
-            task.spawn(function()
-                local success, err = pcall(function()
-
-                    setStatus("starting")
-                    debugLog("Farm started.")
-
-                    while stillRunning(currentId) do
-
-                        -- 1. WALK TO STARTERAREA
-                        if not moveToStarterArea(currentId) then
-                            break
-                        end
-
-                        -- 2. ONLY FIRST CYCLE: WAIT 6 SECONDS
-                        if firstCycle then
-                            setStatus("initialWait", "6s remaining", 0)
-                            debugLog("First cycle: waiting 6 seconds at StarterArea...")
-
-                            if not waitWhileEnabled(
-                                INITIAL_STARTER_WAIT,
-                                currentId
-                            ) then
-                                break
-                            end
-
-                            firstCycle = false
-                        end
-
-                        -- 3. GET SELECTED POWER
-                        local targetPower = selectedSpeed
-
-                        debugLog(
-                            "StarterArea reached. Selected power: "
-                            .. targetPower
-                        )
-
-                        -- 4. WAIT FOR MARKER POWER
-                        if not waitForSelectedPower(
-                            targetPower,
-                            currentId
-                        ) then
-                            break
-                        end
-
-                        -- 5. CLICK / THROW
-                        if not performClick(currentId) then
-                            break
-                        end
-
-                        -- 6. WAIT BEFORE RESET
-                        debugLog("Waiting 1 second before reset...")
-
-                        if not waitWhileEnabled(
-                            AFTER_CLICK_DELAY,
-                            currentId
-                        ) then
-                            break
-                        end
-
-                        -- 7. RESET CHARACTER
-                        if not resetCharacter(currentId) then
-                            break
-                        end
-
-                        -- 8. WAIT UNTIL THROW COOLDOWN IS ZERO
-                        if not waitForThrowCooldown(currentId) then
-                            break
-                        end
-
-                        -- 9. LOOP RESTARTS AND WALKS TO STARTERAREA
-                        debugLog("Cooldown finished. Moving to StarterArea...")
-
-                        -- Döngü başa döner:
-                        -- StarterArea'ya yürür, animasyon başlar,
-                        -- güç yakalanır, fırlatılır ve tekrar reset atılır.
-                    end
-
-                end)
-
-                if not success then
-                    warn("[BZHUB FARM ERROR] " .. tostring(err))
-
-                    if currentId == actionId then
-                        isEnabled = false
-
-                        setSwitchVisual(false, false)
-                        setStatus("error", tostring(err))
-                        if hudGui then hudGui.Enabled = false end
-                    end
-                end
-
-                debugLog("Farm loop stopped.")
-            end)
-        end
-
-        --==================================================
-        -- TOGGLE
-        --==================================================
-
-        switchButton.MouseButton1Click:Connect(function()
-            isEnabled = not isEnabled
-
-            if isEnabled then
-                activeHudMode = "throw"
-                setSwitchVisual(true, false)
-                setStatus("starting")
-                debugLog("Farm enabled.")
-                startFarm()
+        
+        local automationRunning = false
+        local automationWorkerId = 0
+        local successfulThrowCount = 0
+        
+        local function setAutoThrowEnabled(enabled)
+            isEnabled = enabled
+        
+            if switchButton and switchButton.Parent then
+                setSwitchState(enabled)
+            end
+        
+            if enabled then
+                startAutoThrow()
             else
-                actionId += 1
-                setSwitchVisual(false, false)
-                if trainEnabled then
-                    activeHudMode = "train"
-                    setStatus("training")
-                else
-                    setStatus("stopped")
-                    if hudGui then hudGui.Enabled = false end
+                stopAutoThrow()
+            end
+        end
+        
+        local function setAutoTrainEnabled(enabled)
+            trainEnabled = enabled
+        
+            if trainStateLabel then
+                trainStateLabel.Text = enabled and "ON" or "OFF"
+                trainStateLabel.TextColor3 = enabled and TRAIN_RED_BRIGHT or MUTED
+            end
+        
+            if trainSwitch then
+                setRedSwitch(
+                    trainSwitch,
+                    trainKnob,
+                    trainSwitchStroke,
+                    enabled,
+                    false
+                )
+            end
+        
+            if enabled then
+                startTrain()
+            else
+                stopTrain()
+            end
+        end
+        
+        local function setAuto2xEnabled(enabled)
+            auto2xEnabled = enabled
+        
+            if auto2xSwitch then
+                setRedSwitch(
+                    auto2xSwitch,
+                    auto2xKnob,
+                    auto2xSwitchStroke,
+                    enabled,
+                    false
+                )
+            end
+        
+            if enabled then
+                startAuto2x()
+            else
+                stopAuto2x()
+            end
+        end
+        
+        local function resetCharacter()
+            local humanoid = getHumanoid()
+        
+            if humanoid then
+                humanoid.Health = 0
+            end
+        
+            local oldCharacter = player.Character
+            local startTime = os.clock()
+        
+            while automationRunning
+                and player.Character == oldCharacter
+                and os.clock() - startTime < 12
+            do
+                task.wait(0.1)
+            end
+        
+            return automationRunning and player.Character ~= oldCharacter
+        end
+        
+        local function runAutomationCycle(workerId)
+            if not waitWhileRunning(0.2, workerId) then
+                return false
+            end
+        
+            successfulThrowCount = 0
+        
+            while successfulThrowCount < 5 do
+                if not automationRunning or workerId ~= automationWorkerId then
+                    return false
                 end
-                debugLog("Farm disabled.")
+        
+                setAutoThrowEnabled(true)
+        
+                local previousThrowCount = successfulThrowCount
+                local startTime = os.clock()
+        
+                while automationRunning
+                    and workerId == automationWorkerId
+                    and successfulThrowCount == previousThrowCount
+                    and os.clock() - startTime < 90
+                do
+                    task.wait(0.1)
+                end
+        
+                if not automationRunning or workerId ~= automationWorkerId then
+                    return false
+                end
+        
+                if successfulThrowCount == previousThrowCount then
+                    setAutoThrowEnabled(false)
+                    return false
+                end
+        
+                setAutoThrowEnabled(false)
+        
+                if not resetCharacter() then
+                    return false
+                end
+            end
+        
+            setAutoTrainEnabled(true)
+            setAuto2xEnabled(true)
+        
+            local trainingStartedAt = os.clock()
+        
+            while automationRunning
+                and workerId == automationWorkerId
+                and os.clock() - trainingStartedAt < 60
+            do
+                task.wait(0.1)
+            end
+        
+            if not automationRunning or workerId ~= automationWorkerId then
+                return false
+            end
+        
+            setAuto2xEnabled(false)
+            setAutoTrainEnabled(false)
+        
+            if equipBestAnimals then
+                pcall(equipBestAnimals)
+            end
+        
+            return true
+        end
+        
+        local function stopAutomation()
+            automationRunning = false
+            automationWorkerId += 1
+        
+            setAutoThrowEnabled(false)
+            setAuto2xEnabled(false)
+            setAutoTrainEnabled(false)
+        
+            successfulThrowCount = 0
+        end
+        
+        local function startAutomation()
+            if automationRunning then
+                return
+            end
+        
+            automationRunning = true
+            automationWorkerId += 1
+        
+            local thisWorker = automationWorkerId
+        
+            task.spawn(function()
+                while automationRunning and thisWorker == automationWorkerId do
+                    local completed = runAutomationCycle(thisWorker)
+        
+                    if not completed then
+                        break
+                    end
+        
+                    task.wait(0.15)
+                end
+        
+                if thisWorker == automationWorkerId then
+                    stopAutomation()
+                end
+            end)
+        end
+        
+        --==================================================
+        -- START / STOP BUTTON
+        --==================================================
+        
+        local startButton = Instance.new("TextButton")
+        startButton.Name = "AutomationStartButton"
+        startButton.AnchorPoint = Vector2.new(1, 0)
+        startButton.Position = UDim2.new(1, -10, 0, 10)
+        startButton.Size = UDim2.fromOffset(76, 29)
+        startButton.BackgroundColor3 = Color3.fromRGB(245, 245, 245)
+        startButton.BorderSizePixel = 0
+        startButton.Text = "START"
+        startButton.TextColor3 = Color3.fromRGB(18, 22, 29)
+        startButton.TextSize = 11
+        startButton.Font = Enum.Font.GothamBold
+        startButton.AutoButtonColor = false
+        startButton.Parent = page
+        
+        local startCorner = Instance.new("UICorner")
+        startCorner.CornerRadius = UDim.new(0, 8)
+        startCorner.Parent = startButton
+        
+        local startStroke = Instance.new("UIStroke")
+        startStroke.Color = Color3.fromRGB(255, 255, 255)
+        startStroke.Transparency = 0.45
+        startStroke.Thickness = 1
+        startStroke.Parent = startButton
+        
+        local startButtonSize = UDim2.fromOffset(76, 29)
+        
+        startButton.MouseEnter:Connect(function()
+            makeTween(startButton, 0.14, {
+                Size = UDim2.fromOffset(81, 32)
+            })
+        end)
+        
+        startButton.MouseLeave:Connect(function()
+            makeTween(startButton, 0.14, {
+                Size = startButtonSize
+            })
+        end)
+        
+        startButton.MouseButton1Click:Connect(function()
+            if automationRunning then
+                stopAutomation()
+                startButton.Text = "START"
+                startButton.BackgroundColor3 = Color3.fromRGB(245, 245, 245)
+            else
+                startAutomation()
+                startButton.Text = "STOP"
+                startButton.BackgroundColor3 = Color3.fromRGB(245, 75, 75)
             end
         end)
-
-        debugLog("Farm module loaded.")
-
-        -- Keep labels synchronized if the Roblox client language changes.
-        LocalizationService:GetPropertyChangedSignal("RobloxLocaleId"):Connect(function()
-            refreshLanguage()
+        --==================================================
+        -- AUTOMATION CLEANUP
+        --==================================================
+        
+        local function cleanupAutomation()
+            stopAutomation()
+        
+            if startButton and startButton.Parent then
+                startButton.Text = "START"
+                startButton.BackgroundColor3 = Color3.fromRGB(245, 245, 245)
+            end
+        end
+        
+        --==================================================
+        -- CHARACTER RESPAWN HANDLING
+        --==================================================
+        
+        player.CharacterAdded:Connect(function(character)
+            if not automationRunning then
+                return
+            end
+        
+            task.wait(0.5)
+        
+            if not automationRunning then
+                return
+            end
+        
+            if trainEnabled then
+                moveToTrainingSpot()
+            end
         end)
-
-    end)
-
-    
+        
+        --==================================================
+        -- THROW PROGRESS TRACKING
+        --==================================================
+        
+        local function registerSuccessfulThrow()
+            if not automationRunning then
+                return
+            end
+        
+            successfulThrowCount += 1
+        
+            local progress = math.clamp(successfulThrowCount / 5, 0, 1)
+        
+            if setHudProgress then
+                setHudProgress(progress)
+            end
+        
+            if successfulThrowCount >= 5 then
+                setAutoThrowEnabled(false)
+            end
+        end
+        
+        --==================================================
+        -- INITIAL STATE
+        --==================================================
+        
+        automationRunning = false
+        successfulThrowCount = 0
+        
+        setAutoThrowEnabled(false)
+        setAutoTrainEnabled(false)
+        setAuto2xEnabled(false)
+        
+        if setHudProgress then
+            setHudProgress(0)
+        end
+        
+        if startButton then
+            startButton.Text = "START"
+        end
+        
+        --==================================================
+        -- END OF AUTOMATIONS
+        --==================================================
     api.AddCategory("Upgrades", "UPGRADES", function(page)
     
         --==================================================
