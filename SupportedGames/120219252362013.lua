@@ -3500,54 +3500,42 @@ function GameModule.Register(api)
         -- SAFE MOUSE CLICK
         --==================================================
     
+        
         local function clickButton(button)
-    
+        
             if not button or not button:IsA("GuiButton") then
                 return false
             end
-    
-            if not isVisible(button) or not button.Active then
+        
+            if not isVisible(button) then
                 return false
             end
-    
+        
             local position = button.AbsolutePosition
             local size = button.AbsoluteSize
             local inset = GuiService:GetGuiInset()
-    
+        
             local x = math.floor(position.X + size.X / 2 + inset.X)
             local y = math.floor(position.Y + size.Y / 2 + inset.Y)
-    
-            -- Prevent clicking through another GUI.
-            if not isButtonOnTop(button, x, y) then
-                return false
-            end
-    
-            -- Check again immediately before clicking.
-            if not isVisible(button) or not button.Active then
-                return false
-            end
-    
-            if not isButtonOnTop(button, x, y) then
-                return false
-            end
-    
+        
             VirtualInputManager:SendMouseMoveEvent(x, y, game)
             task.wait(0.2)
-    
+        
             VirtualInputManager:SendMouseButtonEvent(
                 x, y, 0, true, game, 0
             )
-    
+        
             task.wait(0.12)
-    
+        
             VirtualInputManager:SendMouseButtonEvent(
                 x, y, 0, false, game, 0
             )
-    
+        
             task.wait(0.35)
-    
+        
             return true
         end
+
     
         --==================================================
         -- CLICK RETRY
