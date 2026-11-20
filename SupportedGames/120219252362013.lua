@@ -3404,12 +3404,11 @@ function GameModule.Register(api)
         -- Main paw pad
         createPawPart("MainPad", 17, 24, 22, 16, 0, RED, 5)
     
-        -- asdsadasd
-        createPawPart("MainPad", 15, 21, 19, 14, 0, RED, 5)
-        createPawPart("Toe1", 5, 11, 6, 8, -25, RED, 5)
-        createPawPart("Toe2", 11, 7, 6, 8, -8, RED_LIGHT, 5)
-        createPawPart("Toe3", 19, 7, 6, 8, 8, RED_LIGHT, 5)
-        createPawPart("Toe4", 25, 11, 6, 8, 25, RED, 5)
+        -- Four toes: moved closer to the main pad
+        createPawPart("Toe1", 5, 12, 7, 10, -25, RED, 5)
+        createPawPart("Toe2", 12, 7, 7, 10, -8, RED_LIGHT, 5)
+        createPawPart("Toe3", 22, 7, 7, 10, 8, RED_LIGHT, 5)
+        createPawPart("Toe4", 29, 12, 7, 10, 25, RED, 5)
     
        
         --==================================================
