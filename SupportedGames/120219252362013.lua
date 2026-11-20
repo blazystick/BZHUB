@@ -810,31 +810,47 @@ function GameModule.Register(api)
         incomeFilterHint.Position = UDim2.fromOffset(12, 158)
         incomeFilterHint.Size = UDim2.new(1, -24, 0, 14)
         incomeFilterHint.BackgroundTransparency = 1
-        incomeFilterHint.Text = "0 = disabled  |  K / M / B / T supported"
+        incomeFilterHint.Text = '"0" is disabled; suffixes like K, M, B, T, Qa, Qi, Sx, Sp, Oc, etc. are supported.'
         incomeFilterHint.TextColor3 = MUTED
         incomeFilterHint.TextSize = 9
         incomeFilterHint.Font = Enum.Font.Gotham
         incomeFilterHint.TextXAlignment = Enum.TextXAlignment.Left
         incomeFilterHint.Parent = mainCard
 
+        local incomeSuffixMultipliers = {
+            [""] = 1,
+            K = 1e3, M = 1e6, B = 1e9, T = 1e12,
+            QA = 1e15, QI = 1e18, SX = 1e21, SP = 1e24,
+            OC = 1e27, NO = 1e30, DC = 1e33,
+            UD = 1e36, DD = 1e39, TD = 1e42,
+            QAD = 1e45, QID = 1e48, SXD = 1e51, SPD = 1e54,
+            OCD = 1e57, NOD = 1e60, VG = 1e63,
+            UVG = 1e66, DVG = 1e69, TVG = 1e72,
+            QAVG = 1e75, QIVG = 1e78, SXVG = 1e81, SPVG = 1e84,
+            OCVG = 1e87, NOVG = 1e90, TG = 1e93,
+            UTG = 1e96, DTG = 1e99, TTG = 1e102,
+            QATG = 1e105, QITG = 1e108, SXTG = 1e111,
+            SPTG = 1e114, OCTG = 1e117, NOTG = 1e120,
+            QAG = 1e123, QIG = 1e126, SXG = 1e129, SPG = 1e132,
+            OCG = 1e135, NOG = 1e138, CT = 1e303
+        }
+
         local function parseIncomeThreshold(raw)
             local cleaned = tostring(raw or ""):upper():gsub("[%s,]", "")
-            if cleaned == "" then return 0 end
-            local numberPart, suffix = cleaned:match("^(%d+%.?%d*)([KMBT]?)$")
+            if cleaned == "" or cleaned == "0" then return 0 end
+
+            local numberPart, suffix = cleaned:match("^(%d+%.?%d*)([A-Z]*)$")
             if not numberPart then return nil end
 
             local number = tonumber(numberPart)
-            if not number or number < 0 then return nil end
+            local multiplier = incomeSuffixMultipliers[suffix]
+            if not number or number < 0 or not multiplier then return nil end
 
-            local multiplier = ({
-                [""] = 1,
-                K = 1e3,
-                M = 1e6,
-                B = 1e9,
-                T = 1e12
-            })[suffix] or 1
-
-            return math.floor(number * multiplier + 0.5)
+            local result = number * multiplier
+            if result ~= result or result == math.huge then
+                return math.huge
+            end
+            return math.floor(result + 0.5)
         end
 
         incomeFilterBox.FocusLost:Connect(function()
@@ -849,7 +865,7 @@ function GameModule.Register(api)
             minimumCashPerSecond = parsed
             incomeFilterBox.Text = tostring(parsed)
             incomeFilterHint.Text = parsed == 0
-                and "Filter disabled  |  K / M / B / T supported"
+                and '"0" is disabled; suffixes like K, M, B, T, Qa, Qi, Sx, Sp, Oc, etc. are supported.'
                 or ("Minimum: " .. tostring(parsed) .. " Cash/S")
             incomeFilterHint.TextColor3 = MUTED
         end)
@@ -1945,16 +1961,10 @@ function GameModule.Register(api)
         helpers.setPowerSliderVisible = function(visible, instant)
             sliderVisible = visible
 
-            -- Keep the income filter visible in both expanded and compact layouts.
-            incomeFilterLabel.Position = visible
-                and UDim2.fromOffset(12, 133)
-                or UDim2.fromOffset(12, 76)
-            incomeFilterBox.Position = visible
-                and UDim2.new(1, -12, 0, 130)
-                or UDim2.new(1, -12, 0, 73)
-            incomeFilterHint.Position = visible
-                and UDim2.fromOffset(12, 158)
-                or UDim2.fromOffset(12, 101)
+            -- Hide the power level and income filter together while Auto Throw is enabled.
+            incomeFilterLabel.Visible = visible
+            incomeFilterBox.Visible = visible
+            incomeFilterHint.Visible = visible
             if sliderTween then
                 sliderTween:Cancel()
                 sliderTween = nil
@@ -1975,8 +1985,8 @@ function GameModule.Register(api)
                     sliderContainer.Position = UDim2.fromOffset(12, 54)
                     sliderContainer.Size = UDim2.new(1, -24, 0, 0)
                     sliderContainer.GroupTransparency = 1
-                    mainCard.Size = UDim2.new(1, -20, 0, 121)
-                    trainCard.Position = UDim2.fromOffset(10, 187)
+                    mainCard.Size = UDim2.new(1, -20, 0, 62)
+                    trainCard.Position = UDim2.fromOffset(10, 128)
                     helpers.makeTween(mainCard, 0.3, {Size = UDim2.new(1, 0, 0, 178)})
                     helpers.makeTween(trainCard, 0.3, {Position = UDim2.fromOffset(10, 244)})
                     helpers.makeTween(sliderContainer, 0.28, {
@@ -2000,11 +2010,11 @@ function GameModule.Register(api)
                     sliderContainer.Position = UDim2.fromOffset(12, 54)
                     sliderContainer.Size = UDim2.new(1, -24, 0, 0)
                     sliderContainer.GroupTransparency = 1
-                    mainCard.Size = UDim2.new(1, -20, 0, 121)
-                    trainCard.Position = UDim2.fromOffset(10, 187)
+                    mainCard.Size = UDim2.new(1, -20, 0, 62)
+                    trainCard.Position = UDim2.fromOffset(10, 128)
                 else
                     helpers.makeTween(mainCard, 0.28, {Size = UDim2.new(1, -20, 0, 121)})
-                    helpers.makeTween(trainCard, 0.28, {Position = UDim2.fromOffset(10, 187)})
+                    helpers.makeTween(trainCard, 0.28, {Position = UDim2.fromOffset(10, 128)})
                     helpers.makeTween(sliderContainer, 0.25, {
                         Position = UDim2.fromOffset(12, 52),
                         Size = UDim2.new(1, -24, 0, 0)
