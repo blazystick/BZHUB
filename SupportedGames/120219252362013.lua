@@ -451,7 +451,7 @@ function GameModule.Register(api)
         helpers.autoFarmButtonScale = Instance.new("UIScale")
         helpers.autoFarmButtonScale.Scale = 1
         helpers.autoFarmButtonScale.Parent = autoFarmButton
-
+        print("AFK BUTTON HOVER ACTIVE")
         autoFarmButton.MouseEnter:Connect(function()
             -- Smooth hover gradient transition
             TweenService:Create(
