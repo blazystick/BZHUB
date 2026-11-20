@@ -1,4 +1,4 @@
---123123123
+
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -55,6 +55,15 @@ function GameModule.Register(api)
         -- Sonraki döngülerde ThrowReadyAt beklenecek.
         local firstCycle = true
 
+        -- AFK FARM orchestration
+        local autoFarmRunning = false
+        local autoFarmWorkerId = 0
+        local autoFarmThrowCount = 0
+        local autoFarmThrowDone = false
+        local autoFarmThrowTarget = 3
+        local autoFarmTrainingSeconds = 60
+        local autoFarmFirstCycle = true
+
         --==================================================
         -- DEBUG
         --==================================================
@@ -79,7 +88,7 @@ function GameModule.Register(api)
 
         local translations = {
             English = {
-                title = "AUTO THROW",
+                title = "AUTO FARM",
                 power = "Power Level",
                 info = "i",
                 infoTitle = "AUTO THROW - IMPORTANT NOTES",
@@ -99,7 +108,7 @@ function GameModule.Register(api)
                 close = "CLOSE"
             },
             Turkish = {
-                title = "AUTO THROW",
+                title = "AUTO FARM",
                 power = "Güç Seviyesi",
                 info = "i",
                 infoTitle = "AUTO THROW - IMPORTANT NOTES",
@@ -187,6 +196,11 @@ function GameModule.Register(api)
 
         local function updateHud(key, detail, progress)
             if not hudGui then return end
+            if autoFarmRunning then
+                hudGui.Enabled = false
+                hudVisible = false
+                return
+            end
             if hudStateText then
                 local mode = (activeHudMode == "train") and "AUTO TRAIN" or "AUTO THROW"
                 local enabled = (activeHudMode == "train") and trainEnabled or isEnabled
@@ -316,7 +330,7 @@ function GameModule.Register(api)
         end)
 
         local title = Instance.new("TextLabel")
-        title.Name = "AutoThrowTitle"
+        title.Name = "AutoFarmTitle"
         title.Size = UDim2.new(1, 0, 0, 30)
         title.Position = UDim2.new(0, 0, 0, 0)
         title.BackgroundTransparency = 1
@@ -327,6 +341,25 @@ function GameModule.Register(api)
         title.Font = Enum.Font.GothamBold
         title.LayoutOrder = 1
         title.Parent = farmContent
+        title.Size = UDim2.new(1, -105, 0, 30)
+        title.Text = "AUTO FARM"
+
+        local autoFarmButton = Instance.new("TextButton")
+        autoFarmButton.Name = "AutoFarmStartStop"
+        autoFarmButton.AnchorPoint = Vector2.new(1, 0)
+        autoFarmButton.Position = UDim2.new(1, 0, 0, 1)
+        autoFarmButton.Size = UDim2.fromOffset(92, 27)
+        autoFarmButton.BackgroundColor3 = Color3.fromRGB(245, 247, 250)
+        autoFarmButton.BorderSizePixel = 0
+        autoFarmButton.Text = "BAŞLAT"
+        autoFarmButton.TextColor3 = Color3.fromRGB(18, 25, 35)
+        autoFarmButton.TextSize = 11
+        autoFarmButton.Font = Enum.Font.GothamBold
+        autoFarmButton.AutoButtonColor = true
+        autoFarmButton.Parent = farmContent
+        local autoFarmButtonCorner = Instance.new("UICorner")
+        autoFarmButtonCorner.CornerRadius = UDim.new(0, 8)
+        autoFarmButtonCorner.Parent = autoFarmButton
 
         -- Main combined card: toggle + power slider.
         local mainCard = Instance.new("Frame")
@@ -705,6 +738,7 @@ function GameModule.Register(api)
         end
 
         trainSwitch.MouseButton1Click:Connect(function()
+            if autoFarmRunning then return end
             if not trainEnabled and isEnabled then
                 debugLog("Auto Train toggle blocked: Auto Throw is already enabled.")
                 return
@@ -915,6 +949,7 @@ function GameModule.Register(api)
         end
 
         equipBestSwitch.MouseButton1Click:Connect(function()
+            if autoFarmRunning then return end
             autoEquipBestEnabled = not autoEquipBestEnabled
             equipStateLabel.Text = autoEquipBestEnabled and "ON" or "OFF"
             equipStateLabel.TextColor3 = autoEquipBestEnabled and EQUIP_GREEN_BRIGHT or MUTED
@@ -1212,10 +1247,10 @@ function GameModule.Register(api)
             return not tapBonusStillExists(tapBonusObject)
         end
 
-        auto2xSwitch.MouseButton1Click:Connect(function()
-            if not trainEnabled then return end
-            auto2xEnabled = not auto2xEnabled
-            setRedSwitch(auto2xSwitch, auto2xKnob, auto2xSwitchStroke, auto2xEnabled, false)
+        local function setAuto2xEnabled(enabled, instant)
+            if enabled and not trainEnabled then return false end
+            auto2xEnabled = enabled
+            setRedSwitch(auto2xSwitch, auto2xKnob, auto2xSwitchStroke, auto2xEnabled, instant == true)
 
             auto2xWorkerId += 1
             local thisWorkerId = auto2xWorkerId
@@ -1223,24 +1258,16 @@ function GameModule.Register(api)
                 task.spawn(function()
                     while trainEnabled and auto2xEnabled and auto2xWorkerId == thisWorkerId do
                         local clickButton, tapBonusObject = findTapBonusButton()
-
                         if not tapBonusObject then
                             task.wait(0.1)
                         elseif not clickButton then
                             warn("[BZHUB AUTO 2X] TapBonus exists but no GuiButton was found.")
                             task.wait(0.2)
                         else
-                            -- Give the bonus a moment to appear before attempting activation.
                             task.wait(0.22)
-                            if not (trainEnabled and auto2xEnabled and auto2xWorkerId == thisWorkerId) then
-                                break
-                            end
-
-                            -- Try non-MB1 activation first; mouse is used only if the bonus remains.
+                            if not (trainEnabled and auto2xEnabled and auto2xWorkerId == thisWorkerId) then break end
                             attemptAuto2x(clickButton, tapBonusObject)
                             task.wait(0.35)
-
-                            -- Keep retrying while the same bonus remains visible.
                             while trainEnabled and auto2xEnabled and auto2xWorkerId == thisWorkerId do
                                 local remains, retryButton = tapBonusStillExists(tapBonusObject)
                                 if not remains then break end
@@ -1251,6 +1278,13 @@ function GameModule.Register(api)
                     end
                 end)
             end
+            return true
+        end
+
+        auto2xSwitch.MouseButton1Click:Connect(function()
+            if autoFarmRunning then return end
+            if not trainEnabled then return end
+            setAuto2xEnabled(not auto2xEnabled, false)
         end)
 
         -- Animated information panel slides in from the right.
@@ -1319,6 +1353,130 @@ function GameModule.Register(api)
         hudGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         hudGui.Enabled = false
         hudGui.Parent = playerGui
+
+        -- Dedicated AFK Farm information panel (pet names only; no power values).
+        local afkHudGui = Instance.new("ScreenGui")
+        afkHudGui.Name = "BZHUB_AFK_Farm_Info"
+        afkHudGui.ResetOnSpawn = false
+        afkHudGui.IgnoreGuiInset = true
+        afkHudGui.DisplayOrder = 100001
+        afkHudGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        afkHudGui.Enabled = false
+        afkHudGui.Parent = playerGui
+
+        local afkPanel = Instance.new("Frame")
+        afkPanel.Name = "AFKPanel"
+        afkPanel.AnchorPoint = Vector2.new(0.5, 0)
+        afkPanel.Position = UDim2.new(0.5, 0, 0, 88)
+        afkPanel.Size = UDim2.fromOffset(390, 194)
+        afkPanel.BackgroundColor3 = Color3.fromRGB(8, 13, 22)
+        afkPanel.BackgroundTransparency = 0.08
+        afkPanel.BorderSizePixel = 0
+        afkPanel.Parent = afkHudGui
+        local afkPanelCorner = Instance.new("UICorner")
+        afkPanelCorner.CornerRadius = UDim.new(0, 12)
+        afkPanelCorner.Parent = afkPanel
+        local afkPanelStroke = Instance.new("UIStroke")
+        afkPanelStroke.Color = Color3.fromRGB(70, 165, 245)
+        afkPanelStroke.Thickness = 1.2
+        afkPanelStroke.Transparency = 0.18
+        afkPanelStroke.Parent = afkPanel
+
+        local afkHeader = Instance.new("TextLabel")
+        afkHeader.Position = UDim2.fromOffset(14, 8)
+        afkHeader.Size = UDim2.new(1, -28, 0, 22)
+        afkHeader.BackgroundTransparency = 1
+        afkHeader.Text = "AFK FARM / ON"
+        afkHeader.TextColor3 = Color3.fromRGB(245, 249, 255)
+        afkHeader.TextSize = 12
+        afkHeader.Font = Enum.Font.GothamBold
+        afkHeader.TextXAlignment = Enum.TextXAlignment.Left
+        afkHeader.Parent = afkPanel
+
+        local afkDivider = Instance.new("Frame")
+        afkDivider.Position = UDim2.fromOffset(12, 34)
+        afkDivider.Size = UDim2.new(1, -24, 0, 1)
+        afkDivider.BackgroundColor3 = Color3.fromRGB(95, 125, 155)
+        afkDivider.BackgroundTransparency = 0.35
+        afkDivider.BorderSizePixel = 0
+        afkDivider.Parent = afkPanel
+
+        local function makeAfkRow(name, y, initialText)
+            local label = Instance.new("TextLabel")
+            label.Name = name .. "Text"
+            label.Position = UDim2.fromOffset(14, y)
+            label.Size = UDim2.new(1, -28, 0, 16)
+            label.BackgroundTransparency = 1
+            label.Text = initialText
+            label.TextColor3 = Color3.fromRGB(218, 230, 244)
+            label.TextSize = 10
+            label.Font = Enum.Font.GothamSemibold
+            label.TextXAlignment = Enum.TextXAlignment.Left
+            label.Parent = afkPanel
+
+            local bar = Instance.new("Frame")
+            bar.Name = name .. "Bar"
+            bar.Position = UDim2.fromOffset(14, y + 18)
+            bar.Size = UDim2.new(1, -28, 0, 7)
+            bar.BackgroundColor3 = Color3.fromRGB(30, 43, 58)
+            bar.BorderSizePixel = 0
+            bar.ClipsDescendants = true
+            bar.Parent = afkPanel
+            local barCorner = Instance.new("UICorner")
+            barCorner.CornerRadius = UDim.new(1, 0)
+            barCorner.Parent = bar
+            local fill = Instance.new("Frame")
+            fill.Name = "Fill"
+            fill.Size = UDim2.new(0, 0, 1, 0)
+            fill.BackgroundColor3 = Color3.fromRGB(67, 169, 245)
+            fill.BorderSizePixel = 0
+            fill.Parent = bar
+            local fillCorner = Instance.new("UICorner")
+            fillCorner.CornerRadius = UDim.new(1, 0)
+            fillCorner.Parent = fill
+            return label, fill
+        end
+
+        local afkThrowsText, afkThrowsFill = makeAfkRow("Throws", 42, "ATIŞLAR: 3")
+        local afkTrainingText, afkTrainingFill = makeAfkRow("Training", 78, "TRAINING: 60s")
+        local afkPetsText = Instance.new("TextLabel")
+        afkPetsText.Name = "EquipPetsText"
+        afkPetsText.Position = UDim2.fromOffset(14, 119)
+        afkPetsText.Size = UDim2.new(1, -28, 0, 62)
+        afkPetsText.BackgroundTransparency = 1
+        afkPetsText.Text = "EQUIP PETS: Bekleniyor..."
+        afkPetsText.TextColor3 = Color3.fromRGB(218, 230, 244)
+        afkPetsText.TextSize = 10
+        afkPetsText.Font = Enum.Font.GothamSemibold
+        afkPetsText.TextXAlignment = Enum.TextXAlignment.Left
+        afkPetsText.TextYAlignment = Enum.TextYAlignment.Top
+        afkPetsText.TextWrapped = true
+        afkPetsText.Parent = afkPanel
+
+        local function setAfkBar(fill, value)
+            fill.Size = UDim2.new(math.clamp(value or 0, 0, 1), 0, 1, 0)
+        end
+
+        local function setAfkThrowCount(remaining)
+            afkThrowsText.Text = "ATIŞLAR: " .. tostring(math.max(0, remaining))
+            setAfkBar(afkThrowsFill, (autoFarmThrowTarget - math.max(0, remaining)) / autoFarmThrowTarget)
+        end
+
+        local function setAfkTraining(secondsLeft)
+            local remaining = math.max(0, secondsLeft)
+            afkTrainingText.Text = "TRAINING: " .. tostring(remaining) .. "s"
+            setAfkBar(afkTrainingFill, (autoFarmTrainingSeconds - remaining) / autoFarmTrainingSeconds)
+        end
+
+        local function setAfkPets(names)
+            if type(names) ~= "table" then
+                afkPetsText.Text = "EQUIP PETS: Bekleniyor..."
+            elseif #names == 0 then
+                afkPetsText.Text = "EQUIP PETS: İsim bulunamadı"
+            else
+                afkPetsText.Text = "EQUIP PETS: " .. table.concat(names, ", ")
+            end
+        end
 
         local hudContainer = Instance.new("Frame")
         hudContainer.Name = "StatusContainer"
@@ -1561,7 +1719,7 @@ function GameModule.Register(api)
         local infoOpen = false
 
         local function refreshLanguage()
-            title.Text = tr("title")
+            title.Text = "AUTO FARM"
             infoPanelTitle.Text = tr("infoTitle")
             infoHint.Text = tr("infoHint")
             sliderLabel.Text = string.format("%s: %d", tr("power"), selectedSpeed)
@@ -1607,7 +1765,7 @@ function GameModule.Register(api)
                 hudStateText.Text = "AUTO THROW   /   " .. (enabled and "ON" or "OFF")
             end
             if hudGui then
-                hudGui.Enabled = enabled
+                hudGui.Enabled = enabled and not autoFarmRunning
             end
         end
 
@@ -2602,7 +2760,7 @@ function GameModule.Register(api)
 
             local currentId = actionId
 
-            firstCycle = true
+            firstCycle = not autoFarmRunning or autoFarmFirstCycle
 
             task.spawn(function()
                 local success, err = pcall(function()
@@ -2630,6 +2788,7 @@ function GameModule.Register(api)
                             end
 
                             firstCycle = false
+                            if autoFarmRunning then autoFarmFirstCycle = false end
                         end
 
                         -- 3. GET SELECTED POWER
@@ -2673,6 +2832,17 @@ function GameModule.Register(api)
                             break
                         end
 
+                        if autoFarmRunning then
+                            autoFarmThrowCount += 1
+                            setAfkThrowCount(autoFarmThrowTarget - autoFarmThrowCount)
+                            if autoFarmThrowCount >= autoFarmThrowTarget then
+                                autoFarmThrowDone = true
+                                isEnabled = false
+                                setSwitchVisual(false, false)
+                                break
+                            end
+                        end
+
                         -- 9. LOOP RESTARTS AND WALKS TO STARTERAREA
                         debugLog("Cooldown finished. Moving to StarterArea...")
 
@@ -2688,7 +2858,14 @@ function GameModule.Register(api)
 
                     if currentId == actionId then
                         isEnabled = false
-
+                        if autoFarmRunning then
+                            autoFarmThrowDone = true
+                            autoFarmRunning = false
+                            autoFarmWorkerId += 1
+                            autoFarmButton.Text = "BAŞLAT"
+                            autoFarmButton.BackgroundColor3 = Color3.fromRGB(245, 247, 250)
+                            afkHeader.Text = "AFK FARM / ERROR"
+                        end
                         setSwitchVisual(false, false)
                         setStatus("error", tostring(err))
                         if hudGui then hudGui.Enabled = false end
@@ -2700,10 +2877,210 @@ function GameModule.Register(api)
         end
 
         --==================================================
+        -- AFK FARM SEQUENCE
+        --==================================================
+
+        local function stopAutomationToggles()
+            -- Stop Auto Throw in both the UI and game-side worker.
+            if isEnabled then
+                isEnabled = false
+                actionId += 1
+            end
+            setSwitchVisual(false, true)
+
+            -- Stop Auto Train and its in-game training session (SPACE), only if it was active.
+            local wasTraining = trainEnabled
+            if wasTraining then
+                trainEnabled = false
+                trainActionId += 1
+            end
+            trainStateLabel.Text = "OFF"
+            trainStateLabel.TextColor3 = MUTED
+            setRedSwitch(trainSwitch, trainKnob, trainSwitchStroke, false, true)
+            if wasTraining and stopTrain then stopTrain() end
+
+            -- Stop Auto 2X worker and reset its switch.
+            setAuto2xEnabled(false, true)
+
+            -- Stop Auto Equip Best Pet worker.
+            autoEquipBestEnabled = false
+            autoEquipBestWorkerId += 1
+            equipStateLabel.Text = "OFF"
+            equipStateLabel.TextColor3 = MUTED
+            setEquipSwitchVisual(false, true)
+            makeTween(equipBestStroke, 0.15, {Transparency = 0.3, Thickness = 1.35})
+
+            if hudGui then hudGui.Enabled = false end
+            if infoOpen then closeInfo() end
+        end
+
+        local function setTrainForAutoFarm(enabled)
+            if enabled then
+                trainEnabled = true
+                activeHudMode = "train"
+                trainStateLabel.Text = "ON"
+                trainStateLabel.TextColor3 = TRAIN_RED_BRIGHT
+                setRedSwitch(trainSwitch, trainKnob, trainSwitchStroke, true, true)
+                auto2xRow.Visible = true
+                auto2xRow.BackgroundTransparency = 0.12
+                auto2xRow.Position = UDim2.fromOffset(12, 66)
+                trainCard.Size = UDim2.new(1, 0, 0, 116)
+                trainCardStroke.Transparency = 0.08
+                trainCardStroke.Thickness = 1.8
+                currentStatus = "trainMoving"
+                startTrain()
+                setAuto2xEnabled(true, true)
+            else
+                trainEnabled = false
+                trainActionId += 1
+                trainStateLabel.Text = "OFF"
+                trainStateLabel.TextColor3 = MUTED
+                setRedSwitch(trainSwitch, trainKnob, trainSwitchStroke, false, true)
+                setAuto2xEnabled(false, true)
+                auto2xRow.Visible = false
+                trainCard.Size = UDim2.new(1, 0, 0, 62)
+                trainCardStroke.Transparency = 0.3
+                trainCardStroke.Thickness = 1.35
+                if stopTrain then stopTrain() end
+            end
+        end
+
+        local function readEquippedPetNames()
+            local found, names = {}, {}
+            local function scan(container)
+                if not container then return end
+                for _, child in ipairs(container:GetChildren()) do
+                    if child:IsA("Tool") then
+                        local animalId = child:GetAttribute("AnimalId")
+                        if animalId ~= nil and not found[tostring(animalId)] then
+                            found[tostring(animalId)] = true
+                            table.insert(names, child.Name)
+                        end
+                    end
+                end
+            end
+            scan(player:FindFirstChild("Backpack"))
+            scan(player.Character)
+            table.sort(names)
+            return names
+        end
+
+        local function startAutoFarm()
+            if autoFarmRunning then return end
+            autoFarmRunning = true
+            autoFarmWorkerId += 1
+            local thisWorkerId = autoFarmWorkerId
+
+            stopAutomationToggles()
+            autoFarmButton.Text = "DURDUR"
+            autoFarmButton.BackgroundColor3 = Color3.fromRGB(255, 238, 238)
+            afkHudGui.Enabled = true
+            afkHeader.Text = "AFK FARM / ON"
+            setAfkThrowCount(autoFarmThrowTarget)
+            setAfkTraining(autoFarmTrainingSeconds)
+            autoFarmFirstCycle = true
+            setAfkPets(nil)
+
+            task.spawn(function()
+                local ok, err = pcall(function()
+                    while autoFarmRunning and autoFarmWorkerId == thisWorkerId do
+                        -- Phase 1: three throws at 20 power.
+                        stopAutomationToggles()
+                        selectedSpeed = 20
+                        updateSlider(selectedSpeed)
+                        sliderLabel.Text = string.format("%s: %d", tr("power"), selectedSpeed)
+                        autoFarmThrowCount = 0
+                        autoFarmThrowDone = false
+                        setAfkThrowCount(autoFarmThrowTarget)
+                        isEnabled = true
+                        activeHudMode = "throw"
+                        setSwitchVisual(true, true)
+                        startFarm()
+
+                        while autoFarmRunning and autoFarmWorkerId == thisWorkerId and not autoFarmThrowDone do
+                            task.wait(0.1)
+                        end
+                        if not autoFarmRunning or autoFarmWorkerId ~= thisWorkerId then break end
+
+                        -- Phase 2: train for 60 seconds while Auto 2X is active.
+                        setTrainForAutoFarm(true)
+                        local trainingStarted = os.clock()
+                        local trainingReady = false
+                        while autoFarmRunning and autoFarmWorkerId == thisWorkerId do
+                            if currentStatus == "training" then
+                                trainingReady = true
+                                break
+                            elseif currentStatus == "trainError" then
+                                error("Auto Train: " .. tostring(currentStatusDetail))
+                            end
+                            if os.clock() - trainingStarted > 120 then
+                                error("TrainingSpot'a 120 saniye içinde ulaşılamadı.")
+                            end
+                            task.wait(0.1)
+                        end
+                        if not autoFarmRunning or autoFarmWorkerId ~= thisWorkerId then break end
+                        if not trainingReady then error("Training başlatılamadı.") end
+
+                        for remaining = autoFarmTrainingSeconds, 0, -1 do
+                            if not autoFarmRunning or autoFarmWorkerId ~= thisWorkerId then break end
+                            setAfkTraining(remaining)
+                            task.wait(1)
+                        end
+                        if not autoFarmRunning or autoFarmWorkerId ~= thisWorkerId then break end
+
+                        -- Phase 3: stop training, then equip best pets and list names.
+                        setTrainForAutoFarm(false)
+                        task.wait(1)
+                        local equipped = invokeEquipBest()
+                        task.wait(1)
+                        local petNames = readEquippedPetNames()
+                        setAfkPets(petNames)
+                        debugLog("AFK Farm Equip Best: " .. tostring(equipped) .. "; pets: " .. table.concat(petNames, ", "))
+                        task.wait(1)
+                    end
+                end)
+
+                if not ok then
+                    warn("[BZHUB AFK FARM ERROR] " .. tostring(err))
+                    autoFarmRunning = false
+                    autoFarmWorkerId += 1
+                    stopAutomationToggles()
+                    autoFarmButton.Text = "BAŞLAT"
+                    autoFarmButton.BackgroundColor3 = Color3.fromRGB(245, 247, 250)
+                    afkHeader.Text = "AFK FARM / ERROR"
+                    afkHudGui.Enabled = true
+                end
+            end)
+        end
+
+        local function stopAutoFarm()
+            if not autoFarmRunning then return end
+            autoFarmRunning = false
+            autoFarmWorkerId += 1
+            autoFarmThrowDone = true
+            stopAutomationToggles()
+            autoFarmButton.Text = "BAŞLAT"
+            autoFarmButton.BackgroundColor3 = Color3.fromRGB(245, 247, 250)
+            afkHeader.Text = "AFK FARM / OFF"
+            afkHudGui.Enabled = false
+            setAfkThrowCount(autoFarmThrowTarget)
+            setAfkTraining(autoFarmTrainingSeconds)
+        end
+
+        autoFarmButton.MouseButton1Click:Connect(function()
+            if autoFarmRunning then
+                stopAutoFarm()
+            else
+                startAutoFarm()
+            end
+        end)
+
+        --==================================================
         -- TOGGLE
         --==================================================
 
         switchButton.MouseButton1Click:Connect(function()
+            if autoFarmRunning then return end
             if not isEnabled and trainEnabled then
                 debugLog("Auto Throw toggle blocked: Auto Train is already enabled.")
                 return
