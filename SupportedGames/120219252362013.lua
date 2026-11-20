@@ -1,4 +1,4 @@
---123123123
+
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -1961,10 +1961,16 @@ function GameModule.Register(api)
         helpers.setPowerSliderVisible = function(visible, instant)
             sliderVisible = visible
 
-            -- Hide the power level and income filter together while Auto Throw is enabled.
-            incomeFilterLabel.Visible = visible
-            incomeFilterBox.Visible = visible
-            incomeFilterHint.Visible = visible
+            -- Keep the income filter visible at all times; only lock editing while Auto Throw is ON.
+            incomeFilterLabel.Visible = true
+            incomeFilterBox.Visible = true
+            incomeFilterHint.Visible = true
+            incomeFilterBox.Active = visible
+            incomeFilterBox.TextEditable = visible
+            incomeFilterBox.BackgroundColor3 = visible
+                and Color3.fromRGB(24, 34, 48)
+                or Color3.fromRGB(31, 39, 51)
+            incomeInputStroke.Transparency = visible and 0.45 or 0.72
             if sliderTween then
                 sliderTween:Cancel()
                 sliderTween = nil
@@ -2010,11 +2016,11 @@ function GameModule.Register(api)
                     sliderContainer.Position = UDim2.fromOffset(12, 54)
                     sliderContainer.Size = UDim2.new(1, -24, 0, 0)
                     sliderContainer.GroupTransparency = 1
-                    mainCard.Size = UDim2.new(1, -20, 0, 62)
-                    trainCard.Position = UDim2.fromOffset(10, 128)
+                    mainCard.Size = UDim2.new(1, 0, 0, 178)
+                    trainCard.Position = UDim2.fromOffset(10, 244)
                 else
-                    helpers.makeTween(mainCard, 0.28, {Size = UDim2.new(1, -20, 0, 121)})
-                    helpers.makeTween(trainCard, 0.28, {Position = UDim2.fromOffset(10, 128)})
+                    helpers.makeTween(mainCard, 0.28, {Size = UDim2.new(1, 0, 0, 178)})
+                    helpers.makeTween(trainCard, 0.28, {Position = UDim2.fromOffset(10, 244)})
                     helpers.makeTween(sliderContainer, 0.25, {
                         Position = UDim2.fromOffset(12, 52),
                         Size = UDim2.new(1, -24, 0, 0)
@@ -3113,7 +3119,42 @@ function GameModule.Register(api)
             return cachedDataController, cachedMutations
         end
 
-        helpers.getLowIncomeAnimals = function()
+        helpers.waitForDataControllerReady = function(dataController, currentId)
+            local function isReady()
+                local readyValue = dataController.IsReady
+
+                if type(readyValue) == "function" then
+                    local ok, result = pcall(function()
+                        return dataController:IsReady()
+                    end)
+                    return ok and result == true
+                end
+
+                return readyValue == true
+            end
+
+            if isReady() then
+                return true
+            end
+
+            -- DataController exposes WaitForReady; call it once, then verify its ready flag.
+            if type(dataController.WaitForReady) == "function" then
+                pcall(function()
+                    dataController:WaitForReady()
+                end)
+            end
+
+            while not isReady() do
+                if currentId and not helpers.stillRunning(currentId) then
+                    return false
+                end
+                task.wait(0.25)
+            end
+
+            return true
+        end
+
+        helpers.getLowIncomeAnimals = function(currentId)
             if minimumCashPerSecond <= 0 then
                 return {}
             end
@@ -3121,6 +3162,10 @@ function GameModule.Register(api)
             local dataController, mutations, moduleError = helpers.getPetDataModules()
             if not dataController or not mutations then
                 error(moduleError or "Pet data modules are unavailable.")
+            end
+
+            if not helpers.waitForDataControllerReady(dataController, currentId) then
+                return nil
             end
 
             local ok, animals = pcall(function()
@@ -3253,7 +3298,10 @@ function GameModule.Register(api)
                 return true
             end
 
-            local lowAnimals = helpers.getLowIncomeAnimals()
+            local lowAnimals = helpers.getLowIncomeAnimals(currentId)
+            if not lowAnimals then
+                return false
+            end
             if #lowAnimals == 0 then
                 return true
             end
@@ -3264,7 +3312,10 @@ function GameModule.Register(api)
             end
 
             while helpers.stillRunning(currentId) do
-                lowAnimals = helpers.getLowIncomeAnimals()
+                lowAnimals = helpers.getLowIncomeAnimals(currentId)
+                if not lowAnimals then
+                    return false
+                end
                 if #lowAnimals == 0 then
                     helpers.debugLog("All low-income pets were removed from inventory. Resuming Auto Throw.")
                     return true
@@ -3354,8 +3405,8 @@ function GameModule.Register(api)
                         end
 
                         -- 8. CHECK PET CASH/S AFTER EVERY RESPAWN.
-                        -- Give the inventory replica a moment to receive the new state.
-                        task.wait(0.5)
+                        -- The filter waits for DataController.IsReady before reading inventory.
+                        task.wait(0.25)
                         -- Low-income pets are never sold automatically:
                         -- walk to SellPlace.ZonePad and wait for manual sale.
                         if not helpers.waitForManualLowIncomeSale(currentId) then
