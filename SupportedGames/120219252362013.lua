@@ -1,4 +1,4 @@
-
+--123123123
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -370,15 +370,26 @@ function GameModule.Register(api)
         autoFarmButtonCorner.Parent = autoFarmButton
         local autoFarmGradient = Instance.new("UIGradient")
         autoFarmGradient.Name = "AutoFarmGradient"
-        autoFarmGradient.Color = ColorSequence.new({
+
+        local normalGradient = ColorSequence.new({
             ColorSequenceKeypoint.new(0, Color3.fromRGB(8, 20, 65)),
             ColorSequenceKeypoint.new(0.35, Color3.fromRGB(15, 75, 160)),
             ColorSequenceKeypoint.new(0.7, Color3.fromRGB(15, 145, 210)),
             ColorSequenceKeypoint.new(1, Color3.fromRGB(35, 220, 240))
         })
+
+        local hoverGradient = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 55, 130)),
+            ColorSequenceKeypoint.new(0.35, Color3.fromRGB(20, 125, 220)),
+            ColorSequenceKeypoint.new(0.7, Color3.fromRGB(25, 195, 245)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 245, 255))
+        })
+
+        autoFarmGradient.Color = normalGradient
         autoFarmGradient.Rotation = 0
+        autoFarmGradient.Offset = Vector2.new(-0.35, 0)
         autoFarmGradient.Parent = autoFarmButton
-        -- Smooth animated navy / blue / cyan gradient
+
         local gradientTweenInfo = TweenInfo.new(
             5,
             Enum.EasingStyle.Sine,
@@ -387,14 +398,10 @@ function GameModule.Register(api)
             true
         )
 
-        autoFarmGradient.Offset = Vector2.new(-0.35, 0)
-
         local gradientTween = TweenService:Create(
             autoFarmGradient,
             gradientTweenInfo,
-            {
-                Offset = Vector2.new(0.35, 0)
-            }
+            {Offset = Vector2.new(0.35, 0)}
         )
 
         gradientTween:Play()
@@ -446,48 +453,104 @@ function GameModule.Register(api)
         helpers.autoFarmButtonScale.Parent = autoFarmButton
 
         autoFarmButton.MouseEnter:Connect(function()
-            TweenService:Create(helpers.autoFarmButtonScale, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                Scale = 1.09
-            }):Play()
-            TweenService:Create(helpers.autoFarmButtonStroke, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                Transparency = 0.02,
-                Thickness = 2
-            }):Play()
-            TweenService:Create(helpers.autoFarmGlowOuterStroke, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                Transparency = 0.28,
-                Thickness = 10
-            }):Play()
-            TweenService:Create(helpers.autoFarmGlowInnerStroke, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                Transparency = 0.12,
-                Thickness = 5
-            }):Play()
-            -- Keep the label unchanged; only the button body and its halo animate.
-            TweenService:Create(autoFarmButton, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                BackgroundColor3 = Color3.fromRGB(20, 65, 125)
-            }):Play()
+            -- Smooth hover gradient transition
+            TweenService:Create(
+                autoFarmGradient,
+                TweenInfo.new(0.55, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+                {
+                    Color = hoverGradient
+                }
+            ):Play()
+
+            -- Button scale
+            TweenService:Create(
+                helpers.autoFarmButtonScale,
+                TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+                {
+                    Scale = 1.09
+                }
+            ):Play()
+
+            -- Main neon stroke
+            TweenService:Create(
+                helpers.autoFarmButtonStroke,
+                TweenInfo.new(0.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+                {
+                    Transparency = 0.02,
+                    Thickness = 2
+                }
+            ):Play()
+
+            -- Outer glow
+            TweenService:Create(
+                helpers.autoFarmGlowOuterStroke,
+                TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+                {
+                    Transparency = 0.28,
+                    Thickness = 10
+                }
+            ):Play()
+
+            -- Inner glow
+            TweenService:Create(
+                helpers.autoFarmGlowInnerStroke,
+                TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+                {
+                    Transparency = 0.12,
+                    Thickness = 5
+                }
+            ):Play()
         end)
 
         autoFarmButton.MouseLeave:Connect(function()
-            TweenService:Create(helpers.autoFarmButtonScale, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                Scale = 1
-            }):Play()
-            TweenService:Create(helpers.autoFarmButtonStroke, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                Transparency = 0.72,
-                Thickness = 1
-            }):Play()
-            TweenService:Create(helpers.autoFarmGlowOuterStroke, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                Transparency = 1,
-                Thickness = 8
-            }):Play()
-            TweenService:Create(helpers.autoFarmGlowInnerStroke, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                Transparency = 1,
-                Thickness = 4
-            }):Play()
-            TweenService:Create(autoFarmButton, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                BackgroundColor3 = Color3.fromRGB(12, 25, 65)
-            }):Play()
-        end)
+            -- Smooth return to normal gradient
+            TweenService:Create(
+                autoFarmGradient,
+                TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+                {
+                    Color = normalGradient
+                }
+            ):Play()
 
+            -- Reset button scale
+            TweenService:Create(
+                helpers.autoFarmButtonScale,
+                TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+                {
+                    Scale = 1
+                }
+            ):Play()
+
+            -- Main neon stroke
+            TweenService:Create(
+                helpers.autoFarmButtonStroke,
+                TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+                {
+                    Transparency = 0.72,
+                    Thickness = 1
+                }
+            ):Play()
+
+            -- Outer glow
+            TweenService:Create(
+                helpers.autoFarmGlowOuterStroke,
+                TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+                {
+                    Transparency = 1,
+                    Thickness = 8
+                }
+            ):Play()
+
+            -- Inner glow
+            TweenService:Create(
+                helpers.autoFarmGlowInnerStroke,
+                TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+                {
+                    Transparency = 1,
+                    Thickness = 4
+                }
+            ):Play()
+        end)
         autoFarmButton.MouseButton1Down:Connect(function()
             TweenService:Create(helpers.autoFarmButtonScale, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Scale = 0.96
@@ -1951,7 +2014,7 @@ function GameModule.Register(api)
 
         closeInfoButton.MouseButton1Click:Connect(helpers.closeInfo)
 
-        infoButton.MouseEnter:Connect(function()
+        infoButton.:Connect(function()
             helpers.makeTween(infoButton, 0.15, {
                 BackgroundColor3 = Color3.fromRGB(32, 62, 91)
             })
