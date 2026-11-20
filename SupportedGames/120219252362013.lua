@@ -3318,7 +3318,7 @@ function GameModule.Register(api)
         end)
     end)
     api.AddCategory("Upgrades", "UPGRADES", function(page)
-
+    
         -- COLORS
         local ACCENT = Color3.fromRGB(45, 155, 255)
         local ACCENT_BRIGHT = Color3.fromRGB(85, 190, 255)
@@ -3327,65 +3327,168 @@ function GameModule.Register(api)
         local TEXT = Color3.fromRGB(225, 233, 245)
         local MUTED = Color3.fromRGB(145, 160, 180)
     
+        -- RED COLORS
+        local RED = Color3.fromRGB(255, 48, 65)
+        local RED_DARK = Color3.fromRGB(190, 25, 42)
+    
+        --==================================================
         -- MAIN CARD
+        --==================================================
+    
         local sellCard = Instance.new("Frame")
         sellCard.Name = "SellAllAnimalsCard"
-        sellCard.Size = UDim2.new(1, -16, 0, 42)
+        sellCard.Size = UDim2.new(1, -16, 0, 48)
         sellCard.Position = UDim2.fromOffset(8, 8)
         sellCard.BackgroundColor3 = CARD
         sellCard.BorderSizePixel = 0
+        sellCard.ZIndex = 2
         sellCard.Parent = page
     
         local cardCorner = Instance.new("UICorner")
-        cardCorner.CornerRadius = UDim.new(0, 7)
+        cardCorner.CornerRadius = UDim.new(0, 9)
         cardCorner.Parent = sellCard
     
+        -- RED BORDER
         local cardStroke = Instance.new("UIStroke")
-        cardStroke.Color = ACCENT
-        cardStroke.Transparency = 0.8
-        cardStroke.Thickness = 1
+        cardStroke.Color = RED
+        cardStroke.Thickness = 1.5
+        cardStroke.Transparency = 0.08
         cardStroke.Parent = sellCard
     
+        --==================================================
+        -- PAW LOGO
+        --==================================================
+    
+        local pawLogo = Instance.new("Frame")
+        pawLogo.Name = "PawLogo"
+        pawLogo.Size = UDim2.fromOffset(27, 27)
+        pawLogo.Position = UDim2.fromOffset(13, 10)
+        pawLogo.BackgroundTransparency = 1
+        pawLogo.ZIndex = 4
+        pawLogo.Parent = sellCard
+    
+        local function createPawPart(name, position, size, rotation)
+            local part = Instance.new("Frame")
+            part.Name = name
+            part.Position = position
+            part.Size = size
+            part.Rotation = rotation or 0
+            part.BackgroundColor3 = RED
+            part.BorderSizePixel = 0
+            part.ZIndex = 5
+            part.Parent = pawLogo
+    
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(1, 0)
+            corner.Parent = part
+    
+            return part
+        end
+    
+        -- Four toes
+        createPawPart(
+            "Toe1",
+            UDim2.fromOffset(1, 7),
+            UDim2.fromOffset(7, 9),
+            -25
+        )
+    
+        createPawPart(
+            "Toe2",
+            UDim2.fromOffset(7, 0),
+            UDim2.fromOffset(7, 9),
+            -8
+        )
+    
+        createPawPart(
+            "Toe3",
+            UDim2.fromOffset(16, 0),
+            UDim2.fromOffset(7, 9),
+            8
+        )
+    
+        createPawPart(
+            "Toe4",
+            UDim2.fromOffset(21, 7),
+            UDim2.fromOffset(7, 9),
+            25
+        )
+    
+        -- Main paw pad
+        createPawPart(
+            "MainPad",
+            UDim2.fromOffset(5, 14),
+            UDim2.fromOffset(19, 13),
+            0
+        )
+    
+        --==================================================
+        -- PAW GLOW
+        --==================================================
+    
+        local pawGlow = Instance.new("UIStroke")
+        pawGlow.Color = RED_DARK
+        pawGlow.Thickness = 1
+        pawGlow.Transparency = 0.5
+        pawGlow.Parent = pawLogo
+    
+        --==================================================
         -- TITLE
+        --==================================================
+    
         local sellTitle = Instance.new("TextLabel")
         sellTitle.Name = "Title"
         sellTitle.BackgroundTransparency = 1
-        sellTitle.Position = UDim2.fromOffset(12, 0)
-        sellTitle.Size = UDim2.new(1, -60, 1, 0)
+        sellTitle.Position = UDim2.fromOffset(49, 0)
+        sellTitle.Size = UDim2.new(1, -115, 1, 0)
         sellTitle.Font = Enum.Font.GothamBold
         sellTitle.Text = "SELL ALL ANIMALS"
         sellTitle.TextColor3 = TEXT
         sellTitle.TextSize = 11
         sellTitle.TextXAlignment = Enum.TextXAlignment.Left
+        sellTitle.ZIndex = 4
         sellTitle.Parent = sellCard
     
-        -- CLICK BUTTON
-        local clickButton = Instance.new("TextButton")
-        clickButton.Name = "ClickButton"
-        clickButton.AnchorPoint = Vector2.new(1, 0.5)
-        clickButton.Position = UDim2.new(1, -8, 0.5, 0)
-        clickButton.Size = UDim2.fromOffset(27, 27)
-        clickButton.BackgroundColor3 = ACCENT
-        clickButton.BorderSizePixel = 0
-        clickButton.AutoButtonColor = false
-        clickButton.Text = "›"
-        clickButton.TextColor3 = TEXT
-        clickButton.TextSize = 22
-        clickButton.Font = Enum.Font.GothamBold
-        clickButton.Parent = sellCard
+        --==================================================
+        -- TOGGLE TRACK
+        --==================================================
     
-        local buttonCorner = Instance.new("UICorner")
-        buttonCorner.CornerRadius = UDim.new(0, 6)
-        buttonCorner.Parent = clickButton
+        local toggleTrack = Instance.new("Frame")
+        toggleTrack.Name = "ToggleTrack"
+        toggleTrack.AnchorPoint = Vector2.new(1, 0.5)
+        toggleTrack.Position = UDim2.new(1, -11, 0.5, 0)
+        toggleTrack.Size = UDim2.fromOffset(37, 20)
+        toggleTrack.BackgroundColor3 = Color3.fromRGB(35, 42, 56)
+        toggleTrack.BorderSizePixel = 0
+        toggleTrack.ZIndex = 4
+        toggleTrack.Parent = sellCard
     
-        -- HOVER COLORS
-        clickButton.MouseEnter:Connect(function()
-            clickButton.BackgroundColor3 = ACCENT_BRIGHT
-        end)
+        local toggleCorner = Instance.new("UICorner")
+        toggleCorner.CornerRadius = UDim.new(1, 0)
+        toggleCorner.Parent = toggleTrack
     
-        clickButton.MouseLeave:Connect(function()
-            clickButton.BackgroundColor3 = ACCENT
-        end)
+        local toggleStroke = Instance.new("UIStroke")
+        toggleStroke.Color = MUTED
+        toggleStroke.Thickness = 1
+        toggleStroke.Transparency = 0.65
+        toggleStroke.Parent = toggleTrack
+    
+        --==================================================
+        -- TOGGLE KNOB (OFF)
+        --==================================================
+    
+        local toggleKnob = Instance.new("Frame")
+        toggleKnob.Name = "ToggleKnob"
+        toggleKnob.Position = UDim2.fromOffset(3, 3)
+        toggleKnob.Size = UDim2.fromOffset(14, 14)
+        toggleKnob.BackgroundColor3 = Color3.fromRGB(220, 225, 235)
+        toggleKnob.BorderSizePixel = 0
+        toggleKnob.ZIndex = 5
+        toggleKnob.Parent = toggleTrack
+    
+        local knobCorner = Instance.new("UICorner")
+        knobCorner.CornerRadius = UDim.new(1, 0)
+        knobCorner.Parent = toggleKnob
     
     end)
 end
