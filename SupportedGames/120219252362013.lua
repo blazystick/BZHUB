@@ -3316,7 +3316,7 @@ function GameModule.Register(api)
         LocalizationService:GetPropertyChangedSignal("RobloxLocaleId"):Connect(function()
             helpers.refreshLanguage()
         end)
-
+    end)
     api.AddCategory("Upgrades", "UPGRADES", function(page)
 
         --==================================================
