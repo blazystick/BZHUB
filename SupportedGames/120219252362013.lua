@@ -3320,6 +3320,7 @@ function GameModule.Register(api)
     
     
     
+    
     api.AddCategory("Upgrades", "UPGRADES", function(page)
     
         --==================================================
@@ -3347,20 +3348,52 @@ function GameModule.Register(api)
         local GuiService = game:GetService("GuiService")
     
         local player = Players.LocalPlayer
-    
-        local controllers = player:WaitForChild("PlayerScripts")
-            :WaitForChild("Client")
-            :WaitForChild("Controllers")
-    
-        local SellShop = require(controllers:WaitForChild("SellShop"))
-    
         local sellBusy = false
     
         --==================================================
-        -- GUI HELPERS
+        -- GUI REFERENCES
         --==================================================
     
+        local function getSellObjects()
+    
+            local playerGui = player:FindFirstChild("PlayerGui")
+            if not playerGui then
+                return nil
+            end
+    
+            local sellGui = playerGui:FindFirstChild("SellShop")
+            if not sellGui then
+                return nil
+            end
+    
+            local panel = sellGui:FindFirstChild("SellPanel")
+            if not panel then
+                return nil
+            end
+    
+            local body = panel:FindFirstChild("Body")
+            local content = body and body:FindFirstChild("Content")
+    
+            if not content then
+                return nil
+            end
+    
+            local summary = content:FindFirstChild("Summary")
+            local sellAll = summary and summary:FindFirstChild("SellAll")
+    
+            local confirm = content:FindFirstChild("SellAllConfirm")
+            local box = confirm and confirm:FindFirstChild("Box")
+            local yes = box and box:FindFirstChild("Yes")
+    
+            return {
+                Gui = sellGui,
+                SellAll = sellAll,
+                Yes = yes
+            }
+        end
+    
         local function isVisible(object)
+    
             if not object then
                 return false
             end
@@ -3368,6 +3401,7 @@ function GameModule.Register(api)
             local current = object
     
             while current and current ~= game do
+    
                 if current:IsA("GuiObject") and not current.Visible then
                     return false
                 end
@@ -3382,20 +3416,32 @@ function GameModule.Register(api)
             return true
         end
     
-        local function waitForObject(getObject, timeout)
+        local function waitUntil(callback, timeout)
+    
             local started = os.clock()
     
             repeat
-                local ok, object = pcall(getObject)
     
-                if ok and object and isVisible(object) then
-                    return object
+                local success, result = pcall(callback)
+    
+                if success and result then
+                    return result
                 end
     
                 task.wait(0.1)
+    
             until os.clock() - started >= timeout
     
             return nil
+        end
+    
+        local function isSellGuiOpen()
+    
+            local objects = getSellObjects()
+    
+            return objects
+                and objects.SellAll
+                and isVisible(objects.SellAll)
         end
     
         --==================================================
@@ -3403,6 +3449,7 @@ function GameModule.Register(api)
         --==================================================
     
         local function clickButton(button)
+    
             if not button or not button:IsA("GuiButton") then
                 return false
             end
@@ -3437,22 +3484,125 @@ function GameModule.Register(api)
         end
     
         --==================================================
-        -- WALK TO SELL PLACE
+        -- CLICK UNTIL STATE CHANGES
         --==================================================
     
-        local function walkToSellPlace()
+        local function clickUntil(buttonGetter, successCheck, timeout)
+    
+            local started = os.clock()
+    
+            repeat
+    
+                if successCheck() then
+                    return true
+                end
+    
+                local success, button = pcall(buttonGetter)
+    
+                if success and button and isVisible(button) then
+                    clickButton(button)
+                end
+    
+                task.wait(0.25)
+    
+            until os.clock() - started >= timeout
+    
+            return successCheck()
+        end
+    
+        --==================================================
+        -- CHARACTER HELPERS
+        --==================================================
+    
+        local function getCharacter()
     
             local character = player.Character or player.CharacterAdded:Wait()
             local humanoid = character:WaitForChild("Humanoid")
             local root = character:WaitForChild("HumanoidRootPart")
     
-            local target = workspace
-                :WaitForChild("SellPlace")
-                :WaitForChild("ZonePad")
+            return character, humanoid, root
+        end
     
-            if not target:IsA("BasePart") then
-                error("ZonePad is not a BasePart")
+        local function getSellPosition()
+    
+            local sellPlace = workspace:FindFirstChild("SellPlace")
+            local zonePad = sellPlace and sellPlace:FindFirstChild("ZonePad")
+    
+            if not zonePad or not zonePad:IsA("BasePart") then
+                error("SellPlace.ZonePad not found")
             end
+    
+            return zonePad.Position + Vector3.new(
+                0,
+                zonePad.Size.Y / 2 + 3,
+                0
+            )
+        end
+    
+        --==================================================
+        -- TELEPORT TO SELL PLACE
+        --==================================================
+    
+        local function teleportToSellPlace()
+    
+            local character, humanoid, root = getCharacter()
+            local targetPosition = getSellPosition()
+    
+            if humanoid.Health <= 0 then
+                error("Character is dead")
+            end
+    
+            local oldCFrame = root.CFrame
+    
+            local success = pcall(function()
+    
+                root.CFrame = CFrame.new(targetPosition)
+                    * CFrame.Angles(0, oldCFrame:ToEulerAnglesYXZ(), 0)
+    
+            end)
+    
+            if not success then
+                return false, oldCFrame
+            end
+    
+            task.wait(1.5)
+    
+            return true, oldCFrame
+        end
+    
+        --==================================================
+        -- RESTORE ORIGINAL POSITION
+        --==================================================
+    
+        local function teleportBack(oldCFrame)
+    
+            if not oldCFrame then
+                return false
+            end
+    
+            local character = player.Character
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+    
+            if not root then
+                return false
+            end
+    
+            local success = pcall(function()
+                root.CFrame = oldCFrame
+            end)
+    
+            task.wait(1)
+    
+            return success
+        end
+    
+        --==================================================
+        -- WALK TO POSITION
+        --==================================================
+    
+        local function walkToPosition(destination)
+    
+            local character, humanoid, root = getCharacter()
     
             local path = PathfindingService:CreatePath({
                 AgentRadius = 2,
@@ -3462,20 +3612,18 @@ function GameModule.Register(api)
                 WaypointSpacing = 4
             })
     
-            local reached = false
-    
             for attempt = 1, 3 do
     
-                if not character.Parent then
-                    error("Character disappeared")
+                if humanoid.Health <= 0 then
+                    error("Character died")
                 end
     
-                path:ComputeAsync(root.Position, target.Position)
+                path:ComputeAsync(root.Position, destination)
     
                 if path.Status == Enum.PathStatus.Success then
     
                     local waypoints = path:GetWaypoints()
-                    reached = true
+                    local reached = true
     
                     for _, waypoint in ipairs(waypoints) do
     
@@ -3511,102 +3659,235 @@ function GameModule.Register(api)
                     end
     
                     if reached then
-                        break
+                        task.wait(1)
+                        return true
                     end
-                else
-                    reached = false
                 end
     
                 task.wait(0.5)
             end
     
-            if not reached then
-                error("Could not reach SellPlace ZonePad")
+            return false
+        end
+    
+        --==================================================
+        -- WALK TO SELL PLACE
+        --==================================================
+    
+        local function walkToSellPlace()
+    
+            local destination = getSellPosition()
+    
+            if not walkToPosition(destination) then
+                error("Could not walk to SellPlace")
             end
     
             task.wait(1.5)
         end
     
         --==================================================
-        -- SELL AUTOMATION
+        -- SELL ALL
+        --==================================================
+    
+        local function performSale()
+    
+            local objects = getSellObjects()
+    
+            if not objects or not objects.SellAll then
+                error("Sell All button not found")
+            end
+    
+            -- SELL ALL BUTTON
+    
+            local sellClicked = clickUntil(
+                function()
+                    local current = getSellObjects()
+                    return current and current.SellAll
+                end,
+    
+                function()
+                    local current = getSellObjects()
+                    return current
+                        and current.Yes
+                        and isVisible(current.Yes)
+                end,
+    
+                15
+            )
+    
+            if not sellClicked then
+                error("Sell All confirmation did not appear")
+            end
+    
+            -- FIRST CONFIRMATION: YES
+    
+            local firstConfirmed = clickUntil(
+                function()
+                    local current = getSellObjects()
+                    return current and current.Yes
+                end,
+    
+                function()
+    
+                    local current = getSellObjects()
+    
+                    if not current then
+                        return true
+                    end
+    
+                    if current.Yes and isVisible(current.Yes) then
+                        return false
+                    end
+    
+                    local playerGui = player:FindFirstChild("PlayerGui")
+                    local eventGui = playerGui
+                        and playerGui:FindFirstChild("EventSellConfirm")
+    
+                    local eventPanel = eventGui
+                        and eventGui:FindFirstChild("EventSellPanel")
+    
+                    local eventContent = eventPanel
+                        and eventPanel:FindFirstChild("Body")
+                        and eventPanel.Body:FindFirstChild("Content")
+    
+                    local eventSell = eventContent
+                        and eventContent:FindFirstChild("Sell")
+    
+                    if eventSell and isVisible(eventSell) then
+                        return true
+                    end
+    
+                    return not isVisible(current.Gui.SellPanel.Body.Content.SellAllConfirm)
+                end,
+    
+                12
+            )
+    
+            if not firstConfirmed then
+                error("First confirmation failed")
+            end
+    
+            -- OPTIONAL EVENT CONFIRMATION
+    
+            local eventSellButton = waitUntil(function()
+    
+                local playerGui = player:FindFirstChild("PlayerGui")
+                local eventGui = playerGui
+                    and playerGui:FindFirstChild("EventSellConfirm")
+    
+                local eventPanel = eventGui
+                    and eventGui:FindFirstChild("EventSellPanel")
+    
+                local body = eventPanel and eventPanel:FindFirstChild("Body")
+                local content = body and body:FindFirstChild("Content")
+                local sell = content and content:FindFirstChild("Sell")
+    
+                if sell and isVisible(sell) then
+                    return sell
+                end
+    
+            end, 3)
+    
+            if eventSellButton then
+    
+                local eventConfirmed = clickUntil(
+                    function()
+                        return eventSellButton
+                    end,
+    
+                    function()
+                        return not isVisible(eventSellButton)
+                    end,
+    
+                    12
+                )
+    
+                if not eventConfirmed then
+                    error("Event confirmation failed")
+                end
+            end
+    
+            task.wait(1.5)
+        end
+    
+        --==================================================
+        -- MAIN AUTOMATION
         --==================================================
     
         local function runSellAutomation()
     
-            local playerGui = player:WaitForChild("PlayerGui")
+            local character, humanoid, root = getCharacter()
     
-            local sellGui = playerGui:WaitForChild("SellShop")
-            local sellPanel = sellGui:WaitForChild("SellPanel")
+            local originalCFrame = root.CFrame
     
-            local sellAllButton = sellPanel
-                :WaitForChild("Body")
-                :WaitForChild("Content")
-                :WaitForChild("Summary")
-                :WaitForChild("SellAll")
+            -- If GUI is already open, do not move the character.
     
-            -- Try opening the shop through its controller first.
+            if isSellGuiOpen() then
+                performSale()
+                return
+            end
     
-            pcall(function()
-                SellShop.Open()
+            -- First try teleporting to SellPlace.
+    
+            local teleportSuccess = false
+    
+            local success, savedCFrame = pcall(function()
+                local result, oldCFrame = teleportToSellPlace()
+                teleportSuccess = result
+                return oldCFrame
             end)
     
-            task.wait(1)
+            if success and teleportSuccess then
     
-            -- If the actual Sell All button is not visible,
-            -- walk normally to the SellPlace ZonePad.
+                originalCFrame = savedCFrame or originalCFrame
     
-            if not isVisible(sellAllButton) then
-                walkToSellPlace()
+                -- Wait for GUI to open after teleport.
+    
+                local opened = waitUntil(function()
+                    return isSellGuiOpen()
+                end, 5)
+    
+                if opened then
+    
+                    performSale()
+    
+                    -- Return to original location by teleport.
+    
+                    teleportBack(originalCFrame)
+                    return
+                end
+    
+                -- GUI did not open: return and try walking.
+    
+                teleportBack(originalCFrame)
             end
     
-            -- Wait for the game shop to become visible.
+            -- Fallback: walk normally to SellPlace.
     
-            local shopReady = waitForObject(function()
-                return sellAllButton
-            end, 15)
+            walkToSellPlace()
     
-            if not shopReady then
-                error("Sell All button did not appear")
-            end
-    
-            -- Click the game's original SELL ALL button.
-    
-            if not clickButton(sellAllButton) then
-                error("Could not click Sell All")
-            end
-    
-            --==================================================
-            -- FIRST CONFIRMATION
-            --==================================================
-    
-            local firstYes = waitForObject(function()
-                return sellGui.SellPanel.Body.Content
-                    .SellAllConfirm.Box.Yes
-            end, 12)
-    
-            if not firstYes then
-                error("First confirmation did not appear")
-            end
-    
-            clickButton(firstYes)
-    
-            --==================================================
-            -- OPTIONAL EVENT CONFIRMATION
-            --==================================================
-    
-            local eventPanel = playerGui
-                :WaitForChild("EventSellConfirm")
-                :WaitForChild("EventSellPanel")
-    
-            local eventSellButton = waitForObject(function()
-                return eventPanel.Body.Content.Sell
+            local openedByWalking = waitUntil(function()
+                return isSellGuiOpen()
             end, 8)
     
-            if eventSellButton then
-                clickButton(eventSellButton)
+            if not openedByWalking then
+    
+                -- No GUI: return to original position by walking.
+    
+                if not walkToPosition(originalCFrame.Position) then
+                    error("GUI did not open and return path failed")
+                end
+    
+                error("Sell GUI did not open")
             end
     
-            task.wait(1.5)
+            -- GUI opened: sell and return by walking.
+    
+            performSale()
+    
+            if not walkToPosition(originalCFrame.Position) then
+                error("Sale completed, but return path failed")
+            end
         end
     
         --==================================================
@@ -3793,6 +4074,7 @@ function GameModule.Register(api)
         end)
     
     end)
+
 
 end
 
