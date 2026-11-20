@@ -42,6 +42,7 @@ function GameModule.Register(api)
         local MAX_PATH_RETRIES = 3
 
         local selectedSpeed = 1
+        local minimumCashPerSecond = 0
         local isEnabled = false
         local trainEnabled = false
         local autoEquipBestEnabled = false
@@ -53,8 +54,8 @@ function GameModule.Register(api)
         local startTrain
         local stopTrain
 
-        -- İlk başlangıçta 6 saniye bekle.
-        -- Sonraki döngülerde ThrowReadyAt beklenecek.
+        -- �lk ba�lang��ta 6 saniye bekle.
+        -- Sonraki d�ng�lerde ThrowReadyAt beklenecek.
         local firstCycle = true
 
         -- AFK FARM orchestration
@@ -94,7 +95,7 @@ function GameModule.Register(api)
                 power = "Power Level",
                 info = "i",
                 infoTitle = "AUTO THROW - IMPORTANT NOTES",
-                infoHint = "• The 6-second starting wait is normal.\n• Do not move or click while the automation is waiting.\n• Cooldown delays are part of the game.\n• Keep the game open until the throw is complete.",
+                infoHint = "� The 6-second starting wait is normal.\n� Do not move or click while the automation is waiting.\n� Cooldown delays are part of the game.\n� Keep the game open until the throw is complete.",
                 idle = "Auto Throw is currently disabled.",
                 starting = "Starting the automation...",
                 moving = "Moving to the throw area. Please do not interfere.",
@@ -111,43 +112,43 @@ function GameModule.Register(api)
             },
             Turkish = {
                 title = "AUTO FARM",
-                power = "Güç Seviyesi",
+                power = "G�� Seviyesi",
                 info = "i",
                 infoTitle = "AUTO THROW - IMPORTANT NOTES",
-                infoHint = "• The 6-second starting wait is normal.\n• Do not move or click while the automation is waiting.\n• Cooldown delays are part of the game.\n• Keep the game open until the throw is complete.",
-                idle = "Auto Throw şu anda kapalı.",
-                starting = "Otomasyon başlatılıyor...",
-                moving = "Atış alanına yürünüyor. Lütfen müdahale etmeyin.",
-                initialWait = "Başlangıç alanında 6 saniye bekleniyor. Lütfen dokunmayın.",
-                cooldown = "Atış bekleme süresi / koruma bitene kadar bekleniyor. Hiçbir şeye dokunmayın; süre bitince hareket başlayacak.",
-                marker = "Atış göstergesinde seçilen güç seviyesi bekleniyor.",
-                throwing = "Seçilen güç yakalandı. Atış girdisi gönderiliyor...",
-                resetting = "Atış tamamlandı. Karakter sıfırlanıyor...",
+                infoHint = "� The 6-second starting wait is normal.\n� Do not move or click while the automation is waiting.\n� Cooldown delays are part of the game.\n� Keep the game open until the throw is complete.",
+                idle = "Auto Throw �u anda kapal�.",
+                starting = "Otomasyon ba�lat�l�yor...",
+                moving = "At�� alan�na y�r�n�yor. L�tfen m�dahale etmeyin.",
+                initialWait = "Ba�lang�� alan�nda 6 saniye bekleniyor. L�tfen dokunmay�n.",
+                cooldown = "At�� bekleme s�resi / koruma bitene kadar bekleniyor. Hi�bir �eye dokunmay�n; s�re bitince hareket ba�layacak.",
+                marker = "At�� g�stergesinde se�ilen g�� seviyesi bekleniyor.",
+                throwing = "Se�ilen g�� yakaland�. At�� girdisi g�nderiliyor...",
+                resetting = "At�� tamamland�. Karakter s�f�rlan�yor...",
                 stopped = "Auto Throw durduruldu.",
-                error = "Bir hata oluştu: ",
-                enabled = "AÇIK",
+                error = "Bir hata olu�tu: ",
+                enabled = "A�IK",
                 disabled = "KAPALI",
                 close = "KAPAT"
             },
             Russian = {
-                title = "АВТО БРОСОК",
-                power = "Уровень силы",
+                title = "???? ??????",
+                power = "??????? ????",
                 info = "i",
                 infoTitle = "AUTO THROW - IMPORTANT NOTES",
-                infoHint = "• The 6-second starting wait is normal.\n• Do not move or click while the automation is waiting.\n• Cooldown delays are part of the game.\n• Keep the game open until the throw is complete.",
-                idle = "Автобросок сейчас выключен.",
-                starting = "Запуск автоматизации...",
-                moving = "Персонаж идет к зоне броска. Пожалуйста, не вмешивайтесь.",
-                initialWait = "Ожидание 6 секунд в стартовой зоне. Пожалуйста, не трогайте ничего.",
-                cooldown = "Ожидание перезарядки / защиты броска. Ничего не трогайте; движение начнется после окончания таймера.",
-                marker = "Ожидание выбранного уровня силы на индикаторе броска.",
-                throwing = "Нужная сила достигнута. Отправка команды броска...",
-                resetting = "Бросок завершен. Персонаж перезапускается...",
-                stopped = "Автобросок остановлен.",
-                error = "Произошла ошибка: ",
-                enabled = "ВКЛ",
-                disabled = "ВЫКЛ",
-                close = "ЗАКРЫТЬ"
+                infoHint = "� The 6-second starting wait is normal.\n� Do not move or click while the automation is waiting.\n� Cooldown delays are part of the game.\n� Keep the game open until the throw is complete.",
+                idle = "?????????? ?????? ????????.",
+                starting = "?????? ?????????????...",
+                moving = "???????? ???? ? ???? ??????. ??????????, ?? ????????????.",
+                initialWait = "???????? 6 ?????? ? ????????? ????. ??????????, ?? ???????? ??????.",
+                cooldown = "???????? ??????????? / ?????? ??????. ?????? ?? ????????; ???????? ???????? ????? ????????? ???????.",
+                marker = "???????? ?????????? ?????? ???? ?? ?????????? ??????.",
+                throwing = "?????? ???? ??????????. ???????? ??????? ??????...",
+                resetting = "?????? ????????. ???????? ???????????????...",
+                stopped = "?????????? ??????????.",
+                error = "????????? ??????: ",
+                enabled = "???",
+                disabled = "????",
+                close = "???????"
             }
         }
 
@@ -222,6 +223,10 @@ function GameModule.Register(api)
                     message = "Throwing..."
                 elseif key == "resetting" then
                     message = "Respawning character..."
+                elseif key == "sellMoving" then
+                    message = "Walking to the sell area..."
+                elseif key == "sellWaiting" then
+                    message = "Waiting for you to manually sell low-income pets..."
                 elseif key == "starting" then
                     message = "Starting Auto Throw..."
                 elseif key == "trainMoving" then
@@ -567,7 +572,7 @@ function GameModule.Register(api)
         local mainCard = Instance.new("Frame")
         mainCard.Name = "AutoThrowCard"
         mainCard.Position = UDim2.new(0, 0, 0, 0)
-        mainCard.Size = UDim2.new(1, 0, 0, 132)
+        mainCard.Size = UDim2.new(1, 0, 0, 178)
         mainCard.BackgroundColor3 = CARD
         mainCard.BorderSizePixel = 0
         mainCard.LayoutOrder = 2
@@ -758,6 +763,96 @@ function GameModule.Register(api)
         local knobCorner = Instance.new("UICorner")
         knobCorner.CornerRadius = UDim.new(1, 0)
         knobCorner.Parent = sliderKnob
+
+
+        -- Minimum pet income filter (Cash/S).
+        local incomeFilterLabel = Instance.new("TextLabel")
+        incomeFilterLabel.Name = "MinimumIncomeLabel"
+        incomeFilterLabel.Position = UDim2.fromOffset(12, 133)
+        incomeFilterLabel.Size = UDim2.new(1, -142, 0, 28)
+        incomeFilterLabel.BackgroundTransparency = 1
+        incomeFilterLabel.Text = "Minimum Cash/S"
+        incomeFilterLabel.TextColor3 = TEXT
+        incomeFilterLabel.TextSize = 11
+        incomeFilterLabel.Font = Enum.Font.GothamMedium
+        incomeFilterLabel.TextXAlignment = Enum.TextXAlignment.Left
+        incomeFilterLabel.Parent = mainCard
+
+        local incomeFilterBox = Instance.new("TextBox")
+        incomeFilterBox.Name = "MinimumIncomeInput"
+        incomeFilterBox.AnchorPoint = Vector2.new(1, 0)
+        incomeFilterBox.Position = UDim2.new(1, -12, 0, 130)
+        incomeFilterBox.Size = UDim2.fromOffset(112, 32)
+        incomeFilterBox.BackgroundColor3 = Color3.fromRGB(24, 34, 48)
+        incomeFilterBox.BorderSizePixel = 0
+        incomeFilterBox.Text = "0"
+        incomeFilterBox.PlaceholderText = "e.g. 1K / 1M"
+        incomeFilterBox.PlaceholderColor3 = MUTED
+        incomeFilterBox.TextColor3 = TEXT
+        incomeFilterBox.TextSize = 12
+        incomeFilterBox.Font = Enum.Font.GothamBold
+        incomeFilterBox.ClearTextOnFocus = false
+        incomeFilterBox.TextXAlignment = Enum.TextXAlignment.Center
+        incomeFilterBox.Parent = mainCard
+
+        local incomeInputCorner = Instance.new("UICorner")
+        incomeInputCorner.CornerRadius = UDim.new(0, 8)
+        incomeInputCorner.Parent = incomeFilterBox
+
+        local incomeInputStroke = Instance.new("UIStroke")
+        incomeInputStroke.Color = ACCENT
+        incomeInputStroke.Transparency = 0.45
+        incomeInputStroke.Thickness = 1
+        incomeInputStroke.Parent = incomeFilterBox
+
+        local incomeFilterHint = Instance.new("TextLabel")
+        incomeFilterHint.Name = "MinimumIncomeHint"
+        incomeFilterHint.Position = UDim2.fromOffset(12, 158)
+        incomeFilterHint.Size = UDim2.new(1, -24, 0, 14)
+        incomeFilterHint.BackgroundTransparency = 1
+        incomeFilterHint.Text = "0 = disabled  |  K / M / B / T supported"
+        incomeFilterHint.TextColor3 = MUTED
+        incomeFilterHint.TextSize = 9
+        incomeFilterHint.Font = Enum.Font.Gotham
+        incomeFilterHint.TextXAlignment = Enum.TextXAlignment.Left
+        incomeFilterHint.Parent = mainCard
+
+        local function parseIncomeThreshold(raw)
+            local cleaned = tostring(raw or ""):upper():gsub("[%s,]", "")
+            if cleaned == "" then return 0 end
+            local numberPart, suffix = cleaned:match("^(%d+%.?%d*)([KMBT]?)$")
+            if not numberPart then return nil end
+
+            local number = tonumber(numberPart)
+            if not number or number < 0 then return nil end
+
+            local multiplier = ({
+                [""] = 1,
+                K = 1e3,
+                M = 1e6,
+                B = 1e9,
+                T = 1e12
+            })[suffix] or 1
+
+            return math.floor(number * multiplier + 0.5)
+        end
+
+        incomeFilterBox.FocusLost:Connect(function()
+            local parsed = parseIncomeThreshold(incomeFilterBox.Text)
+            if parsed == nil then
+                incomeFilterBox.Text = tostring(minimumCashPerSecond)
+                incomeFilterHint.Text = "Invalid value. Example: 100 / 1K / 1M"
+                incomeFilterHint.TextColor3 = Color3.fromRGB(255, 120, 130)
+                return
+            end
+
+            minimumCashPerSecond = parsed
+            incomeFilterBox.Text = tostring(parsed)
+            incomeFilterHint.Text = parsed == 0
+                and "Filter disabled  |  K / M / B / T supported"
+                or ("Minimum: " .. tostring(parsed) .. " Cash/S")
+            incomeFilterHint.TextColor3 = MUTED
+        end)
 
         --==================================================
         -- AUTO TRAIN CARD (UI CONTROL)
@@ -1530,7 +1625,7 @@ function GameModule.Register(api)
         closeInfoButton.Size = UDim2.fromOffset(25, 25)
         closeInfoButton.BackgroundColor3 = Color3.fromRGB(32, 43, 58)
         closeInfoButton.BorderSizePixel = 0
-        closeInfoButton.Text = "×"
+        closeInfoButton.Text = "�"
         closeInfoButton.TextColor3 = TEXT
         closeInfoButton.TextSize = 18
         closeInfoButton.Font = Enum.Font.GothamMedium
@@ -1639,7 +1734,7 @@ function GameModule.Register(api)
             return label, fill
         end
 
-        local afkThrowsText, afkThrowsFill = helpers.makeAfkRow("Throws", 42, "ATIŞLAR: 3")
+        local afkThrowsText, afkThrowsFill = helpers.makeAfkRow("Throws", 42, "ATI�LAR: 3")
         local afkTrainingText, afkTrainingFill = helpers.makeAfkRow("Training", 78, "TRAINING: 60s")
         local afkPetsText = Instance.new("TextLabel")
         afkPetsText.Name = "EquipPetsText"
@@ -1660,7 +1755,7 @@ function GameModule.Register(api)
         end
 
         helpers.setAfkThrowCount = function(remaining)
-            afkThrowsText.Text = "ATIŞLAR: " .. tostring(math.max(0, remaining))
+            afkThrowsText.Text = "ATI�LAR: " .. tostring(math.max(0, remaining))
             helpers.setAfkBar(afkThrowsFill, (autoFarmThrowTarget - math.max(0, remaining)) / autoFarmThrowTarget)
         end
 
@@ -1674,7 +1769,7 @@ function GameModule.Register(api)
             if type(names) ~= "table" then
                 afkPetsText.Text = "EQUIP PETS: Bekleniyor..."
             elseif #names == 0 then
-                afkPetsText.Text = "EQUIP PETS: İsim bulunamadı"
+                afkPetsText.Text = "EQUIP PETS: �sim bulunamad�"
             else
                 afkPetsText.Text = "EQUIP PETS: " .. table.concat(names, ", ")
             end
@@ -1849,6 +1944,17 @@ function GameModule.Register(api)
 
         helpers.setPowerSliderVisible = function(visible, instant)
             sliderVisible = visible
+
+            -- Keep the income filter visible in both expanded and compact layouts.
+            incomeFilterLabel.Position = visible
+                and UDim2.fromOffset(12, 133)
+                or UDim2.fromOffset(12, 76)
+            incomeFilterBox.Position = visible
+                and UDim2.new(1, -12, 0, 130)
+                or UDim2.new(1, -12, 0, 73)
+            incomeFilterHint.Position = visible
+                and UDim2.fromOffset(12, 158)
+                or UDim2.fromOffset(12, 101)
             if sliderTween then
                 sliderTween:Cancel()
                 sliderTween = nil
@@ -1863,16 +1969,16 @@ function GameModule.Register(api)
                     sliderContainer.Position = UDim2.fromOffset(12, 69)
                     sliderContainer.Size = UDim2.new(1, -24, 0, 54)
                     sliderContainer.GroupTransparency = 0
-                    mainCard.Size = UDim2.new(1, 0, 0, 132)
-                    trainCard.Position = UDim2.fromOffset(10, 198)
+                    mainCard.Size = UDim2.new(1, 0, 0, 178)
+                    trainCard.Position = UDim2.fromOffset(10, 244)
                 else
                     sliderContainer.Position = UDim2.fromOffset(12, 54)
                     sliderContainer.Size = UDim2.new(1, -24, 0, 0)
                     sliderContainer.GroupTransparency = 1
-                    mainCard.Size = UDim2.new(1, -20, 0, 66)
-                    trainCard.Position = UDim2.fromOffset(10, 132)
-                    helpers.makeTween(mainCard, 0.3, {Size = UDim2.new(1, 0, 0, 132)})
-                    helpers.makeTween(trainCard, 0.3, {Position = UDim2.fromOffset(10, 198)})
+                    mainCard.Size = UDim2.new(1, -20, 0, 121)
+                    trainCard.Position = UDim2.fromOffset(10, 187)
+                    helpers.makeTween(mainCard, 0.3, {Size = UDim2.new(1, 0, 0, 178)})
+                    helpers.makeTween(trainCard, 0.3, {Position = UDim2.fromOffset(10, 244)})
                     helpers.makeTween(sliderContainer, 0.28, {
                         Position = UDim2.fromOffset(12, 69),
                         Size = UDim2.new(1, -24, 0, 54)
@@ -1894,11 +2000,11 @@ function GameModule.Register(api)
                     sliderContainer.Position = UDim2.fromOffset(12, 54)
                     sliderContainer.Size = UDim2.new(1, -24, 0, 0)
                     sliderContainer.GroupTransparency = 1
-                    mainCard.Size = UDim2.new(1, -20, 0, 66)
-                    trainCard.Position = UDim2.fromOffset(10, 132)
+                    mainCard.Size = UDim2.new(1, -20, 0, 121)
+                    trainCard.Position = UDim2.fromOffset(10, 187)
                 else
-                    helpers.makeTween(mainCard, 0.28, {Size = UDim2.new(1, -20, 0, 66)})
-                    helpers.makeTween(trainCard, 0.28, {Position = UDim2.fromOffset(10, 132)})
+                    helpers.makeTween(mainCard, 0.28, {Size = UDim2.new(1, -20, 0, 121)})
+                    helpers.makeTween(trainCard, 0.28, {Position = UDim2.fromOffset(10, 187)})
                     helpers.makeTween(sliderContainer, 0.25, {
                         Position = UDim2.fromOffset(12, 52),
                         Size = UDim2.new(1, -24, 0, 0)
@@ -2957,6 +3063,214 @@ function GameModule.Register(api)
         -- MAIN FARM LOOP
         --==================================================
 
+        --==================================================
+        -- PET INCOME FILTER / MANUAL SELL WAIT
+        --==================================================
+
+        local cachedDataController
+        local cachedMutations
+
+        helpers.getPetDataModules = function()
+            if cachedDataController and cachedMutations then
+                return cachedDataController, cachedMutations
+            end
+
+            local playerScripts = player:FindFirstChild("PlayerScripts")
+            local clientFolder = playerScripts and playerScripts:FindFirstChild("Client")
+            local controllers = clientFolder and clientFolder:FindFirstChild("Controllers")
+            local dataControllerModule = controllers and controllers:FindFirstChild("DataController")
+
+            local replicatedStorage = game:GetService("ReplicatedStorage")
+            local sharedFolder = replicatedStorage:FindFirstChild("Shared")
+            local mutationsModule = sharedFolder and sharedFolder:FindFirstChild("Mutations")
+
+            if not dataControllerModule or not mutationsModule then
+                return nil, nil, "DataController or Shared.Mutations module was not found."
+            end
+
+            local dataOk, dataResult = pcall(require, dataControllerModule)
+            if not dataOk then
+                return nil, nil, "DataController require failed: " .. tostring(dataResult)
+            end
+
+            local mutationsOk, mutationsResult = pcall(require, mutationsModule)
+            if not mutationsOk then
+                return nil, nil, "Mutations require failed: " .. tostring(mutationsResult)
+            end
+
+            cachedDataController = dataResult
+            cachedMutations = mutationsResult
+            return cachedDataController, cachedMutations
+        end
+
+        helpers.getLowIncomeAnimals = function()
+            if minimumCashPerSecond <= 0 then
+                return {}
+            end
+
+            local dataController, mutations, moduleError = helpers.getPetDataModules()
+            if not dataController or not mutations then
+                error(moduleError or "Pet data modules are unavailable.")
+            end
+
+            local ok, animals = pcall(function()
+                return dataController:Get("Animals") or {}
+            end)
+            if not ok then
+                error("Could not read Animals inventory: " .. tostring(animals))
+            end
+
+            local bestIncome = player:GetAttribute("BestIncome") or 0
+            local lowIncomeAnimals = {}
+
+            for key, record in pairs(animals) do
+                local entry = record
+                local animalId = key
+
+                if type(record) == "table" then
+                    if record.Entry then
+                        entry = record.Entry
+                    end
+                    animalId = record.Id or key
+                end
+
+                if type(entry) == "table" and not entry.Placed then
+                    local incomeOk, income = pcall(function()
+                        return mutations.IncomeOf(entry, bestIncome)
+                    end)
+
+                    if not incomeOk then
+                        error("IncomeOf failed for animal " .. tostring(animalId) .. ": " .. tostring(income))
+                    end
+
+                    income = tonumber(income) or 0
+                    if income < minimumCashPerSecond then
+                        table.insert(lowIncomeAnimals, {
+                            Id = tostring(animalId),
+                            Income = income,
+                            ModelName = tostring(entry.ModelName or "Unknown")
+                        })
+                    end
+                end
+            end
+
+            return lowIncomeAnimals
+        end
+
+        helpers.getSellZonePosition = function()
+            local sellPlace = workspace:FindFirstChild("SellPlace")
+            local zonePad = sellPlace and sellPlace:FindFirstChild("ZonePad", true)
+            if not zonePad then
+                error("Workspace.SellPlace.ZonePad was not found.")
+            end
+
+            if zonePad:IsA("BasePart") then
+                return zonePad.Position
+            end
+
+            if zonePad:IsA("Model") then
+                return zonePad:GetPivot().Position
+            end
+
+            error("SellPlace.ZonePad is not a BasePart or Model.")
+        end
+
+        helpers.moveToSellPlace = function(currentId)
+            helpers.setStatus("sellMoving", nil)
+            helpers.debugLog("Finding path to Workspace.SellPlace.ZonePad...")
+
+            local character, humanoid, rootPart = helpers.getCharacterReferences()
+            if not character or not humanoid or not rootPart then
+                error("Character references not found before moving to SellPlace.")
+            end
+
+            local targetPosition = helpers.getSellZonePosition()
+
+            for attempt = 1, MAX_PATH_RETRIES do
+                if not helpers.stillRunning(currentId) then
+                    return false
+                end
+                if player.Character ~= character then
+                    return false
+                end
+
+                rootPart = character:FindFirstChild("HumanoidRootPart")
+                if not rootPart then
+                    return false
+                end
+
+                if (rootPart.Position - targetPosition).Magnitude <= WAYPOINT_REACH_DISTANCE then
+                    return true
+                end
+
+                local path = PathfindingService:CreatePath({
+                    AgentRadius = 2,
+                    AgentHeight = 5,
+                    AgentCanJump = true,
+                    AgentCanClimb = true,
+                    WaypointSpacing = 4
+                })
+
+                local computed, computeError = pcall(function()
+                    path:ComputeAsync(rootPart.Position, targetPosition)
+                end)
+
+                if computed and path.Status == Enum.PathStatus.Success then
+                    local followed = helpers.followPath(path, character, humanoid, currentId)
+                    if followed then
+                        rootPart = character:FindFirstChild("HumanoidRootPart")
+                        if rootPart and (rootPart.Position - targetPosition).Magnitude <= WAYPOINT_REACH_DISTANCE then
+                            helpers.debugLog("SellPlace.ZonePad reached.")
+                            return true
+                        end
+                    end
+                else
+                    helpers.debugLog("SellPlace path attempt " .. attempt .. " failed: " .. tostring(computeError or path.Status))
+                end
+
+                if not helpers.stillRunning(currentId) then
+                    return false
+                end
+                task.wait(0.5)
+            end
+
+            error("Could not reach Workspace.SellPlace.ZonePad after path retries.")
+        end
+
+        helpers.waitForManualLowIncomeSale = function(currentId)
+            -- This filter belongs to the normal Auto Throw toggle, not AFK FARM.
+            if autoFarmRunning or minimumCashPerSecond <= 0 then
+                return true
+            end
+
+            local lowAnimals = helpers.getLowIncomeAnimals()
+            if #lowAnimals == 0 then
+                return true
+            end
+
+            helpers.debugLog("Found " .. #lowAnimals .. " pet(s) below the Cash/S threshold.")
+            if not helpers.moveToSellPlace(currentId) then
+                return false
+            end
+
+            while helpers.stillRunning(currentId) do
+                lowAnimals = helpers.getLowIncomeAnimals()
+                if #lowAnimals == 0 then
+                    helpers.debugLog("All low-income pets were removed from inventory. Resuming Auto Throw.")
+                    return true
+                end
+
+                helpers.setStatus(
+                    "sellWaiting",
+                    tostring(#lowAnimals) .. " low-income pet(s) remaining",
+                    0
+                )
+                task.wait(0.5)
+            end
+
+            return false
+        end
+
         helpers.startFarm = function()
             actionId += 1
 
@@ -3029,7 +3343,16 @@ function GameModule.Register(api)
                             break
                         end
 
-                        -- 8. WAIT UNTIL THROW COOLDOWN IS ZERO
+                        -- 8. CHECK PET CASH/S AFTER EVERY RESPAWN.
+                        -- Give the inventory replica a moment to receive the new state.
+                        task.wait(0.5)
+                        -- Low-income pets are never sold automatically:
+                        -- walk to SellPlace.ZonePad and wait for manual sale.
+                        if not helpers.waitForManualLowIncomeSale(currentId) then
+                            break
+                        end
+
+                        -- 9. WAIT UNTIL THROW COOLDOWN IS ZERO
                         if not helpers.waitForThrowCooldown(currentId) then
                             break
                         end
@@ -3045,12 +3368,12 @@ function GameModule.Register(api)
                             end
                         end
 
-                        -- 9. LOOP RESTARTS AND WALKS TO STARTERAREA
+                        -- 10. LOOP RESTARTS AND WALKS TO STARTERAREA
                         helpers.debugLog("Cooldown finished. Moving to StarterArea...")
 
-                        -- Döngü başa döner:
-                        -- StarterArea'ya yürür, animasyon başlar,
-                        -- güç yakalanır, fırlatılır ve tekrar reset atılır.
+                        -- D�ng� ba�a d�ner:
+                        -- StarterArea'ya y�r�r, animasyon ba�lar,
+                        -- g�� yakalan�r, f�rlat�l�r ve tekrar reset at�l�r.
                     end
 
                 end)
@@ -3216,12 +3539,12 @@ function GameModule.Register(api)
                                 error("Auto Train: " .. tostring(currentStatusDetail))
                             end
                             if os.clock() - trainingStarted > 120 then
-                                error("TrainingSpot'a 120 saniye içinde ulaşılamadı.")
+                                error("TrainingSpot'a 120 saniye i�inde ula��lamad�.")
                             end
                             task.wait(0.1)
                         end
                         if not autoFarmRunning or autoFarmWorkerId ~= thisWorkerId then break end
-                        if not trainingReady then error("Training başlatılamadı.") end
+                        if not trainingReady then error("Training ba�lat�lamad�.") end
 
                         for remaining = autoFarmTrainingSeconds, 0, -1 do
                             if not autoFarmRunning or autoFarmWorkerId ~= thisWorkerId then break end
