@@ -3323,6 +3323,7 @@ function GameModule.Register(api)
     
     
 
+    
     api.AddCategory("Upgrades", "UPGRADES", function(page)
     
         --==================================================
@@ -3393,6 +3394,21 @@ function GameModule.Register(api)
                 Yes = yes,
                 Confirm = confirm
             }
+        end
+    
+        local function getEventSellButton()
+    
+            local playerGui = player:FindFirstChild("PlayerGui")
+            local eventGui = playerGui
+                and playerGui:FindFirstChild("EventSellConfirm")
+    
+            local eventPanel = eventGui
+                and eventGui:FindFirstChild("EventSellPanel")
+    
+            local body = eventPanel and eventPanel:FindFirstChild("Body")
+            local content = body and body:FindFirstChild("Content")
+    
+            return content and content:FindFirstChild("Sell")
         end
     
         local function isVisible(object)
@@ -3700,6 +3716,7 @@ function GameModule.Register(api)
     
             --==================================================
             -- FIRST CONFIRMATION: YES
+            -- EVENT OVERLAY AWARE
             --==================================================
     
             local firstYes = waitUntil(function()
@@ -3722,7 +3739,17 @@ function GameModule.Register(api)
             repeat
     
                 local current = getSellObjects()
+                local eventSell = getEventSellButton()
     
+                -- Event confirmation appeared.
+                -- First Yes has already been accepted.
+                if eventSell and isVisible(eventSell) then
+                    firstConfirmed = true
+                    break
+                end
+    
+                -- No event confirmation:
+                -- first confirmation disappeared.
                 if not current or not current.Yes or not isVisible(current.Yes) then
                     firstConfirmed = true
                     break
@@ -3737,7 +3764,7 @@ function GameModule.Register(api)
             until os.clock() - firstStarted >= 15
     
             if not firstConfirmed then
-                error("First confirmation did not close")
+                error("First confirmation was not accepted")
             end
     
             task.wait(0.5)
@@ -3748,16 +3775,7 @@ function GameModule.Register(api)
     
             local eventSellButton = waitUntil(function()
     
-                local playerGui = player:FindFirstChild("PlayerGui")
-                local eventGui = playerGui
-                    and playerGui:FindFirstChild("EventSellConfirm")
-    
-                local eventPanel = eventGui
-                    and eventGui:FindFirstChild("EventSellPanel")
-    
-                local body = eventPanel and eventPanel:FindFirstChild("Body")
-                local content = body and body:FindFirstChild("Content")
-                local sell = content and content:FindFirstChild("Sell")
+                local sell = getEventSellButton()
     
                 if sell and isVisible(sell) then
                     return sell
@@ -4088,5 +4106,4 @@ function GameModule.Register(api)
     
     end)
 end
-
 return GameModule
