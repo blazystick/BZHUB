@@ -3319,6 +3319,7 @@ function GameModule.Register(api)
     end)
     
     
+    
     api.AddCategory("Upgrades", "UPGRADES", function(page)
     
         --==================================================
@@ -3337,12 +3338,16 @@ function GameModule.Register(api)
         local RED_DARK = Color3.fromRGB(145, 20, 35)
     
         --==================================================
-        -- SELL SYSTEM
+        -- SERVICES
         --==================================================
     
         local Players = game:GetService("Players")
+        local PathfindingService = game:GetService("PathfindingService")
+        local VirtualInputManager = game:GetService("VirtualInputManager")
+        local GuiService = game:GetService("GuiService")
     
         local player = Players.LocalPlayer
+    
         local controllers = player:WaitForChild("PlayerScripts")
             :WaitForChild("Client")
             :WaitForChild("Controllers")
@@ -3350,6 +3355,259 @@ function GameModule.Register(api)
         local SellShop = require(controllers:WaitForChild("SellShop"))
     
         local sellBusy = false
+    
+        --==================================================
+        -- GUI HELPERS
+        --==================================================
+    
+        local function isVisible(object)
+            if not object then
+                return false
+            end
+    
+            local current = object
+    
+            while current and current ~= game do
+                if current:IsA("GuiObject") and not current.Visible then
+                    return false
+                end
+    
+                if current:IsA("ScreenGui") and not current.Enabled then
+                    return false
+                end
+    
+                current = current.Parent
+            end
+    
+            return true
+        end
+    
+        local function waitForObject(getObject, timeout)
+            local started = os.clock()
+    
+            repeat
+                local ok, object = pcall(getObject)
+    
+                if ok and object and isVisible(object) then
+                    return object
+                end
+    
+                task.wait(0.1)
+            until os.clock() - started >= timeout
+    
+            return nil
+        end
+    
+        --==================================================
+        -- MOUSE CLICK
+        --==================================================
+    
+        local function clickButton(button)
+            if not button or not button:IsA("GuiButton") then
+                return false
+            end
+    
+            if not isVisible(button) then
+                return false
+            end
+    
+            local position = button.AbsolutePosition
+            local size = button.AbsoluteSize
+            local inset = GuiService:GetGuiInset()
+    
+            local x = math.floor(position.X + size.X / 2 + inset.X)
+            local y = math.floor(position.Y + size.Y / 2 + inset.Y)
+    
+            VirtualInputManager:SendMouseMoveEvent(x, y, game)
+            task.wait(0.2)
+    
+            VirtualInputManager:SendMouseButtonEvent(
+                x, y, 0, true, game, 0
+            )
+    
+            task.wait(0.12)
+    
+            VirtualInputManager:SendMouseButtonEvent(
+                x, y, 0, false, game, 0
+            )
+    
+            task.wait(0.35)
+    
+            return true
+        end
+    
+        --==================================================
+        -- WALK TO SELL PLACE
+        --==================================================
+    
+        local function walkToSellPlace()
+    
+            local character = player.Character or player.CharacterAdded:Wait()
+            local humanoid = character:WaitForChild("Humanoid")
+            local root = character:WaitForChild("HumanoidRootPart")
+    
+            local target = workspace
+                :WaitForChild("SellPlace")
+                :WaitForChild("ZonePad")
+    
+            if not target:IsA("BasePart") then
+                error("ZonePad is not a BasePart")
+            end
+    
+            local path = PathfindingService:CreatePath({
+                AgentRadius = 2,
+                AgentHeight = 5,
+                AgentCanJump = true,
+                AgentCanClimb = true,
+                WaypointSpacing = 4
+            })
+    
+            local reached = false
+    
+            for attempt = 1, 3 do
+    
+                if not character.Parent then
+                    error("Character disappeared")
+                end
+    
+                path:ComputeAsync(root.Position, target.Position)
+    
+                if path.Status == Enum.PathStatus.Success then
+    
+                    local waypoints = path:GetWaypoints()
+                    reached = true
+    
+                    for _, waypoint in ipairs(waypoints) do
+    
+                        if humanoid.Health <= 0 then
+                            error("Character died")
+                        end
+    
+                        if waypoint.Action == Enum.PathWaypointAction.Jump then
+                            humanoid.Jump = true
+                        end
+    
+                        humanoid:MoveTo(waypoint.Position)
+    
+                        local started = os.clock()
+    
+                        while os.clock() - started < 8 do
+    
+                            if (root.Position - waypoint.Position).Magnitude < 3 then
+                                break
+                            end
+    
+                            if humanoid.Health <= 0 then
+                                error("Character died")
+                            end
+    
+                            task.wait(0.1)
+                        end
+    
+                        if (root.Position - waypoint.Position).Magnitude >= 4 then
+                            reached = false
+                            break
+                        end
+                    end
+    
+                    if reached then
+                        break
+                    end
+                else
+                    reached = false
+                end
+    
+                task.wait(0.5)
+            end
+    
+            if not reached then
+                error("Could not reach SellPlace ZonePad")
+            end
+    
+            task.wait(1.5)
+        end
+    
+        --==================================================
+        -- SELL AUTOMATION
+        --==================================================
+    
+        local function runSellAutomation()
+    
+            local playerGui = player:WaitForChild("PlayerGui")
+    
+            local sellGui = playerGui:WaitForChild("SellShop")
+            local sellPanel = sellGui:WaitForChild("SellPanel")
+    
+            local sellAllButton = sellPanel
+                :WaitForChild("Body")
+                :WaitForChild("Content")
+                :WaitForChild("Summary")
+                :WaitForChild("SellAll")
+    
+            -- Try opening the shop through its controller first.
+    
+            pcall(function()
+                SellShop.Open()
+            end)
+    
+            task.wait(1)
+    
+            -- If the actual Sell All button is not visible,
+            -- walk normally to the SellPlace ZonePad.
+    
+            if not isVisible(sellAllButton) then
+                walkToSellPlace()
+            end
+    
+            -- Wait for the game shop to become visible.
+    
+            local shopReady = waitForObject(function()
+                return sellAllButton
+            end, 15)
+    
+            if not shopReady then
+                error("Sell All button did not appear")
+            end
+    
+            -- Click the game's original SELL ALL button.
+    
+            if not clickButton(sellAllButton) then
+                error("Could not click Sell All")
+            end
+    
+            --==================================================
+            -- FIRST CONFIRMATION
+            --==================================================
+    
+            local firstYes = waitForObject(function()
+                return sellGui.SellPanel.Body.Content
+                    .SellAllConfirm.Box.Yes
+            end, 12)
+    
+            if not firstYes then
+                error("First confirmation did not appear")
+            end
+    
+            clickButton(firstYes)
+    
+            --==================================================
+            -- OPTIONAL EVENT CONFIRMATION
+            --==================================================
+    
+            local eventPanel = playerGui
+                :WaitForChild("EventSellConfirm")
+                :WaitForChild("EventSellPanel")
+    
+            local eventSellButton = waitForObject(function()
+                return eventPanel.Body.Content.Sell
+            end, 8)
+    
+            if eventSellButton then
+                clickButton(eventSellButton)
+            end
+    
+            task.wait(1.5)
+        end
     
         --==================================================
         -- MAIN CARD
@@ -3502,7 +3760,7 @@ function GameModule.Register(api)
         end)
     
         --==================================================
-        -- OPEN GAME SELL SHOP
+        -- SELL BUTTON ACTION
         --==================================================
     
         sellButton.MouseButton1Click:Connect(function()
@@ -3512,34 +3770,30 @@ function GameModule.Register(api)
             end
     
             sellBusy = true
-            sellButton.Text = "OPENING..."
+            sellButton.Text = "WORKING..."
             sellButton.BackgroundColor3 = Color3.fromRGB(65, 70, 85)
     
             task.spawn(function()
     
-                local success, err = pcall(function()
+                local success, err = pcall(runSellAutomation)
     
-                    if not SellShop.IsOpen() then
-                        SellShop.Open()
-                    end
-    
-                end)
-    
-                if not success then
-                    warn("[BZHUB] SellShop Error:", err)
-                    sellButton.Text = "FAILED"
+                if success then
+                    sellButton.Text = "SOLD"
                 else
-                    sellButton.Text = "OPENED"
+                    warn("[BZHUB SELL ERROR]:", err)
+                    sellButton.Text = "FAILED"
                 end
     
-                task.wait(1.2)
+                task.wait(1.5)
     
                 sellBusy = false
                 sellButton.Text = "SELL"
                 sellButton.BackgroundColor3 = RED_DARK
             end)
         end)
+    
     end)
+
 end
 
 return GameModule
