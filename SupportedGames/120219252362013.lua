@@ -4185,6 +4185,6 @@ function GameModule.Register(api)
         end)
     
     end)
-
+end
 
 return GameModule
