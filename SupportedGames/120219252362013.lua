@@ -357,7 +357,7 @@ function GameModule.Register(api)
         autoFarmButton.Size = UDim2.fromOffset(92, 27)
         autoFarmButton.BackgroundColor3 = Color3.fromRGB(12, 25, 65)
         autoFarmButton.BorderSizePixel = 0
-        autoFarmButton.Text = "BAŞLAT"
+        autoFarmButton.Text = "START"
         autoFarmButton.TextColor3 = Color3.fromRGB(235, 250, 255)
         autoFarmButton.TextSize = 11
         autoFarmButton.Font = Enum.Font.GothamBold
@@ -3064,7 +3064,7 @@ function GameModule.Register(api)
                             autoFarmThrowDone = true
                             autoFarmRunning = false
                             autoFarmWorkerId += 1
-                            autoFarmButton.Text = "BAŞLAT"
+                            autoFarmButton.Text = "START"
                             autoFarmButton.BackgroundColor3 = Color3.fromRGB(12, 25, 65)
                             afkHeader.Text = "AFK FARM / ERROR"
                         end
@@ -3174,7 +3174,7 @@ function GameModule.Register(api)
             local thisWorkerId = autoFarmWorkerId
 
             helpers.stopAutomationToggles()
-            autoFarmButton.Text = "DURDUR"
+            autoFarmButton.Text = "STOP"
             autoFarmButton.BackgroundColor3 = Color3.fromRGB(12, 25, 65)
             afkHudGui.Enabled = true
             afkHeader.Text = "AFK FARM / ON"
@@ -3247,7 +3247,7 @@ function GameModule.Register(api)
                     autoFarmRunning = false
                     autoFarmWorkerId += 1
                     helpers.stopAutomationToggles()
-                    autoFarmButton.Text = "BAŞLAT"
+                    autoFarmButton.Text = "START"
                     autoFarmButton.BackgroundColor3 = Color3.fromRGB(12, 25, 65)
                     afkHeader.Text = "AFK FARM / ERROR"
                     afkHudGui.Enabled = true
@@ -3261,7 +3261,7 @@ function GameModule.Register(api)
             autoFarmWorkerId += 1
             autoFarmThrowDone = true
             helpers.stopAutomationToggles()
-            autoFarmButton.Text = "BAŞLAT"
+            autoFarmButton.Text = "START"
             autoFarmButton.BackgroundColor3 = Color3.fromRGB(12, 25, 65)
             afkHeader.Text = "AFK FARM / OFF"
             afkHudGui.Enabled = false
