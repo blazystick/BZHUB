@@ -3317,6 +3317,67 @@ function GameModule.Register(api)
             helpers.refreshLanguage()
         end)
 
+        api.AddCategory("Upgrades", "UPGRADES", function(page)
+
+        --==================================================
+        -- SELL ALL ANIMALS BUTTON
+        --==================================================
+
+        local TweenService = game:GetService("TweenService")
+
+        local sellAllButton = Instance.new("TextButton")
+        sellAllButton.Name = "SellAllAnimals"
+        sellAllButton.Size = UDim2.new(1, 0, 0, 42)
+        sellAllButton.BackgroundColor3 = Color3.fromRGB(130, 0, 0)
+        sellAllButton.BorderSizePixel = 0
+        sellAllButton.Text = "SELL ALL ANIMALS"
+        sellAllButton.TextColor3 = Color3.fromRGB(255, 245, 245)
+        sellAllButton.TextSize = 13
+        sellAllButton.Font = Enum.Font.GothamBold
+        sellAllButton.AutoButtonColor = false
+        sellAllButton.Parent = page
+
+        local sellCorner = Instance.new("UICorner")
+        sellCorner.CornerRadius = UDim.new(0, 9)
+        sellCorner.Parent = sellAllButton
+    
+        -- Hareketli kırmızı gradient
+        local sellGradient = Instance.new("UIGradient")
+        sellGradient.Rotation = 0
+        sellGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255, 65, 65)),
+            ColorSequenceKeypoint.new(0.30, Color3.fromRGB(255, 65, 65)),
+            ColorSequenceKeypoint.new(0.50, Color3.fromRGB(65, 0, 0)),
+            ColorSequenceKeypoint.new(0.70, Color3.fromRGB(255, 65, 65)),
+            ColorSequenceKeypoint.new(1.00, Color3.fromRGB(255, 65, 65))
+        })
+        sellGradient.Parent = sellAllButton
+
+        local sellStroke = Instance.new("UIStroke")
+        sellStroke.Color = Color3.fromRGB(255, 85, 85)
+        sellStroke.Thickness = 1
+        sellStroke.Transparency = 0.25
+        sellStroke.Parent = sellAllButton
+
+        -- Kesintisiz gradient animasyonu
+        sellGradient.Offset = Vector2.new(1, 0)
+
+        local gradientTween = TweenService:Create(
+            sellGradient,
+            TweenInfo.new(
+                2.5,
+                Enum.EasingStyle.Linear,
+                Enum.EasingDirection.InOut,
+                -1,
+                false
+            ),
+            {
+                Offset = Vector2.new(-1, 0)
+            }
+        )
+
+        gradientTween:Play()
+
     end)
 end
 
