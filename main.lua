@@ -2135,7 +2135,7 @@ function BZHUB_API.AddCategory(name, text, callback)
 
     local button = createCategory(
         name,
-        initialText,
+        text,
         90 + ((gameCategoryCount - 1) * 45),
         false
     )
