@@ -3331,56 +3331,8 @@ function GameModule.Register(api)
         local MUTED = Color3.fromRGB(145, 160, 180)
     
         local RED = Color3.fromRGB(255, 48, 65)
-        local RED_GLOW = Color3.fromRGB(190, 25, 42)
-    
-        --==================================================
-        -- PAW IMAGE URL
-        --==================================================
-    
-        local PAW_IMAGE_URL = "https://imgsharehub.com/api/image/proxy?id=emsrxl77&token=eyJpbWFnZUlkIjoiZW1zcnhsNzciLCJ0aW1lc3RhbXAiOjE3OTUxOTYyODkzMTUsInNpZ25hdHVyZSI6ImE0NjdkYTU0YzY4OGYxZWVmOTg4Y2NkNGY5ZGE2N2Y3MjI2N2I3YThlMjc4YTk4MTcyMjRjM2Q4OTIzMjU5ODMifQ&v=1795196288974"
-    
-        local PAW_FILE = "BZHUB_PawLogo.png"
-        local pawAsset = nil
-    
-        -- Download image and load it as a local asset.
-        local downloadSuccess, imageData = pcall(function()
-            return game:HttpGet(PAW_IMAGE_URL)
-        end)
-    
-        if downloadSuccess and type(imageData) == "string" then
-    
-            if typeof(writefile) == "function" then
-                local saveSuccess = pcall(function()
-                    writefile(PAW_FILE, imageData)
-                end)
-    
-                if saveSuccess then
-    
-                    if typeof(getcustomasset) == "function" then
-                        local assetSuccess, asset = pcall(function()
-                            return getcustomasset(PAW_FILE)
-                        end)
-    
-                        if assetSuccess then
-                            pawAsset = asset
-                        end
-    
-                    elseif typeof(getsynasset) == "function" then
-                        local assetSuccess, asset = pcall(function()
-                            return getsynasset(PAW_FILE)
-                        end)
-    
-                        if assetSuccess then
-                            pawAsset = asset
-                        end
-                    end
-                end
-            end
-        end
-    
-        if not pawAsset then
-            warn("[BZHUB] Pati logosu yüklenemedi. URL veya executor dosya desteğini kontrol et.")
-        end
+        local RED_LIGHT = Color3.fromRGB(255, 85, 95)
+        local RED_DARK = Color3.fromRGB(145, 20, 35)
     
         --==================================================
         -- MAIN CARD
@@ -3400,45 +3352,97 @@ function GameModule.Register(api)
         cardCorner.Parent = sellCard
     
         --==================================================
-        -- RED BORDER
+        -- CARD BORDER
         --==================================================
     
         local cardStroke = Instance.new("UIStroke")
         cardStroke.Color = RED
-        cardStroke.Thickness = 1.5
-        cardStroke.Transparency = 0.08
+        cardStroke.Thickness = 1.4
+        cardStroke.Transparency = 0.12
         cardStroke.Parent = sellCard
     
         --==================================================
-        -- PAW IMAGE GLOW
+        -- PAW CONTAINER
         --==================================================
     
-        local pawGlow = Instance.new("ImageLabel")
-        pawGlow.Name = "PawGlow"
-        pawGlow.BackgroundTransparency = 1
-        pawGlow.Position = UDim2.fromOffset(10, 7)
-        pawGlow.Size = UDim2.fromOffset(34, 34)
-        pawGlow.Image = pawAsset or ""
-        pawGlow.ImageColor3 = RED
-        pawGlow.ImageTransparency = 0.55
-        pawGlow.ScaleType = Enum.ScaleType.Fit
-        pawGlow.ZIndex = 3
-        pawGlow.Parent = sellCard
+        local pawContainer = Instance.new("Frame")
+        pawContainer.Name = "PawLogo"
+        pawContainer.Size = UDim2.fromOffset(34, 34)
+        pawContainer.Position = UDim2.fromOffset(10, 7)
+        pawContainer.BackgroundTransparency = 1
+        pawContainer.ZIndex = 4
+        pawContainer.Parent = sellCard
     
         --==================================================
-        -- PAW LOGO
+        -- PAW SHAPE HELPER
         --==================================================
     
-        local pawLogo = Instance.new("ImageLabel")
-        pawLogo.Name = "PawLogo"
-        pawLogo.BackgroundTransparency = 1
-        pawLogo.Position = UDim2.fromOffset(13, 10)
-        pawLogo.Size = UDim2.fromOffset(28, 28)
-        pawLogo.Image = pawAsset or ""
-        pawLogo.ImageColor3 = Color3.fromRGB(255, 255, 255)
-        pawLogo.ScaleType = Enum.ScaleType.Fit
-        pawLogo.ZIndex = 4
-        pawLogo.Parent = sellCard
+        local function createPawPart(name, x, y, width, height, rotation, color, zIndex)
+    
+            local part = Instance.new("Frame")
+            part.Name = name
+            part.AnchorPoint = Vector2.new(0.5, 0.5)
+            part.Position = UDim2.fromOffset(x, y)
+            part.Size = UDim2.fromOffset(width, height)
+            part.Rotation = rotation or 0
+            part.BackgroundColor3 = color or RED
+            part.BorderSizePixel = 0
+            part.ZIndex = zIndex or 5
+            part.Parent = pawContainer
+    
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(1, 0)
+            corner.Parent = part
+    
+            return part
+        end
+    
+        --==================================================
+        -- PAW SHADOW / DEPTH
+        --==================================================
+    
+        -- Toe shadows
+        createPawPart("ToeShadow1", 5, 10, 7, 10, -25, RED_DARK, 4)
+        createPawPart("ToeShadow2", 12, 4, 7, 10, -8, RED_DARK, 4)
+        createPawPart("ToeShadow3", 22, 4, 7, 10, 8, RED_DARK, 4)
+        createPawPart("ToeShadow4", 29, 10, 7, 10, 25, RED_DARK, 4)
+    
+        -- Main pad shadow
+        createPawPart("PadShadow", 17, 25, 23, 16, 0, RED_DARK, 4)
+    
+        --==================================================
+        -- MAIN PAW PADS
+        --==================================================
+    
+        -- Four rounded toes
+        createPawPart("Toe1", 5, 9, 6, 9, -25, RED, 5)
+        createPawPart("Toe2", 12, 3, 6, 9, -8, RED_LIGHT, 5)
+        createPawPart("Toe3", 22, 3, 6, 9, 8, RED_LIGHT, 5)
+        createPawPart("Toe4", 29, 9, 6, 9, 25, RED, 5)
+    
+        -- Main central paw pad
+        createPawPart("PadCenter", 17, 24, 15, 14, 0, RED, 5)
+        createPawPart("PadLeft", 11, 24, 11, 12, -25, RED, 5)
+        createPawPart("PadRight", 23, 24, 11, 12, 25, RED, 5)
+    
+        --==================================================
+        -- PAW HIGHLIGHTS
+        --==================================================
+    
+        createPawPart("ToeHighlight1", 4, 7, 2, 3, -25, RED_LIGHT, 6)
+        createPawPart("ToeHighlight2", 11, 1, 2, 3, -8, RED_LIGHT, 6)
+        createPawPart("ToeHighlight3", 21, 1, 2, 3, 8, RED_LIGHT, 6)
+        createPawPart("ToeHighlight4", 28, 7, 2, 3, 25, RED_LIGHT, 6)
+    
+        --==================================================
+        -- PAW OUTER GLOW
+        --==================================================
+    
+        local pawGlow = Instance.new("UIStroke")
+        pawGlow.Color = RED
+        pawGlow.Thickness = 1
+        pawGlow.Transparency = 0.65
+        pawGlow.Parent = pawContainer
     
         --==================================================
         -- DIVIDER
@@ -3472,7 +3476,7 @@ function GameModule.Register(api)
         sellTitle.Parent = sellCard
     
         --==================================================
-        -- TOGGLE TRACK (VISUAL ONLY)
+        -- TOGGLE TRACK
         --==================================================
     
         local toggleTrack = Instance.new("Frame")
@@ -3496,7 +3500,7 @@ function GameModule.Register(api)
         toggleStroke.Parent = toggleTrack
     
         --==================================================
-        -- TOGGLE KNOB (OFF)
+        -- TOGGLE KNOB
         --==================================================
     
         local toggleKnob = Instance.new("Frame")
@@ -3511,7 +3515,7 @@ function GameModule.Register(api)
         local knobCorner = Instance.new("UICorner")
         knobCorner.CornerRadius = UDim.new(1, 0)
         knobCorner.Parent = toggleKnob
-
+    
     end)
 end
 
