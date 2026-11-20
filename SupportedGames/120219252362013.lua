@@ -355,10 +355,10 @@ function GameModule.Register(api)
         autoFarmButton.AnchorPoint = Vector2.new(1, 0.5)
         autoFarmButton.Position = UDim2.new(1, 0, 0.5, 0)
         autoFarmButton.Size = UDim2.fromOffset(92, 27)
-        autoFarmButton.BackgroundColor3 = Color3.fromRGB(245, 247, 250)
+        autoFarmButton.BackgroundColor3 = Color3.fromRGB(12, 25, 65)
         autoFarmButton.BorderSizePixel = 0
         autoFarmButton.Text = "BAŞLAT"
-        autoFarmButton.TextColor3 = Color3.fromRGB(18, 25, 35)
+        autoFarmButton.TextColor3 = Color3.fromRGB(235, 250, 255)
         autoFarmButton.TextSize = 11
         autoFarmButton.Font = Enum.Font.GothamBold
         autoFarmButton.AutoButtonColor = false
@@ -368,7 +368,36 @@ function GameModule.Register(api)
         local autoFarmButtonCorner = Instance.new("UICorner")
         autoFarmButtonCorner.CornerRadius = UDim.new(0, 8)
         autoFarmButtonCorner.Parent = autoFarmButton
+        local autoFarmGradient = Instance.new("UIGradient")
+        autoFarmGradient.Name = "AutoFarmGradient"
+        autoFarmGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(8, 20, 65)),
+            ColorSequenceKeypoint.new(0.35, Color3.fromRGB(15, 75, 160)),
+            ColorSequenceKeypoint.new(0.7, Color3.fromRGB(15, 145, 210)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(35, 220, 240))
+        })
+        autoFarmGradient.Rotation = 0
+        autoFarmGradient.Parent = autoFarmButton
+        -- Smooth animated navy / blue / cyan gradient
+        local gradientTweenInfo = TweenInfo.new(
+            5,
+            Enum.EasingStyle.Sine,
+            Enum.EasingDirection.InOut,
+            -1,
+            true
+        )
 
+        autoFarmGradient.Offset = Vector2.new(-0.35, 0)
+
+        local gradientTween = TweenService:Create(
+            autoFarmGradient,
+            gradientTweenInfo,
+            {
+                Offset = Vector2.new(0.35, 0)
+            }
+        )
+
+        gradientTween:Play()
         -- Layered strokes create a soft neon halo around the button itself.
         helpers.autoFarmGlowOuter = Instance.new("Frame")
         helpers.autoFarmGlowOuter.Name = "NeonGlowOuter"
@@ -434,7 +463,7 @@ function GameModule.Register(api)
             }):Play()
             -- Keep the label unchanged; only the button body and its halo animate.
             TweenService:Create(autoFarmButton, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                BackgroundColor3 = Color3.fromRGB(245, 250, 255)
+                BackgroundColor3 = Color3.fromRGB(20, 65, 125)
             }):Play()
         end)
 
@@ -455,7 +484,7 @@ function GameModule.Register(api)
                 Thickness = 4
             }):Play()
             TweenService:Create(autoFarmButton, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                BackgroundColor3 = Color3.fromRGB(245, 247, 250)
+                BackgroundColor3 = Color3.fromRGB(12, 25, 65)
             }):Play()
         end)
 
@@ -2973,7 +3002,7 @@ function GameModule.Register(api)
                             autoFarmRunning = false
                             autoFarmWorkerId += 1
                             autoFarmButton.Text = "BAŞLAT"
-                            autoFarmButton.BackgroundColor3 = Color3.fromRGB(245, 247, 250)
+                            autoFarmButton.BackgroundColor3 = Color3.fromRGB(12, 25, 65)
                             afkHeader.Text = "AFK FARM / ERROR"
                         end
                         helpers.setSwitchVisual(false, false)
@@ -3083,7 +3112,7 @@ function GameModule.Register(api)
 
             helpers.stopAutomationToggles()
             autoFarmButton.Text = "DURDUR"
-            autoFarmButton.BackgroundColor3 = Color3.fromRGB(245, 247, 250)
+            autoFarmButton.BackgroundColor3 = Color3.fromRGB(12, 25, 65)
             afkHudGui.Enabled = true
             afkHeader.Text = "AFK FARM / ON"
             helpers.setAfkThrowCount(autoFarmThrowTarget)
@@ -3156,7 +3185,7 @@ function GameModule.Register(api)
                     autoFarmWorkerId += 1
                     helpers.stopAutomationToggles()
                     autoFarmButton.Text = "BAŞLAT"
-                    autoFarmButton.BackgroundColor3 = Color3.fromRGB(245, 247, 250)
+                    autoFarmButton.BackgroundColor3 = Color3.fromRGB(12, 25, 65)
                     afkHeader.Text = "AFK FARM / ERROR"
                     afkHudGui.Enabled = true
                 end
@@ -3170,7 +3199,7 @@ function GameModule.Register(api)
             autoFarmThrowDone = true
             helpers.stopAutomationToggles()
             autoFarmButton.Text = "BAŞLAT"
-            autoFarmButton.BackgroundColor3 = Color3.fromRGB(245, 247, 250)
+            autoFarmButton.BackgroundColor3 = Color3.fromRGB(12, 25, 65)
             afkHeader.Text = "AFK FARM / OFF"
             afkHudGui.Enabled = false
             helpers.setAfkThrowCount(autoFarmThrowTarget)
