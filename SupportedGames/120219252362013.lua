@@ -3327,7 +3327,8 @@ function GameModule.Register(api)
 
         local sellAllButton = Instance.new("TextButton")
         sellAllButton.Name = "SellAllAnimals"
-        sellAllButton.Size = UDim2.new(1, 0, 0, 42)
+        sellAllButton.Size = UDim2.new(1, -16, 0, 42)
+        sellAllButton.Position = UDim2.fromOffset(8, 8)
         sellAllButton.BackgroundColor3 = Color3.fromRGB(130, 0, 0)
         sellAllButton.BorderSizePixel = 0
         sellAllButton.Text = "SELL ALL ANIMALS"
@@ -3346,16 +3347,10 @@ function GameModule.Register(api)
         sellGradient.Rotation = 0
         sellGradient.Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0.00, Color3.fromRGB(235, 35, 35)),
-            ColorSequenceKeypoint.new(0.25, Color3.fromRGB(235, 35, 35)),
-
             ColorSequenceKeypoint.new(0.25, Color3.fromRGB(65, 0, 0)),
-            ColorSequenceKeypoint.new(0.50, Color3.fromRGB(65, 0, 0)),
-
             ColorSequenceKeypoint.new(0.50, Color3.fromRGB(235, 35, 35)),
-            ColorSequenceKeypoint.new(0.75, Color3.fromRGB(235, 35, 35)),
-
             ColorSequenceKeypoint.new(0.75, Color3.fromRGB(65, 0, 0)),
-            ColorSequenceKeypoint.new(1.00, Color3.fromRGB(65, 0, 0))
+            ColorSequenceKeypoint.new(1.00, Color3.fromRGB(235, 35, 35))
         })
         sellGradient.Parent = sellAllButton
 
