@@ -1,3 +1,4 @@
+--lua123
 
 local GameModule = {}
 
@@ -611,6 +612,8 @@ function GameModule.Register(api)
             end
         end
 
+        local equipBestCard
+
         trainSwitch.MouseButton1Click:Connect(function()
             trainEnabled = not trainEnabled
             trainStateLabel.Text = trainEnabled and "ON" or "OFF"
@@ -622,6 +625,7 @@ function GameModule.Register(api)
                 auto2xRow.BackgroundTransparency = 1
                 auto2xRow.Position = UDim2.fromOffset(12, 55)
                 makeTween(trainCard, 0.28, {Size = UDim2.new(1, -20, 0, 116)})
+                makeTween(equipBestCard, 0.28, {Position = UDim2.fromOffset(10, trainCard.Position.Y.Offset + 116 + 10)})
                 makeTween(auto2xRow, 0.28, {
                     Position = UDim2.fromOffset(12, 66),
                     BackgroundTransparency = 0.12
@@ -632,6 +636,7 @@ function GameModule.Register(api)
                 auto2xEnabled = false
                 setRedSwitch(auto2xSwitch, auto2xKnob, auto2xSwitchStroke, false, false)
                 local collapse = makeTween(trainCard, 0.24, {Size = UDim2.new(1, -20, 0, 62)})
+                makeTween(equipBestCard, 0.24, {Position = UDim2.fromOffset(10, trainCard.Position.Y.Offset + 62 + 10)})
                 makeTween(auto2xRow, 0.18, {
                     Position = UDim2.fromOffset(12, 54),
                     BackgroundTransparency = 1
@@ -659,9 +664,9 @@ function GameModule.Register(api)
         local EQUIP_GREEN = Color3.fromRGB(65, 205, 125)
         local EQUIP_GREEN_BRIGHT = Color3.fromRGB(105, 235, 155)
 
-        local equipBestCard = Instance.new("Frame")
+        equipBestCard = Instance.new("Frame")
         equipBestCard.Name = "AutoEquipBestPetCard"
-        equipBestCard.Position = UDim2.fromOffset(10, 326)
+        equipBestCard.Position = UDim2.fromOffset(10, trainCard.Position.Y.Offset + trainCard.Size.Y.Offset + 10)
         equipBestCard.Size = UDim2.new(1, -20, 0, 62)
         equipBestCard.BackgroundColor3 = CARD
         equipBestCard.BorderSizePixel = 0
@@ -822,8 +827,16 @@ function GameModule.Register(api)
 
         equipBestSwitch.MouseButton1Click:Connect(function()
             autoEquipBestEnabled = not autoEquipBestEnabled
-            equipOnceButton.Visible = not autoEquipBestEnabled
-            equipDivider.Visible = not autoEquipBestEnabled
+            equipOnceButton.Visible = true
+            equipDivider.Visible = true
+            equipOnceButton.Active = not autoEquipBestEnabled
+            equipOnceButton.Selectable = not autoEquipBestEnabled
+            equipOnceButton.Text = autoEquipBestEnabled and "×" or "EQUIP BEST"
+            equipOnceButton.TextSize = autoEquipBestEnabled and 22 or 10
+            equipOnceButton.TextColor3 = autoEquipBestEnabled and Color3.fromRGB(255, 105, 112) or EQUIP_GREEN_BRIGHT
+            equipOnceButton.BackgroundColor3 = autoEquipBestEnabled and Color3.fromRGB(65, 35, 40) or Color3.fromRGB(31, 76, 54)
+            equipOnceStroke.Color = autoEquipBestEnabled and Color3.fromRGB(242, 72, 82) or EQUIP_GREEN
+            equipOnceStroke.Transparency = autoEquipBestEnabled and 0.12 or 0.5
             setEquipSwitchVisual(autoEquipBestEnabled, false)
             makeTween(equipBestStroke, 0.2, {
                 Transparency = autoEquipBestEnabled and 0.08 or 0.3,
@@ -1130,14 +1143,17 @@ function GameModule.Register(api)
                     sliderContainer.GroupTransparency = 0
                     mainCard.Size = UDim2.new(1, -20, 0, 132)
                     trainCard.Position = UDim2.fromOffset(10, 198)
+                    equipBestCard.Position = UDim2.fromOffset(10, 198 + trainCard.Size.Y.Offset + 10)
                 else
                     sliderContainer.Position = UDim2.fromOffset(12, 54)
                     sliderContainer.Size = UDim2.new(1, -24, 0, 0)
                     sliderContainer.GroupTransparency = 1
                     mainCard.Size = UDim2.new(1, -20, 0, 66)
                     trainCard.Position = UDim2.fromOffset(10, 132)
+                    equipBestCard.Position = UDim2.fromOffset(10, 132 + trainCard.Size.Y.Offset + 10)
                     makeTween(mainCard, 0.3, {Size = UDim2.new(1, -20, 0, 132)})
                     makeTween(trainCard, 0.3, {Position = UDim2.fromOffset(10, 198)})
+                    makeTween(equipBestCard, 0.3, {Position = UDim2.fromOffset(10, 198 + trainCard.Size.Y.Offset + 10)})
                     makeTween(sliderContainer, 0.28, {
                         Position = UDim2.fromOffset(12, 69),
                         Size = UDim2.new(1, -24, 0, 54)
@@ -1161,9 +1177,11 @@ function GameModule.Register(api)
                     sliderContainer.GroupTransparency = 1
                     mainCard.Size = UDim2.new(1, -20, 0, 66)
                     trainCard.Position = UDim2.fromOffset(10, 132)
+                    equipBestCard.Position = UDim2.fromOffset(10, 132 + trainCard.Size.Y.Offset + 10)
                 else
                     makeTween(mainCard, 0.28, {Size = UDim2.new(1, -20, 0, 66)})
                     makeTween(trainCard, 0.28, {Position = UDim2.fromOffset(10, 132)})
+                    makeTween(equipBestCard, 0.28, {Position = UDim2.fromOffset(10, 132 + trainCard.Size.Y.Offset + 10)})
                     makeTween(sliderContainer, 0.25, {
                         Position = UDim2.fromOffset(12, 52),
                         Size = UDim2.new(1, -24, 0, 0)
@@ -1692,6 +1710,32 @@ function GameModule.Register(api)
             return starterArea:GetPivot().Position
         end
 
+        local function getCrossLineBehindPosition()
+            local starterArea = workspace:WaitForChild("StarterArea")
+            local crossLine = starterArea:WaitForChild("CrossLine")
+            local grass = workspace:WaitForChild("Lobby"):WaitForChild("Grass")
+
+            local crossPosition = crossLine:IsA("BasePart")
+                and crossLine.Position
+                or crossLine:GetPivot().Position
+
+            local grassPosition = grass:IsA("BasePart")
+                and grass.Position
+                or grass:GetPivot().Position
+
+            local towardGrass = Vector3.new(
+                grassPosition.X - crossPosition.X,
+                0,
+                grassPosition.Z - crossPosition.Z
+            )
+
+            if towardGrass.Magnitude < 0.001 then
+                error("Could not determine the Lobby.Grass side of CrossLine.")
+            end
+
+            return crossPosition + towardGrass.Unit * 3
+        end
+
         --==================================================
         -- GET CHARACTER REFERENCES
         --==================================================
@@ -1844,7 +1888,7 @@ function GameModule.Register(api)
 
         local function moveToStarterArea(currentId)
             setStatus("moving", nil)
-            debugLog("Trying a quick teleport to StarterArea first...")
+            debugLog("Teleporting 3 studs behind CrossLine on the Lobby.Grass side first...")
 
             local character, humanoid, rootPart = getCharacterReferences()
 
@@ -1853,25 +1897,30 @@ function GameModule.Register(api)
             end
 
             local targetPosition = getStarterAreaPosition()
+            local behindCrossLinePosition = getCrossLineBehindPosition()
 
             if not stillRunning(currentId) then
                 return false
             end
 
-            local initialDistance = (rootPart.Position - targetPosition).Magnitude
-
-            if initialDistance <= WAYPOINT_REACH_DISTANCE then
-                debugLog("Already near StarterArea. No movement needed.")
-                return true
-            end
-
-            -- First attempt: teleport directly to the throw area.
             local originalCFrame = rootPart.CFrame
-            local teleportWorked = pcall(function()
-                rootPart.CFrame = CFrame.new(targetPosition) * (originalCFrame - originalCFrame.Position)
-            end)
+            local function teleportAndVerify(position, label)
+                character, humanoid, rootPart = getCharacterReferences()
 
-            if teleportWorked then
+                if not character or not rootPart then
+                    return false
+                end
+
+                local currentCFrame = rootPart.CFrame
+                local succeeded = pcall(function()
+                    rootPart.CFrame = CFrame.new(position) * (currentCFrame - currentCFrame.Position)
+                end)
+
+                if not succeeded then
+                    debugLog(label .. " teleport call failed.")
+                    return false
+                end
+
                 task.wait(TELEPORT_VERIFY_DELAY)
 
                 if not stillRunning(currentId) then
@@ -1881,23 +1930,42 @@ function GameModule.Register(api)
                 character, humanoid, rootPart = getCharacterReferences()
 
                 if character and rootPart
-                    and (rootPart.Position - targetPosition).Magnitude <= WAYPOINT_REACH_DISTANCE then
-                    debugLog("Teleport to StarterArea succeeded.")
+                    and (rootPart.Position - position).Magnitude <= WAYPOINT_REACH_DISTANCE then
+                    debugLog(label .. " teleport succeeded.")
                     return true
                 end
 
-                debugLog("Teleport was rejected or did not reach StarterArea. Falling back to pathfinding.")
-
-                -- Restore the starting point before normal pathfinding.
-                if player.Character == character and rootPart then
-                    pcall(function()
-                        rootPart.CFrame = originalCFrame
-                    end)
-                end
-                task.wait(0.08)
-            else
-                debugLog("Teleport attempt failed. Falling back to pathfinding.")
+                debugLog(label .. " teleport was rejected or did not reach the target.")
+                return false
             end
+
+            -- Stage 1: land 3 studs beyond CrossLine toward workspace.Lobby.Grass.
+            local firstTeleportSucceeded = teleportAndVerify(
+                behindCrossLinePosition,
+                "CrossLine / Lobby.Grass side"
+            )
+
+            if not stillRunning(currentId) then
+                return false
+            end
+
+            if firstTeleportSucceeded then
+                -- Stage 2: from the CrossLine staging point, teleport into StarterArea.
+                if teleportAndVerify(targetPosition, "StarterArea") then
+                    return true
+                end
+            end
+
+            debugLog("Two-stage teleport failed. Falling back to pathfinding.")
+
+            -- Restore the original position before using the existing walking fallback.
+            character, humanoid, rootPart = getCharacterReferences()
+            if character and rootPart then
+                pcall(function()
+                    rootPart.CFrame = originalCFrame
+                end)
+            end
+            task.wait(0.08)
 
             -- Fallback: preserve the existing obstacle-aware walking route.
             character, humanoid, rootPart = getCharacterReferences()
@@ -2484,6 +2552,7 @@ function GameModule.Register(api)
         end)
 
     end)
+
     
     api.AddCategory("Upgrades", "UPGRADES", function(page)
     
