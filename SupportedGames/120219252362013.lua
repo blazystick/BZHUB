@@ -3317,7 +3317,7 @@ function GameModule.Register(api)
             helpers.refreshLanguage()
         end)
 
-        api.AddCategory("Upgrades", "UPGRADES", function(page)
+    api.AddCategory("Upgrades", "UPGRADES", function(page)
 
         --==================================================
         -- SELL ALL ANIMALS BUTTON
