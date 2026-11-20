@@ -1,4 +1,4 @@
---123213123123
+
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -331,25 +331,29 @@ function GameModule.Register(api)
             end
         end)
 
+        local farmHeader = Instance.new("Frame")
+        farmHeader.Name = "AutoFarmHeader"
+        farmHeader.Size = UDim2.new(1, 0, 0, 32)
+        farmHeader.BackgroundTransparency = 1
+        farmHeader.LayoutOrder = 1
+        farmHeader.Parent = farmContent
+
         local title = Instance.new("TextLabel")
         title.Name = "AutoFarmTitle"
-        title.Size = UDim2.new(1, 0, 0, 30)
+        title.Size = UDim2.new(1, -112, 1, 0)
         title.Position = UDim2.new(0, 0, 0, 0)
         title.BackgroundTransparency = 1
-        title.Text = helpers.tr("title")
+        title.Text = "AFK FARM"
         title.TextSize = 18
         title.TextXAlignment = Enum.TextXAlignment.Left
         title.TextColor3 = TEXT
         title.Font = Enum.Font.GothamBold
-        title.LayoutOrder = 1
-        title.Parent = farmContent
-        title.Size = UDim2.new(1, -105, 0, 30)
-        title.Text = "AUTO FARM"
+        title.Parent = farmHeader
 
         local autoFarmButton = Instance.new("TextButton")
         autoFarmButton.Name = "AutoFarmStartStop"
-        autoFarmButton.AnchorPoint = Vector2.new(1, 0)
-        autoFarmButton.Position = UDim2.new(1, 0, 0, 1)
+        autoFarmButton.AnchorPoint = Vector2.new(1, 0.5)
+        autoFarmButton.Position = UDim2.new(1, 0, 0.5, 0)
         autoFarmButton.Size = UDim2.fromOffset(92, 27)
         autoFarmButton.BackgroundColor3 = Color3.fromRGB(245, 247, 250)
         autoFarmButton.BorderSizePixel = 0
@@ -357,11 +361,62 @@ function GameModule.Register(api)
         autoFarmButton.TextColor3 = Color3.fromRGB(18, 25, 35)
         autoFarmButton.TextSize = 11
         autoFarmButton.Font = Enum.Font.GothamBold
-        autoFarmButton.AutoButtonColor = true
-        autoFarmButton.Parent = farmContent
+        autoFarmButton.AutoButtonColor = false
+        autoFarmButton.Parent = farmHeader
+
         local autoFarmButtonCorner = Instance.new("UICorner")
         autoFarmButtonCorner.CornerRadius = UDim.new(0, 8)
         autoFarmButtonCorner.Parent = autoFarmButton
+
+        helpers.autoFarmButtonStroke = Instance.new("UIStroke")
+        helpers.autoFarmButtonStroke.Color = Color3.fromRGB(45, 155, 255)
+        helpers.autoFarmButtonStroke.Thickness = 1
+        helpers.autoFarmButtonStroke.Transparency = 0.72
+        helpers.autoFarmButtonStroke.Parent = autoFarmButton
+
+        helpers.autoFarmButtonScale = Instance.new("UIScale")
+        helpers.autoFarmButtonScale.Scale = 1
+        helpers.autoFarmButtonScale.Parent = autoFarmButton
+
+        autoFarmButton.MouseEnter:Connect(function()
+            TweenService:Create(helpers.autoFarmButtonScale, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                Scale = 1.09
+            }):Play()
+            TweenService:Create(helpers.autoFarmButtonStroke, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                Transparency = 0.05,
+                Thickness = 2.4
+            }):Play()
+            TweenService:Create(autoFarmButton, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                BackgroundColor3 = Color3.fromRGB(220, 240, 255),
+                TextColor3 = Color3.fromRGB(15, 75, 125)
+            }):Play()
+        end)
+
+        autoFarmButton.MouseLeave:Connect(function()
+            TweenService:Create(helpers.autoFarmButtonScale, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                Scale = 1
+            }):Play()
+            TweenService:Create(helpers.autoFarmButtonStroke, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                Transparency = 0.72,
+                Thickness = 1
+            }):Play()
+            TweenService:Create(autoFarmButton, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                BackgroundColor3 = Color3.fromRGB(245, 247, 250),
+                TextColor3 = Color3.fromRGB(18, 25, 35)
+            }):Play()
+        end)
+
+        autoFarmButton.MouseButton1Down:Connect(function()
+            TweenService:Create(helpers.autoFarmButtonScale, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Scale = 0.96
+            }):Play()
+        end)
+
+        autoFarmButton.MouseButton1Up:Connect(function()
+            TweenService:Create(helpers.autoFarmButtonScale, TweenInfo.new(0.12, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                Scale = 1.09
+            }):Play()
+        end)
 
         -- Main combined card: toggle + power slider.
         local mainCard = Instance.new("Frame")
@@ -1721,7 +1776,7 @@ function GameModule.Register(api)
         local infoOpen = false
 
         helpers.refreshLanguage = function()
-            title.Text = "AUTO FARM"
+            title.Text = "AFK FARM"
             infoPanelTitle.Text = helpers.tr("infoTitle")
             infoHint.Text = helpers.tr("infoHint")
             sliderLabel.Text = string.format("%s: %d", helpers.tr("power"), selectedSpeed)
@@ -2975,7 +3030,7 @@ function GameModule.Register(api)
 
             helpers.stopAutomationToggles()
             autoFarmButton.Text = "DURDUR"
-            autoFarmButton.BackgroundColor3 = Color3.fromRGB(255, 238, 238)
+            autoFarmButton.BackgroundColor3 = Color3.fromRGB(245, 247, 250)
             afkHudGui.Enabled = true
             afkHeader.Text = "AFK FARM / ON"
             helpers.setAfkThrowCount(autoFarmThrowTarget)
