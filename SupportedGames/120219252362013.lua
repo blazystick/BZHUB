@@ -3398,52 +3398,19 @@ function GameModule.Register(api)
         end
     
         --==================================================
-        -- PAW SHADOW / DEPTH
+        -- PAW SHAPE
         --==================================================
     
-        -- Toe shadows
-        createPawPart("ToeShadow1", 5, 10, 7, 10, -25, RED_DARK, 4)
-        createPawPart("ToeShadow2", 12, 4, 7, 10, -8, RED_DARK, 4)
-        createPawPart("ToeShadow3", 22, 4, 7, 10, 8, RED_DARK, 4)
-        createPawPart("ToeShadow4", 29, 10, 7, 10, 25, RED_DARK, 4)
+        -- Main paw pad
+        createPawPart("MainPad", 17, 24, 22, 16, 0, RED, 5)
     
-        -- Main pad shadow
-        createPawPart("PadShadow", 17, 25, 23, 16, 0, RED_DARK, 4)
+        -- Four toes: moved closer to the main pad
+        createPawPart("Toe1", 5, 12, 7, 10, -25, RED, 5)
+        createPawPart("Toe2", 12, 7, 7, 10, -8, RED_LIGHT, 5)
+        createPawPart("Toe3", 22, 7, 7, 10, 8, RED_LIGHT, 5)
+        createPawPart("Toe4", 29, 12, 7, 10, 25, RED, 5)
     
-        --==================================================
-        -- MAIN PAW PADS
-        --==================================================
-    
-        -- Four rounded toes
-        createPawPart("Toe1", 5, 9, 6, 9, -25, RED, 5)
-        createPawPart("Toe2", 12, 3, 6, 9, -8, RED_LIGHT, 5)
-        createPawPart("Toe3", 22, 3, 6, 9, 8, RED_LIGHT, 5)
-        createPawPart("Toe4", 29, 9, 6, 9, 25, RED, 5)
-    
-        -- Main central paw pad
-        createPawPart("PadCenter", 17, 24, 15, 14, 0, RED, 5)
-        createPawPart("PadLeft", 11, 24, 11, 12, -25, RED, 5)
-        createPawPart("PadRight", 23, 24, 11, 12, 25, RED, 5)
-    
-        --==================================================
-        -- PAW HIGHLIGHTS
-        --==================================================
-    
-        createPawPart("ToeHighlight1", 4, 7, 2, 3, -25, RED_LIGHT, 6)
-        createPawPart("ToeHighlight2", 11, 1, 2, 3, -8, RED_LIGHT, 6)
-        createPawPart("ToeHighlight3", 21, 1, 2, 3, 8, RED_LIGHT, 6)
-        createPawPart("ToeHighlight4", 28, 7, 2, 3, 25, RED_LIGHT, 6)
-    
-        --==================================================
-        -- PAW OUTER GLOW
-        --==================================================
-    
-        local pawGlow = Instance.new("UIStroke")
-        pawGlow.Color = RED
-        pawGlow.Thickness = 1
-        pawGlow.Transparency = 0.65
-        pawGlow.Parent = pawContainer
-    
+       
         --==================================================
         -- DIVIDER
         --==================================================
