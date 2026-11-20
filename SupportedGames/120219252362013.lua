@@ -1,10 +1,8 @@
---123123123
+
 local GameModule = {}
 
 function GameModule.Register(api)
     api.AddCategory("Automation", "AUTOMATION", function(page)
-        -- Store helper functions on one table to stay below Luau's 200-local register limit.
-        local helpers = {}
 
         --==================================================
         -- SERVICES
@@ -39,6 +37,9 @@ function GameModule.Register(api)
 
         local WAYPOINT_REACH_DISTANCE = 6
         local WAYPOINT_TIMEOUT = 15
+        local THROW_WAYPOINT_TIMEOUT = 10
+        local THROW_PATH_CHECK_INTERVAL = 0.04
+        local TELEPORT_VERIFY_DELAY = 0.15
         local MAX_PATH_RETRIES = 3
 
         local selectedSpeed = 1
@@ -53,24 +54,15 @@ function GameModule.Register(api)
         local startTrain
         local stopTrain
 
-        -- �lk ba�lang��ta 6 saniye bekle.
-        -- Sonraki d�ng�lerde ThrowReadyAt beklenecek.
+        -- İlk başlangıçta 6 saniye bekle.
+        -- Sonraki döngülerde ThrowReadyAt beklenecek.
         local firstCycle = true
-
-        -- AFK FARM orchestration
-        local autoFarmRunning = false
-        local autoFarmWorkerId = 0
-        local autoFarmThrowCount = 0
-        local autoFarmThrowDone = false
-        local autoFarmThrowTarget = 3
-        local autoFarmTrainingSeconds = 60
-        local autoFarmFirstCycle = true
 
         --==================================================
         -- DEBUG
         --==================================================
 
-        helpers.debugLog = function(message)
+        local function debugLog(message)
             print("[BZHUB FARM DEBUG] " .. tostring(message))
         end
 
@@ -90,11 +82,11 @@ function GameModule.Register(api)
 
         local translations = {
             English = {
-                title = "AUTO FARM",
+                title = "AUTO THROW",
                 power = "Power Level",
                 info = "i",
-                infoTitle = "AUTO THROW - IMPORTANT NOTES",
-                infoHint = "� The 6-second starting wait is normal.\n� Do not move or click while the automation is waiting.\n� Cooldown delays are part of the game.\n� Keep the game open until the throw is complete.",
+                infoTitle = "AUTO THROW STATUS",
+                infoHint = "Live information about the automation.",
                 idle = "Auto Throw is currently disabled.",
                 starting = "Starting the automation...",
                 moving = "Moving to the throw area. Please do not interfere.",
@@ -110,57 +102,57 @@ function GameModule.Register(api)
                 close = "CLOSE"
             },
             Turkish = {
-                title = "AUTO FARM",
-                power = "G�� Seviyesi",
+                title = "AUTO THROW",
+                power = "Güç Seviyesi",
                 info = "i",
-                infoTitle = "AUTO THROW - IMPORTANT NOTES",
-                infoHint = "� The 6-second starting wait is normal.\n� Do not move or click while the automation is waiting.\n� Cooldown delays are part of the game.\n� Keep the game open until the throw is complete.",
-                idle = "Auto Throw �u anda kapal�.",
-                starting = "Otomasyon ba�lat�l�yor...",
-                moving = "At�� alan�na y�r�n�yor. L�tfen m�dahale etmeyin.",
-                initialWait = "Ba�lang�� alan�nda 6 saniye bekleniyor. L�tfen dokunmay�n.",
-                cooldown = "At�� bekleme s�resi / koruma bitene kadar bekleniyor. Hi�bir �eye dokunmay�n; s�re bitince hareket ba�layacak.",
-                marker = "At�� g�stergesinde se�ilen g�� seviyesi bekleniyor.",
-                throwing = "Se�ilen g�� yakaland�. At�� girdisi g�nderiliyor...",
-                resetting = "At�� tamamland�. Karakter s�f�rlan�yor...",
+                infoTitle = "AUTO THROW DURUMU",
+                infoHint = "Otomasyonun anlık durumu.",
+                idle = "Auto Throw şu anda kapalı.",
+                starting = "Otomasyon başlatılıyor...",
+                moving = "Atış alanına yürünüyor. Lütfen müdahale etmeyin.",
+                initialWait = "Başlangıç alanında 6 saniye bekleniyor. Lütfen dokunmayın.",
+                cooldown = "Atış bekleme süresi / koruma bitene kadar bekleniyor. Hiçbir şeye dokunmayın; süre bitince hareket başlayacak.",
+                marker = "Atış göstergesinde seçilen güç seviyesi bekleniyor.",
+                throwing = "Seçilen güç yakalandı. Atış girdisi gönderiliyor...",
+                resetting = "Atış tamamlandı. Karakter sıfırlanıyor...",
                 stopped = "Auto Throw durduruldu.",
-                error = "Bir hata olu�tu: ",
-                enabled = "A�IK",
+                error = "Bir hata oluştu: ",
+                enabled = "AÇIK",
                 disabled = "KAPALI",
                 close = "KAPAT"
             },
             Russian = {
-                title = "???? ??????",
-                power = "??????? ????",
+                title = "АВТО БРОСОК",
+                power = "Уровень силы",
                 info = "i",
-                infoTitle = "AUTO THROW - IMPORTANT NOTES",
-                infoHint = "� The 6-second starting wait is normal.\n� Do not move or click while the automation is waiting.\n� Cooldown delays are part of the game.\n� Keep the game open until the throw is complete.",
-                idle = "?????????? ?????? ????????.",
-                starting = "?????? ?????????????...",
-                moving = "???????? ???? ? ???? ??????. ??????????, ?? ????????????.",
-                initialWait = "???????? 6 ?????? ? ????????? ????. ??????????, ?? ???????? ??????.",
-                cooldown = "???????? ??????????? / ?????? ??????. ?????? ?? ????????; ???????? ???????? ????? ????????? ???????.",
-                marker = "???????? ?????????? ?????? ???? ?? ?????????? ??????.",
-                throwing = "?????? ???? ??????????. ???????? ??????? ??????...",
-                resetting = "?????? ????????. ???????? ???????????????...",
-                stopped = "?????????? ??????????.",
-                error = "????????? ??????: ",
-                enabled = "???",
-                disabled = "????",
-                close = "???????"
+                infoTitle = "СТАТУС АВТОБРОСКА",
+                infoHint = "Текущий статус автоматизации.",
+                idle = "Автобросок сейчас выключен.",
+                starting = "Запуск автоматизации...",
+                moving = "Персонаж идет к зоне броска. Пожалуйста, не вмешивайтесь.",
+                initialWait = "Ожидание 6 секунд в стартовой зоне. Пожалуйста, не трогайте ничего.",
+                cooldown = "Ожидание перезарядки / защиты броска. Ничего не трогайте; движение начнется после окончания таймера.",
+                marker = "Ожидание выбранного уровня силы на индикаторе броска.",
+                throwing = "Нужная сила достигнута. Отправка команды броска...",
+                resetting = "Бросок завершен. Персонаж перезапускается...",
+                stopped = "Автобросок остановлен.",
+                error = "Произошла ошибка: ",
+                enabled = "ВКЛ",
+                disabled = "ВЫКЛ",
+                close = "ЗАКРЫТЬ"
             }
         }
 
-        helpers.getLanguage = function()
+        local function getLanguage()
             return "English"
         end
 
-        helpers.tr = function(key)
-            local language = translations[helpers.getLanguage()] or translations.English
+        local function tr(key)
+            local language = translations[getLanguage()] or translations.English
             return language[key] or translations.English[key] or key
         end
 
-        helpers.makeTween = function(object, duration, properties, style, direction)
+        local function makeTween(object, duration, properties, style, direction)
             local tween = TweenService:Create(
                 object,
                 TweenInfo.new(
@@ -184,7 +176,7 @@ function GameModule.Register(api)
         local hudProgressTween
         local hudVisible = false
 
-        helpers.setHudProgress = function(progress)
+        local function setHudProgress(progress)
             if not hudFill or not hudFill.Parent then return end
 
             if hudProgressTween then
@@ -192,17 +184,21 @@ function GameModule.Register(api)
                 hudProgressTween = nil
             end
 
-            local actualProgress = (type(progress) == "number") and progress or 0
-            hudFill.Size = UDim2.new(math.clamp(actualProgress, 0, 1), 0, 1, 0)
+            if type(progress) == "number" then
+                hudFill.Size = UDim2.new(math.clamp(progress, 0, 1), 0, 1, 0)
+            else
+                hudFill.Size = UDim2.new(0.18, 0, 1, 0)
+                hudProgressTween = TweenService:Create(
+                    hudFill,
+                    TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+                    {Size = UDim2.new(0.88, 0, 1, 0)}
+                )
+                hudProgressTween:Play()
+            end
         end
 
-        helpers.updateHud = function(key, detail, progress)
+        local function updateHud(key, detail, progress)
             if not hudGui then return end
-            if autoFarmRunning then
-                hudGui.Enabled = false
-                hudVisible = false
-                return
-            end
             if hudStateText then
                 local mode = (activeHudMode == "train") and "AUTO TRAIN" or "AUTO THROW"
                 local enabled = (activeHudMode == "train") and trainEnabled or isEnabled
@@ -239,17 +235,14 @@ function GameModule.Register(api)
                 elseif key == "error" then
                     message = "Error: " .. tostring(detail or "")
                 else
-                    message = helpers.tr(key)
+                    message = tr(key)
                 end
                 hudInfoText.Text = message
             end
-            local active = (activeHudMode == "train" and trainEnabled)
-                or (activeHudMode == "throw" and isEnabled)
-
-            if active then
+            if isEnabled or trainEnabled then
                 hudGui.Enabled = true
                 hudVisible = true
-                helpers.setHudProgress(progress)
+                setHudProgress(progress)
             else
                 hudGui.Enabled = false
                 hudVisible = false
@@ -257,328 +250,51 @@ function GameModule.Register(api)
                     hudProgressTween:Cancel()
                     hudProgressTween = nil
                 end
-                if hudFill and hudFill.Parent then
-                    hudFill.Size = UDim2.new(0, 0, 1, 0)
-                end
             end
         end
 
-        helpers.setStatus = function(key, detail, progress)
+        local function setStatus(key, detail, progress)
             currentStatus = key
             currentStatusDetail = detail or ""
 
-            helpers.updateHud(key, currentStatusDetail, progress)
+            if statusText and statusText.Parent then
+                local message = tr(key)
+                if key == "error" and currentStatusDetail ~= "" then
+                    message = message .. currentStatusDetail
+                end
+                statusText.Text = message
+            end
+
+            updateHud(key, currentStatusDetail, progress)
         end
 
-        --==================================================
-        -- VERTICAL SCROLL CONTAINER (mouse wheel + middle mouse drag)
-        --==================================================
-
-        local farmScroll = Instance.new("ScrollingFrame")
-        farmScroll.Name = "FarmVerticalScroll"
-        farmScroll.Position = UDim2.fromOffset(0, 0)
-        farmScroll.Size = UDim2.new(1, 0, 1, 0)
-        farmScroll.BackgroundTransparency = 1
-        farmScroll.BorderSizePixel = 0
-        farmScroll.ScrollBarThickness = 4
-        farmScroll.ScrollBarImageColor3 = Color3.fromRGB(105, 125, 150)
-        farmScroll.ScrollingDirection = Enum.ScrollingDirection.Y
-        farmScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        farmScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-        farmScroll.Active = true
-        farmScroll.Parent = page
-
-        local farmContent = Instance.new("Frame")
-        farmContent.Name = "FarmContent"
-        farmContent.BackgroundTransparency = 1
-        farmContent.Size = UDim2.new(1, -8, 0, 0)
-        farmContent.AutomaticSize = Enum.AutomaticSize.Y
-        farmContent.Parent = farmScroll
-
-        local farmList = Instance.new("UIListLayout")
-        farmList.Name = "VerticalLayout"
-        farmList.SortOrder = Enum.SortOrder.LayoutOrder
-        farmList.Padding = UDim.new(0, 10)
-        farmList.Parent = farmContent
-
-        local farmPadding = Instance.new("UIPadding")
-        farmPadding.PaddingTop = UDim.new(0, 10)
-        farmPadding.PaddingBottom = UDim.new(0, 12)
-        farmPadding.PaddingLeft = UDim.new(0, 10)
-        farmPadding.PaddingRight = UDim.new(0, 10)
-        farmPadding.Parent = farmContent
-
-        local middleDrag = false
-        local middleDragStartY = 0
-        local middleCanvasStartY = 0
-        farmScroll.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton3 then
-                middleDrag = true
-                middleDragStartY = input.Position.Y
-                middleCanvasStartY = farmScroll.CanvasPosition.Y
-            end
-        end)
-        UserInputService.InputChanged:Connect(function(input)
-            if middleDrag and input.UserInputType == Enum.UserInputType.MouseMovement then
-                local delta = input.Position.Y - middleDragStartY
-                local maxY = math.max(0, farmScroll.AbsoluteCanvasSize.Y - farmScroll.AbsoluteWindowSize.Y)
-                farmScroll.CanvasPosition = Vector2.new(0, math.clamp(middleCanvasStartY - delta, 0, maxY))
-            end
-        end)
-        UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton3 then
-                middleDrag = false
-            end
-        end)
-
-        local farmHeader = Instance.new("Frame")
-        farmHeader.Name = "AutoFarmHeader"
-        farmHeader.Size = UDim2.new(1, 0, 0, 32)
-        farmHeader.BackgroundTransparency = 1
-        farmHeader.LayoutOrder = 1
-        farmHeader.Parent = farmContent
-
         local title = Instance.new("TextLabel")
-        title.Name = "AutoFarmTitle"
-        title.Size = UDim2.new(1, -112, 1, 0)
-        title.Position = UDim2.new(0, 0, 0, 0)
+        title.Name = "AutoThrowTitle"
+        title.Size = UDim2.new(1, -20, 0, 30)
+        title.Position = UDim2.fromOffset(10, 10)
         title.BackgroundTransparency = 1
-        title.Text = "AFK FARM"
+        title.Text = tr("title")
         title.TextSize = 18
         title.TextXAlignment = Enum.TextXAlignment.Left
         title.TextColor3 = TEXT
         title.Font = Enum.Font.GothamBold
-        title.Parent = farmHeader
-
-        local autoFarmButton = Instance.new("TextButton")
-        autoFarmButton.Name = "AutoFarmStartStop"
-        autoFarmButton.AnchorPoint = Vector2.new(1, 0.5)
-        autoFarmButton.Position = UDim2.new(1, 0, 0.5, 0)
-        autoFarmButton.Size = UDim2.fromOffset(92, 27)
-        autoFarmButton.BackgroundColor3 = Color3.fromRGB(12, 25, 65)
-        autoFarmButton.BorderSizePixel = 0
-        autoFarmButton.Text = "START"
-        autoFarmButton.TextColor3 = Color3.fromRGB(235, 250, 255)
-        autoFarmButton.TextSize = 11
-        autoFarmButton.Font = Enum.Font.GothamBold
-        autoFarmButton.AutoButtonColor = false
-        autoFarmButton.ZIndex = 5
-        autoFarmButton.Parent = farmHeader
-
-        local autoFarmButtonCorner = Instance.new("UICorner")
-        autoFarmButtonCorner.CornerRadius = UDim.new(0, 8)
-        autoFarmButtonCorner.Parent = autoFarmButton
-        local autoFarmGradient = Instance.new("UIGradient")
-        autoFarmGradient.Name = "AutoFarmGradient"
-
-        local normalGradient = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(8, 20, 65)),
-            ColorSequenceKeypoint.new(0.35, Color3.fromRGB(15, 75, 160)),
-            ColorSequenceKeypoint.new(0.7, Color3.fromRGB(15, 145, 210)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(35, 220, 240))
-        })
-
-        local hoverGradient = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 55, 130)),
-            ColorSequenceKeypoint.new(0.35, Color3.fromRGB(20, 125, 220)),
-            ColorSequenceKeypoint.new(0.7, Color3.fromRGB(25, 195, 245)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 245, 255))
-        })
-
-        autoFarmGradient.Color = normalGradient
-        autoFarmGradient.Rotation = 0
-        autoFarmGradient.Offset = Vector2.new(-0.35, 0)
-        autoFarmGradient.Parent = autoFarmButton
-
-        local gradientTweenInfo = TweenInfo.new(
-            5,
-            Enum.EasingStyle.Sine,
-            Enum.EasingDirection.InOut,
-            -1,
-            true
-        )
-
-        local gradientTween = TweenService:Create(
-            autoFarmGradient,
-            gradientTweenInfo,
-            {Offset = Vector2.new(0.35, 0)}
-        )
-
-        gradientTween:Play()
-        -- Layered strokes create a soft neon halo around the button itself.
-        helpers.autoFarmGlowOuter = Instance.new("Frame")
-        helpers.autoFarmGlowOuter.Name = "NeonGlowOuter"
-        helpers.autoFarmGlowOuter.AnchorPoint = Vector2.new(0.5, 0.5)
-        helpers.autoFarmGlowOuter.Position = UDim2.fromScale(0.5, 0.5)
-        helpers.autoFarmGlowOuter.Size = UDim2.new(1, 18, 1, 16)
-        helpers.autoFarmGlowOuter.BackgroundTransparency = 1
-        helpers.autoFarmGlowOuter.BorderSizePixel = 0
-        helpers.autoFarmGlowOuter.ZIndex = 2
-        helpers.autoFarmGlowOuter.Parent = autoFarmButton
-        helpers.autoFarmGlowOuterCorner = Instance.new("UICorner")
-        helpers.autoFarmGlowOuterCorner.CornerRadius = UDim.new(0, 13)
-        helpers.autoFarmGlowOuterCorner.Parent = helpers.autoFarmGlowOuter
-        helpers.autoFarmGlowOuterStroke = Instance.new("UIStroke")
-        helpers.autoFarmGlowOuterStroke.Color = Color3.fromRGB(0, 145, 255)
-        helpers.autoFarmGlowOuterStroke.Thickness = 8
-        helpers.autoFarmGlowOuterStroke.Transparency = 1
-        helpers.autoFarmGlowOuterStroke.Parent = helpers.autoFarmGlowOuter
-
-        helpers.autoFarmGlowInner = Instance.new("Frame")
-        helpers.autoFarmGlowInner.Name = "NeonGlowInner"
-        helpers.autoFarmGlowInner.AnchorPoint = Vector2.new(0.5, 0.5)
-        helpers.autoFarmGlowInner.Position = UDim2.fromScale(0.5, 0.5)
-        helpers.autoFarmGlowInner.Size = UDim2.new(1, 8, 1, 8)
-        helpers.autoFarmGlowInner.BackgroundTransparency = 1
-        helpers.autoFarmGlowInner.BorderSizePixel = 0
-        helpers.autoFarmGlowInner.ZIndex = 3
-        helpers.autoFarmGlowInner.Parent = autoFarmButton
-        helpers.autoFarmGlowInnerCorner = Instance.new("UICorner")
-        helpers.autoFarmGlowInnerCorner.CornerRadius = UDim.new(0, 11)
-        helpers.autoFarmGlowInnerCorner.Parent = helpers.autoFarmGlowInner
-        helpers.autoFarmGlowInnerStroke = Instance.new("UIStroke")
-        helpers.autoFarmGlowInnerStroke.Color = Color3.fromRGB(70, 190, 255)
-        helpers.autoFarmGlowInnerStroke.Thickness = 4
-        helpers.autoFarmGlowInnerStroke.Transparency = 1
-        helpers.autoFarmGlowInnerStroke.Parent = helpers.autoFarmGlowInner
-
-        helpers.autoFarmButtonStroke = Instance.new("UIStroke")
-        helpers.autoFarmButtonStroke.Color = Color3.fromRGB(45, 155, 255)
-        helpers.autoFarmButtonStroke.Thickness = 1
-        helpers.autoFarmButtonStroke.Transparency = 0.72
-        helpers.autoFarmButtonStroke.Parent = autoFarmButton
-
-        helpers.autoFarmButtonScale = Instance.new("UIScale")
-        helpers.autoFarmButtonScale.Scale = 1
-        helpers.autoFarmButtonScale.Parent = autoFarmButton
-        print("AFK BUTTON HOVER ACTIVE")
-        autoFarmButton.MouseEnter:Connect(function()
-            -- Smooth hover gradient transition
-            TweenService:Create(
-                autoFarmGradient,
-                TweenInfo.new(0.55, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-                {
-                    Color = hoverGradient
-                }
-            ):Play()
-
-            -- Button scale
-            TweenService:Create(
-                helpers.autoFarmButtonScale,
-                TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-                {
-                    Scale = 1.09
-                }
-            ):Play()
-
-            -- Main neon stroke
-            TweenService:Create(
-                helpers.autoFarmButtonStroke,
-                TweenInfo.new(0.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
-                {
-                    Transparency = 0.02,
-                    Thickness = 2
-                }
-            ):Play()
-
-            -- Outer glow
-            TweenService:Create(
-                helpers.autoFarmGlowOuterStroke,
-                TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
-                {
-                    Transparency = 0.28,
-                    Thickness = 10
-                }
-            ):Play()
-
-            -- Inner glow
-            TweenService:Create(
-                helpers.autoFarmGlowInnerStroke,
-                TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
-                {
-                    Transparency = 0.12,
-                    Thickness = 5
-                }
-            ):Play()
-        end)
-
-        autoFarmButton.MouseLeave:Connect(function()
-            -- Smooth return to normal gradient
-            TweenService:Create(
-                autoFarmGradient,
-                TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-                {
-                    Color = normalGradient
-                }
-            ):Play()
-
-            -- Reset button scale
-            TweenService:Create(
-                helpers.autoFarmButtonScale,
-                TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-                {
-                    Scale = 1
-                }
-            ):Play()
-
-            -- Main neon stroke
-            TweenService:Create(
-                helpers.autoFarmButtonStroke,
-                TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
-                {
-                    Transparency = 0.72,
-                    Thickness = 1
-                }
-            ):Play()
-
-            -- Outer glow
-            TweenService:Create(
-                helpers.autoFarmGlowOuterStroke,
-                TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
-                {
-                    Transparency = 1,
-                    Thickness = 8
-                }
-            ):Play()
-
-            -- Inner glow
-            TweenService:Create(
-                helpers.autoFarmGlowInnerStroke,
-                TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
-                {
-                    Transparency = 1,
-                    Thickness = 4
-                }
-            ):Play()
-        end)
-        autoFarmButton.MouseButton1Down:Connect(function()
-            TweenService:Create(helpers.autoFarmButtonScale, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                Scale = 0.96
-            }):Play()
-        end)
-
-        autoFarmButton.MouseButton1Up:Connect(function()
-            TweenService:Create(helpers.autoFarmButtonScale, TweenInfo.new(0.12, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                Scale = 1.09
-            }):Play()
-        end)
+        title.Parent = page
 
         -- Main combined card: toggle + power slider.
         local mainCard = Instance.new("Frame")
         mainCard.Name = "AutoThrowCard"
-        mainCard.Position = UDim2.new(0, 0, 0, 0)
-        mainCard.Size = UDim2.new(1, 0, 0, 132)
+        mainCard.Position = UDim2.fromOffset(10, 55)
+        mainCard.Size = UDim2.new(1, -20, 0, 132)
         mainCard.BackgroundColor3 = CARD
         mainCard.BorderSizePixel = 0
-        mainCard.LayoutOrder = 2
-        mainCard.Parent = farmContent
+        mainCard.Parent = page
 
         local cardCorner = Instance.new("UICorner")
         cardCorner.CornerRadius = UDim.new(0, 12)
         cardCorner.Parent = mainCard
 
         local cardStroke = Instance.new("UIStroke")
-        cardStroke.Color = Color3.fromRGB(242, 72, 82)
+        cardStroke.Color = ACCENT
         cardStroke.Thickness = 1.35
         cardStroke.Transparency = 0.28
         cardStroke.Parent = mainCard
@@ -593,36 +309,15 @@ function GameModule.Register(api)
 
         local toggleLabel = Instance.new("TextLabel")
         toggleLabel.Name = "AutoThrowLabel"
-        toggleLabel.Position = UDim2.fromOffset(12, 8)
-        toggleLabel.Size = UDim2.fromOffset(112, 29)
-        toggleLabel.BackgroundColor3 = Color3.fromRGB(75, 31, 42)
-        toggleLabel.BackgroundTransparency = 0.05
+        toggleLabel.Position = UDim2.fromOffset(14, 7)
+        toggleLabel.Size = UDim2.new(1, -112, 0, 38)
+        toggleLabel.BackgroundTransparency = 1
         toggleLabel.Text = "Auto Throw"
-        toggleLabel.TextColor3 = Color3.fromRGB(255, 190, 198)
-        toggleLabel.TextStrokeColor3 = Color3.fromRGB(255, 55, 78)
-        toggleLabel.TextStrokeTransparency = 0.48
+        toggleLabel.TextColor3 = TEXT
         toggleLabel.TextSize = 14
-        toggleLabel.Font = Enum.Font.GothamBold
+        toggleLabel.Font = Enum.Font.GothamSemibold
         toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
         toggleLabel.Parent = mainCard
-        local throwLabelPadding = Instance.new("UIPadding")
-        throwLabelPadding.PaddingLeft = UDim.new(0, 10)
-        throwLabelPadding.Parent = toggleLabel
-        local throwLabelGradient = Instance.new("UIGradient")
-        throwLabelGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(91, 31, 48)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(43, 22, 36))
-        })
-        throwLabelGradient.Rotation = 0
-        throwLabelGradient.Parent = toggleLabel
-        local throwLabelCorner = Instance.new("UICorner")
-        throwLabelCorner.CornerRadius = UDim.new(0, 8)
-        throwLabelCorner.Parent = toggleLabel
-        local throwLabelStroke = Instance.new("UIStroke")
-        throwLabelStroke.Color = Color3.fromRGB(242, 72, 82)
-        throwLabelStroke.Transparency = 0.35
-        throwLabelStroke.Thickness = 1
-        throwLabelStroke.Parent = toggleLabel
 
         local infoButton = Instance.new("TextButton")
         infoButton.Name = "InfoButton"
@@ -687,7 +382,7 @@ function GameModule.Register(api)
         stateLabel.Position = UDim2.new(1, -13, 0, 43)
         stateLabel.Size = UDim2.fromOffset(95, 16)
         stateLabel.BackgroundTransparency = 1
-        stateLabel.Text = helpers.tr("disabled")
+        stateLabel.Text = tr("disabled")
         stateLabel.TextColor3 = MUTED
         stateLabel.TextSize = 9
         stateLabel.Font = Enum.Font.GothamBold
@@ -766,17 +461,15 @@ function GameModule.Register(api)
         local TRAIN_RED = Color3.fromRGB(242, 72, 82)
         local TRAIN_RED_BRIGHT = Color3.fromRGB(255, 105, 112)
         local auto2xEnabled = false
-        local auto2xWorkerId = 0
 
         local trainCard = Instance.new("Frame")
         trainCard.Name = "AutoTrainCard"
-        trainCard.Position = UDim2.new(0, 0, 0, 0)
-        trainCard.Size = UDim2.new(1, 0, 0, 62)
+        trainCard.Position = UDim2.fromOffset(10, 198)
+        trainCard.Size = UDim2.new(1, -20, 0, 62)
         trainCard.BackgroundColor3 = CARD
         trainCard.BorderSizePixel = 0
         trainCard.ClipsDescendants = true
-        trainCard.LayoutOrder = 3
-        trainCard.Parent = farmContent
+        trainCard.Parent = page
 
         local trainCardCorner = Instance.new("UICorner")
         trainCardCorner.CornerRadius = UDim.new(0, 12)
@@ -798,36 +491,15 @@ function GameModule.Register(api)
 
         local trainLabel = Instance.new("TextLabel")
         trainLabel.Name = "AutoTrainLabel"
-        trainLabel.Position = UDim2.fromOffset(12, 8)
-        trainLabel.Size = UDim2.fromOffset(105, 29)
-        trainLabel.BackgroundColor3 = Color3.fromRGB(75, 31, 42)
-        trainLabel.BackgroundTransparency = 0.05
+        trainLabel.Position = UDim2.fromOffset(14, 7)
+        trainLabel.Size = UDim2.new(1, -115, 0, 38)
+        trainLabel.BackgroundTransparency = 1
         trainLabel.Text = "Auto Train"
-        trainLabel.TextColor3 = Color3.fromRGB(255, 190, 198)
-        trainLabel.TextStrokeColor3 = Color3.fromRGB(255, 55, 78)
-        trainLabel.TextStrokeTransparency = 0.48
+        trainLabel.TextColor3 = TEXT
         trainLabel.TextSize = 14
-        trainLabel.Font = Enum.Font.GothamBold
+        trainLabel.Font = Enum.Font.GothamSemibold
         trainLabel.TextXAlignment = Enum.TextXAlignment.Left
         trainLabel.Parent = trainCard
-        local trainLabelPadding = Instance.new("UIPadding")
-        trainLabelPadding.PaddingLeft = UDim.new(0, 10)
-        trainLabelPadding.Parent = trainLabel
-        local trainLabelGradient = Instance.new("UIGradient")
-        trainLabelGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(91, 31, 48)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(43, 22, 36))
-        })
-        trainLabelGradient.Rotation = 0
-        trainLabelGradient.Parent = trainLabel
-        local trainLabelCorner = Instance.new("UICorner")
-        trainLabelCorner.CornerRadius = UDim.new(0, 8)
-        trainLabelCorner.Parent = trainLabel
-        local trainLabelStroke = Instance.new("UIStroke")
-        trainLabelStroke.Color = TRAIN_RED
-        trainLabelStroke.Transparency = 0.35
-        trainLabelStroke.Thickness = 1
-        trainLabelStroke.Parent = trainLabel
 
         local trainStateLabel = Instance.new("TextLabel")
         trainStateLabel.Name = "TrainState"
@@ -842,7 +514,7 @@ function GameModule.Register(api)
         trainStateLabel.TextXAlignment = Enum.TextXAlignment.Right
         trainStateLabel.Parent = trainCard
 
-        helpers.makeTrainSwitch = function(name, parent, position, size)
+        local function makeTrainSwitch(name, parent, position, size)
             local button = Instance.new("TextButton")
             button.Name = name
             button.AnchorPoint = Vector2.new(1, 0)
@@ -879,7 +551,7 @@ function GameModule.Register(api)
             return button, knob, outline
         end
 
-        local trainSwitch, trainKnob, trainSwitchStroke = helpers.makeTrainSwitch(
+        local trainSwitch, trainKnob, trainSwitchStroke = makeTrainSwitch(
             "AutoTrainSwitch", trainCard,
             UDim2.new(1, -12, 0, 10), UDim2.fromOffset(70, 29)
         )
@@ -915,13 +587,13 @@ function GameModule.Register(api)
         auto2xLabel.TextXAlignment = Enum.TextXAlignment.Left
         auto2xLabel.Parent = auto2xRow
 
-        local auto2xSwitch, auto2xKnob, auto2xSwitchStroke = helpers.makeTrainSwitch(
+        local auto2xSwitch, auto2xKnob, auto2xSwitchStroke = makeTrainSwitch(
             "Auto2xSwitch", auto2xRow,
             UDim2.new(1, -8, 0.5, -14), UDim2.fromOffset(62, 28)
         )
         auto2xKnob.Size = UDim2.fromOffset(22, 22)
 
-        helpers.setRedSwitch = function(button, knob, outline, enabled, instant)
+        local function setRedSwitch(button, knob, outline, enabled, instant)
             local targetPosition = enabled
                 and UDim2.new(1, -26, 0, 3)
                 or UDim2.fromOffset(3, 3)
@@ -933,45 +605,38 @@ function GameModule.Register(api)
                 button.BackgroundColor3 = targetColor
                 outline.Transparency = enabled and 0.08 or 0.48
             else
-                helpers.makeTween(knob, 0.2, {Position = targetPosition})
-                helpers.makeTween(button, 0.2, {BackgroundColor3 = targetColor})
-                helpers.makeTween(outline, 0.2, {Transparency = enabled and 0.08 or 0.48})
+                makeTween(knob, 0.2, {Position = targetPosition})
+                makeTween(button, 0.2, {BackgroundColor3 = targetColor})
+                makeTween(outline, 0.2, {Transparency = enabled and 0.08 or 0.48})
             end
         end
 
         trainSwitch.MouseButton1Click:Connect(function()
-            if autoFarmRunning then return end
-            if not trainEnabled and isEnabled then
-                helpers.debugLog("Auto Train toggle blocked: Auto Throw is already enabled.")
-                return
-            end
-
             trainEnabled = not trainEnabled
             trainStateLabel.Text = trainEnabled and "ON" or "OFF"
             trainStateLabel.TextColor3 = trainEnabled and TRAIN_RED_BRIGHT or MUTED
-            helpers.setRedSwitch(trainSwitch, trainKnob, trainSwitchStroke, trainEnabled, false)
+            setRedSwitch(trainSwitch, trainKnob, trainSwitchStroke, trainEnabled, false)
 
             if trainEnabled then
-                activeHudMode = "train"
                 auto2xRow.Visible = true
                 auto2xRow.BackgroundTransparency = 1
                 auto2xRow.Position = UDim2.fromOffset(12, 55)
-                helpers.makeTween(trainCard, 0.28, {Size = UDim2.new(1, 0, 0, 116)})
-                helpers.makeTween(auto2xRow, 0.28, {
+                makeTween(trainCard, 0.28, {Size = UDim2.new(1, -20, 0, 116)})
+                makeTween(auto2xRow, 0.28, {
                     Position = UDim2.fromOffset(12, 66),
                     BackgroundTransparency = 0.12
                 })
-                helpers.makeTween(trainCardStroke, 0.22, {Transparency = 0.08, Thickness = 1.8})
+                makeTween(trainCardStroke, 0.22, {Transparency = 0.08, Thickness = 1.8})
                 if startTrain then startTrain() end
             else
                 auto2xEnabled = false
-                helpers.setRedSwitch(auto2xSwitch, auto2xKnob, auto2xSwitchStroke, false, false)
-                local collapse = helpers.makeTween(trainCard, 0.24, {Size = UDim2.new(1, 0, 0, 62)})
-                helpers.makeTween(auto2xRow, 0.18, {
+                setRedSwitch(auto2xSwitch, auto2xKnob, auto2xSwitchStroke, false, false)
+                local collapse = makeTween(trainCard, 0.24, {Size = UDim2.new(1, -20, 0, 62)})
+                makeTween(auto2xRow, 0.18, {
                     Position = UDim2.fromOffset(12, 54),
                     BackgroundTransparency = 1
                 })
-                helpers.makeTween(trainCardStroke, 0.22, {Transparency = 0.3, Thickness = 1.35})
+                makeTween(trainCardStroke, 0.22, {Transparency = 0.3, Thickness = 1.35})
                 collapse.Completed:Connect(function()
                     if not trainEnabled then
                         auto2xRow.Visible = false
@@ -979,6 +644,12 @@ function GameModule.Register(api)
                 end)
                 if stopTrain then stopTrain() end
             end
+        end)
+
+        auto2xSwitch.MouseButton1Click:Connect(function()
+            if not trainEnabled then return end
+            auto2xEnabled = not auto2xEnabled
+            setRedSwitch(auto2xSwitch, auto2xKnob, auto2xSwitchStroke, auto2xEnabled, false)
         end)
 
         --==================================================
@@ -990,12 +661,11 @@ function GameModule.Register(api)
 
         local equipBestCard = Instance.new("Frame")
         equipBestCard.Name = "AutoEquipBestPetCard"
-        equipBestCard.Position = UDim2.new(0, 0, 0, 0)
-        equipBestCard.Size = UDim2.new(1, 0, 0, 62)
+        equipBestCard.Position = UDim2.fromOffset(10, 326)
+        equipBestCard.Size = UDim2.new(1, -20, 0, 62)
         equipBestCard.BackgroundColor3 = CARD
         equipBestCard.BorderSizePixel = 0
-        equipBestCard.LayoutOrder = 4
-        equipBestCard.Parent = farmContent
+        equipBestCard.Parent = page
 
         local equipBestCorner = Instance.new("UICorner")
         equipBestCorner.CornerRadius = UDim.new(0, 12)
@@ -1017,36 +687,15 @@ function GameModule.Register(api)
 
         local equipBestLabel = Instance.new("TextLabel")
         equipBestLabel.Name = "AutoEquipBestPetLabel"
-        equipBestLabel.Position = UDim2.fromOffset(12, 8)
-        equipBestLabel.Size = UDim2.fromOffset(165, 29)
-        equipBestLabel.BackgroundColor3 = Color3.fromRGB(31, 76, 54)
-        equipBestLabel.BackgroundTransparency = 0.05
+        equipBestLabel.Position = UDim2.fromOffset(14, 7)
+        equipBestLabel.Size = UDim2.new(1, -198, 0, 38)
+        equipBestLabel.BackgroundTransparency = 1
         equipBestLabel.Text = "Auto Equip Best Pet"
-        equipBestLabel.TextColor3 = Color3.fromRGB(190, 255, 218)
-        equipBestLabel.TextStrokeColor3 = Color3.fromRGB(42, 255, 142)
-        equipBestLabel.TextStrokeTransparency = 0.5
+        equipBestLabel.TextColor3 = TEXT
         equipBestLabel.TextSize = 13
-        equipBestLabel.Font = Enum.Font.GothamBold
+        equipBestLabel.Font = Enum.Font.GothamSemibold
         equipBestLabel.TextXAlignment = Enum.TextXAlignment.Left
         equipBestLabel.Parent = equipBestCard
-        local equipBestLabelPadding = Instance.new("UIPadding")
-        equipBestLabelPadding.PaddingLeft = UDim.new(0, 10)
-        equipBestLabelPadding.Parent = equipBestLabel
-        local equipBestLabelGradient = Instance.new("UIGradient")
-        equipBestLabelGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(37, 104, 72)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 57, 48))
-        })
-        equipBestLabelGradient.Rotation = 0
-        equipBestLabelGradient.Parent = equipBestLabel
-        local equipBestLabelCorner = Instance.new("UICorner")
-        equipBestLabelCorner.CornerRadius = UDim.new(0, 8)
-        equipBestLabelCorner.Parent = equipBestLabel
-        local equipBestLabelStroke = Instance.new("UIStroke")
-        equipBestLabelStroke.Color = EQUIP_GREEN
-        equipBestLabelStroke.Transparency = 0.35
-        equipBestLabelStroke.Thickness = 1
-        equipBestLabelStroke.Parent = equipBestLabel
 
         local equipBestSwitch = Instance.new("TextButton")
         equipBestSwitch.Name = "AutoEquipBestPetSwitch"
@@ -1058,19 +707,6 @@ function GameModule.Register(api)
         equipBestSwitch.Text = ""
         equipBestSwitch.AutoButtonColor = false
         equipBestSwitch.Parent = equipBestCard
-
-        local equipStateLabel = Instance.new("TextLabel")
-        equipStateLabel.Name = "EquipState"
-        equipStateLabel.AnchorPoint = Vector2.new(1, 0)
-        equipStateLabel.Position = UDim2.new(1, -13, 0, 43)
-        equipStateLabel.Size = UDim2.fromOffset(95, 16)
-        equipStateLabel.BackgroundTransparency = 1
-        equipStateLabel.Text = "OFF"
-        equipStateLabel.TextColor3 = MUTED
-        equipStateLabel.TextSize = 9
-        equipStateLabel.Font = Enum.Font.GothamBold
-        equipStateLabel.TextXAlignment = Enum.TextXAlignment.Right
-        equipStateLabel.Parent = equipBestCard
 
         local equipSwitchCorner = Instance.new("UICorner")
         equipSwitchCorner.CornerRadius = UDim.new(1, 0)
@@ -1094,7 +730,41 @@ function GameModule.Register(api)
         equipKnobCorner.CornerRadius = UDim.new(1, 0)
         equipKnobCorner.Parent = equipSwitchKnob
 
-        helpers.setEquipSwitchVisual = function(enabled, instant)
+        local equipDivider = Instance.new("Frame")
+        equipDivider.Name = "ControlsDivider"
+        equipDivider.AnchorPoint = Vector2.new(1, 0.5)
+        equipDivider.Position = UDim2.new(1, -80, 0.5, 0)
+        equipDivider.Size = UDim2.fromOffset(1, 27)
+        equipDivider.BackgroundColor3 = Color3.fromRGB(150, 170, 160)
+        equipDivider.BackgroundTransparency = 0.62
+        equipDivider.BorderSizePixel = 0
+        equipDivider.Parent = equipBestCard
+
+        local equipOnceButton = Instance.new("TextButton")
+        equipOnceButton.Name = "EquipBestOnceButton"
+        equipOnceButton.AnchorPoint = Vector2.new(1, 0)
+        equipOnceButton.Position = UDim2.new(1, -88, 0, 10)
+        equipOnceButton.Size = UDim2.fromOffset(96, 29)
+        equipOnceButton.BackgroundColor3 = Color3.fromRGB(31, 76, 54)
+        equipOnceButton.BorderSizePixel = 0
+        equipOnceButton.Text = "EQUIP BEST"
+        equipOnceButton.TextColor3 = EQUIP_GREEN_BRIGHT
+        equipOnceButton.TextSize = 10
+        equipOnceButton.Font = Enum.Font.GothamBold
+        equipOnceButton.AutoButtonColor = false
+        equipOnceButton.Parent = equipBestCard
+
+        local equipOnceCorner = Instance.new("UICorner")
+        equipOnceCorner.CornerRadius = UDim.new(0, 8)
+        equipOnceCorner.Parent = equipOnceButton
+
+        local equipOnceStroke = Instance.new("UIStroke")
+        equipOnceStroke.Color = EQUIP_GREEN
+        equipOnceStroke.Transparency = 0.5
+        equipOnceStroke.Thickness = 1
+        equipOnceStroke.Parent = equipOnceButton
+
+        local function setEquipSwitchVisual(enabled, instant)
             local knobPosition = enabled
                 and UDim2.new(1, -26, 0, 3)
                 or UDim2.fromOffset(3, 3)
@@ -1106,17 +776,17 @@ function GameModule.Register(api)
                 equipBestSwitch.BackgroundColor3 = switchColor
                 equipSwitchStroke.Transparency = enabled and 0.08 or 0.48
             else
-                helpers.makeTween(equipSwitchKnob, 0.2, {Position = knobPosition})
-                helpers.makeTween(equipBestSwitch, 0.2, {BackgroundColor3 = switchColor})
-                helpers.makeTween(equipSwitchStroke, 0.2, {Transparency = enabled and 0.08 or 0.48})
+                makeTween(equipSwitchKnob, 0.2, {Position = knobPosition})
+                makeTween(equipBestSwitch, 0.2, {BackgroundColor3 = switchColor})
+                makeTween(equipSwitchStroke, 0.2, {Transparency = enabled and 0.08 or 0.48})
             end
         end
 
-        helpers.invokeEquipBest = function()
+        local function invokeEquipBest()
             local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
             local remote = remotes and remotes:FindFirstChild("Plot_EquipBest")
             if not remote or not remote:IsA("RemoteFunction") then
-                helpers.debugLog("Equip Best failed: Plot_EquipBest RemoteFunction was not found.")
+                debugLog("Equip Best failed: Plot_EquipBest RemoteFunction was not found.")
                 return false
             end
 
@@ -1125,7 +795,7 @@ function GameModule.Register(api)
             end)
 
             if success then
-                helpers.debugLog("Equip Best invoked successfully. Result: " .. tostring(result))
+                debugLog("Equip Best invoked successfully. Result: " .. tostring(result))
                 return true
             end
 
@@ -1133,360 +803,46 @@ function GameModule.Register(api)
             return false
         end
 
-        helpers.AutoEquipBest = function()
+        local function startAutoEquipBest()
             autoEquipBestWorkerId += 1
             local workerId = autoEquipBestWorkerId
 
             task.spawn(function()
                 while autoEquipBestEnabled and workerId == autoEquipBestWorkerId do
-                    helpers.invokeEquipBest()
-                    for _ = 1, 10 do
+                    invokeEquipBest()
+                    for _ = 1, 80 do
                         if not autoEquipBestEnabled or workerId ~= autoEquipBestWorkerId then
                             break
                         end
-                        task.wait(0.5)
+                        task.wait(0.1)
                     end
                 end
             end)
         end
 
         equipBestSwitch.MouseButton1Click:Connect(function()
-            if autoFarmRunning then return end
             autoEquipBestEnabled = not autoEquipBestEnabled
-            equipStateLabel.Text = autoEquipBestEnabled and "ON" or "OFF"
-            equipStateLabel.TextColor3 = autoEquipBestEnabled and EQUIP_GREEN_BRIGHT or MUTED
-            helpers.setEquipSwitchVisual(autoEquipBestEnabled, false)
-            helpers.makeTween(equipBestStroke, 0.2, {
+            equipOnceButton.Visible = not autoEquipBestEnabled
+            equipDivider.Visible = not autoEquipBestEnabled
+            setEquipSwitchVisual(autoEquipBestEnabled, false)
+            makeTween(equipBestStroke, 0.2, {
                 Transparency = autoEquipBestEnabled and 0.08 or 0.3,
                 Thickness = autoEquipBestEnabled and 1.8 or 1.35
             })
 
             if autoEquipBestEnabled then
-                helpers.debugLog("Auto Equip Best Pet enabled.")
-                helpers.startAutoEquipBest()
+                debugLog("Auto Equip Best Pet enabled.")
+                startAutoEquipBest()
             else
                 autoEquipBestWorkerId += 1
-                helpers.debugLog("Auto Equip Best Pet disabled.")
+                debugLog("Auto Equip Best Pet disabled.")
             end
         end)
 
-
-        -- Auto 2x: use a non-mouse touch event first, then an event-connection
-        -- activation if the executor exposes it. Mouse input is the last fallback.
-        local auto2xTouchId = 100
-        local touchInputSupported = nil
-
-        helpers.findTapBonusButton = function()
-            local trainingSequence = playerGui:FindFirstChild("TrainingSequence")
-            if not trainingSequence then return nil, nil end
-
-            local tapBonusLayer = trainingSequence:FindFirstChild("TapBonusLayer")
-            if not tapBonusLayer then return nil, nil end
-
-            local tapBonus = tapBonusLayer:FindFirstChild("TapBonus", true)
-            if not tapBonus then return nil, nil end
-
-            if tapBonus:IsA("GuiButton") then
-                return tapBonus, tapBonus
+        equipOnceButton.MouseButton1Click:Connect(function()
+            if not autoEquipBestEnabled then
+                invokeEquipBest()
             end
-
-            local ancestor = tapBonus.Parent
-            while ancestor and ancestor ~= tapBonusLayer do
-                if ancestor:IsA("GuiButton") then
-                    return ancestor, tapBonus
-                end
-                ancestor = ancestor.Parent
-            end
-
-            local nestedButton = tapBonus:FindFirstChildWhichIsA("GuiButton", true)
-            if nestedButton then
-                return nestedButton, tapBonus
-            end
-
-            return nil, tapBonus
-        end
-
-        helpers.tapBonusStillExists = function(expectedObject)
-            local currentButton, currentObject = helpers.findTapBonusButton()
-            return currentObject == expectedObject and currentButton ~= nil
-                and currentButton.Visible and currentButton.Active, currentButton
-        end
-
-        -- Optional executor event-connection route. Solara may not expose getconnections.
-        helpers.tryGetConnectionsActivation = function(button)
-            if not button or not button:IsA("GuiButton") then
-                return false
-            end
-            if type(getconnections) ~= "function" then
-                return false
-            end
-
-            local function triggerSignalConnections(signal)
-                local getOk, connections = pcall(function()
-                    return getconnections(signal)
-                end)
-                if not getOk or type(connections) ~= "table" then
-                    return false
-                end
-
-                local firedAny = false
-                for _, connection in ipairs(connections) do
-                    if connection then
-                        local enabled = true
-                        pcall(function()
-                            enabled = connection.Enabled
-                        end)
-
-                        if enabled ~= false then
-                            local firedThisConnection = false
-                            local fireMethod
-                            pcall(function()
-                                fireMethod = connection.Fire
-                            end)
-
-                            if type(fireMethod) == "function" then
-                                firedThisConnection = pcall(function()
-                                    fireMethod(connection)
-                                end)
-                            end
-
-                            if not firedThisConnection then
-                                local callback
-                                pcall(function()
-                                    callback = connection.Function
-                                end)
-                                if type(callback) == "function" then
-                                    firedThisConnection = pcall(callback)
-                                end
-                            end
-
-                            if firedThisConnection then
-                                firedAny = true
-                            end
-                        end
-                    end
-                end
-                return firedAny
-            end
-
-            if triggerSignalConnections(button.Activated) then
-                return true
-            end
-            return triggerSignalConnections(button.MouseButton1Click)
-        end
-
-        -- Try a touchscreen tap at the button center. This does not move the mouse
-        -- and does not send MouseButton1. Some Solara builds block this Roblox service.
-        helpers.touchTapBonus = function(button, expectedObject)
-            if not button or not button:IsA("GuiButton") then
-                return false
-            end
-            if touchInputSupported == false then
-                return false
-            end
-
-            local virtualInputManager = VirtualInputManager
-            if not virtualInputManager then
-                touchInputSupported = false
-                warn("[BZHUB AUTO 2X] VirtualInputManager is unavailable.")
-                return false
-            end
-
-            local sendTouchEvent
-            local methodOk = pcall(function()
-                sendTouchEvent = virtualInputManager.SendTouchEvent
-            end)
-            if not methodOk or type(sendTouchEvent) ~= "function" then
-                touchInputSupported = false
-                warn("[BZHUB AUTO 2X] This Solara build does not expose SendTouchEvent.")
-                return false
-            end
-
-            local center = button.AbsolutePosition + (button.AbsoluteSize / 2)
-            auto2xTouchId += 1
-            local touchId = auto2xTouchId
-            local beginState = Enum.UserInputState.Begin.Value
-            local endState = Enum.UserInputState.End.Value
-
-            local beginOk, beginError = pcall(function()
-                virtualInputManager:SendTouchEvent(touchId, beginState, center.X, center.Y)
-            end)
-            if not beginOk then
-                touchInputSupported = false
-                warn("[BZHUB AUTO 2X] Touch input is blocked by this Solara build: " .. tostring(beginError))
-                return false
-            end
-
-            touchInputSupported = true
-            task.wait(0.12)
-
-            local endOk, endError = pcall(function()
-                virtualInputManager:SendTouchEvent(touchId, endState, center.X, center.Y)
-            end)
-            if not endOk then
-                pcall(function()
-                    virtualInputManager:SendTouchEvent(
-                        touchId,
-                        Enum.UserInputState.Cancel.Value,
-                        center.X,
-                        center.Y
-                    )
-                end)
-                warn("[BZHUB AUTO 2X] Touch release failed: " .. tostring(endError))
-                return false
-            end
-
-            helpers.debugLog("Auto 2x: touchscreen tap sent without mouse input.")
-
-            -- Give the game's Activated handler and UI update time to run.
-            local deadline = os.clock() + 0.55
-            repeat
-                task.wait(0.05)
-                local stillVisible = helpers.tapBonusStillExists(expectedObject)
-                if not stillVisible then
-                    return true
-                end
-            until os.clock() >= deadline
-
-            return false
-        end
-
-        -- Last-resort mouse path. Press and release while still over the button,
-        -- then wait for the input to be processed BEFORE restoring the old cursor.
-        helpers.mouseClickTapBonus = function(button, expectedObject)
-            if not button or not button:IsA("GuiButton") then return false end
-            if not button.Visible or not button.Active then return false end
-            if type(mousemoveabs) ~= "function" then
-                warn("[BZHUB AUTO 2X] Mouse movement is unavailable in this executor.")
-                return false
-            end
-
-            local oldPosition = UserInputService:GetMouseLocation()
-            local center = button.AbsolutePosition + (button.AbsoluteSize / 2)
-            local moved = false
-            local isPressed = false
-
-            local ok, err = pcall(function()
-                mousemoveabs(center.X, center.Y)
-                moved = true
-                task.wait(0.18)
-
-                if type(mouse1press) == "function" and type(mouse1release) == "function" then
-                    mouse1press()
-                    isPressed = true
-                    task.wait(0.12)
-                    mouse1release()
-                    isPressed = false
-                elseif type(mouse1click) == "function" then
-                    mouse1click()
-                else
-                    error("No supported mouse click function is available")
-                end
-            end)
-
-            if isPressed and type(mouse1release) == "function" then
-                pcall(mouse1release)
-                isPressed = false
-            end
-
-            if ok then
-                -- Keep the pointer over the button until the click has had time
-                -- to pass through Roblox input handling and the game UI reacts.
-                local deadline = os.clock() + 0.65
-                repeat
-                    task.wait(0.05)
-                    local stillVisible = helpers.tapBonusStillExists(expectedObject)
-                    if not stillVisible then
-                        break
-                    end
-                until os.clock() >= deadline
-                task.wait(0.12)
-            end
-
-            -- Restore only after press+release and the processing window above.
-            if moved then
-                pcall(function()
-                    mousemoveabs(oldPosition.X, oldPosition.Y)
-                end)
-            end
-
-            if not ok then
-                warn("[BZHUB AUTO 2X] Mouse fallback failed: " .. tostring(err))
-                return false
-            end
-            return not helpers.tapBonusStillExists(expectedObject)
-        end
-
-        helpers.attemptAuto2x = function(button, tapBonusObject)
-            if not button or not tapBonusObject then
-                return false
-            end
-
-            -- Preferred non-MB1 route: send a touch tap to the ImageButton center.
-            local touchWorked = helpers.touchTapBonus(button, tapBonusObject)
-            if touchWorked then
-                return true
-            end
-
-            -- Try executor event connections next, if this Solara build exposes them.
-            local connectionAttempted = helpers.tryGetConnectionsActivation(button)
-            if connectionAttempted then
-                local deadline = os.clock() + 0.35
-                repeat
-                    task.wait(0.05)
-                    local stillVisible = helpers.tapBonusStillExists(tapBonusObject)
-                    if not stillVisible then return true end
-                until os.clock() >= deadline
-            end
-
-            -- Fallback only if touch/event activation did not remove the bonus.
-            helpers.debugLog("Auto 2x: non-mouse activation did not remove the button; trying mouse fallback.")
-            local stillVisible, currentButton = helpers.tapBonusStillExists(tapBonusObject)
-            if stillVisible and currentButton then
-                helpers.mouseClickTapBonus(currentButton, tapBonusObject)
-            end
-
-            return not helpers.tapBonusStillExists(tapBonusObject)
-        end
-
-        helpers.setAuto2xEnabled = function(enabled, instant)
-            if enabled and not trainEnabled then return false end
-            auto2xEnabled = enabled
-            helpers.setRedSwitch(auto2xSwitch, auto2xKnob, auto2xSwitchStroke, auto2xEnabled, instant == true)
-
-            auto2xWorkerId += 1
-            local thisWorkerId = auto2xWorkerId
-            if auto2xEnabled then
-                task.spawn(function()
-                    while trainEnabled and auto2xEnabled and auto2xWorkerId == thisWorkerId do
-                        local clickButton, tapBonusObject = helpers.findTapBonusButton()
-                        if not tapBonusObject then
-                            task.wait(0.1)
-                        elseif not clickButton then
-                            warn("[BZHUB AUTO 2X] TapBonus exists but no GuiButton was found.")
-                            task.wait(0.2)
-                        else
-                            task.wait(0.22)
-                            if not (trainEnabled and auto2xEnabled and auto2xWorkerId == thisWorkerId) then break end
-                            helpers.attemptAuto2x(clickButton, tapBonusObject)
-                            task.wait(0.35)
-                            while trainEnabled and auto2xEnabled and auto2xWorkerId == thisWorkerId do
-                                local remains, retryButton = helpers.tapBonusStillExists(tapBonusObject)
-                                if not remains then break end
-                                helpers.attemptAuto2x(retryButton, tapBonusObject)
-                                task.wait(0.45)
-                            end
-                        end
-                    end
-                end)
-            end
-            return true
-        end
-
-        auto2xSwitch.MouseButton1Click:Connect(function()
-            if autoFarmRunning then return end
-            if not trainEnabled then return end
-            helpers.setAuto2xEnabled(not auto2xEnabled, false)
         end)
 
         -- Animated information panel slides in from the right.
@@ -1500,7 +856,6 @@ function GameModule.Register(api)
         infoPanel.Visible = false
         infoPanel.ZIndex = 80
         infoPanel.Parent = page
-        infoPanel.ZIndex = 80
 
         local infoPanelCorner = Instance.new("UICorner")
         infoPanelCorner.CornerRadius = UDim.new(0, 12)
@@ -1516,7 +871,7 @@ function GameModule.Register(api)
         infoPanelTitle.Position = UDim2.fromOffset(13, 12)
         infoPanelTitle.Size = UDim2.new(1, -48, 0, 20)
         infoPanelTitle.BackgroundTransparency = 1
-        infoPanelTitle.Text = helpers.tr("infoTitle")
+        infoPanelTitle.Text = tr("infoTitle")
         infoPanelTitle.TextColor3 = ACCENT_BRIGHT
         infoPanelTitle.TextSize = 11
         infoPanelTitle.Font = Enum.Font.GothamBold
@@ -1530,7 +885,7 @@ function GameModule.Register(api)
         closeInfoButton.Size = UDim2.fromOffset(25, 25)
         closeInfoButton.BackgroundColor3 = Color3.fromRGB(32, 43, 58)
         closeInfoButton.BorderSizePixel = 0
-        closeInfoButton.Text = "�"
+        closeInfoButton.Text = "×"
         closeInfoButton.TextColor3 = TEXT
         closeInfoButton.TextSize = 18
         closeInfoButton.Font = Enum.Font.GothamMedium
@@ -1543,145 +898,51 @@ function GameModule.Register(api)
 
         --==================================================
         -- INDEPENDENT TOP STATUS HUD
-        -- This ScreenGui is parented to PlayerGui, not the BZHUB page,
-        -- so it remains visible when the main hub is minimized/hidden.
+        -- This ScreenGui is independent from the BZHUB page and prefers
+        -- the executor/CoreGui layer so it can sit above ordinary game GUIs.
         --==================================================
 
         hudGui = Instance.new("ScreenGui")
         hudGui.Name = "BZHUB_AutoThrow_StatusHUD"
         hudGui.ResetOnSpawn = false
         hudGui.IgnoreGuiInset = true
-        hudGui.DisplayOrder = 100000
-        hudGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        -- Use the highest practical DisplayOrder so the HUD stays above
+        -- other ScreenGuis sharing the same GUI layer.
+        hudGui.DisplayOrder = 2147483647
+        hudGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
         hudGui.Enabled = false
-        hudGui.Parent = playerGui
 
-        -- Dedicated AFK Farm information panel (pet names only; no power values).
-        local afkHudGui = Instance.new("ScreenGui")
-        afkHudGui.Name = "BZHUB_AFK_Farm_Info"
-        afkHudGui.ResetOnSpawn = false
-        afkHudGui.IgnoreGuiInset = true
-        afkHudGui.DisplayOrder = 100001
-        afkHudGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        afkHudGui.Enabled = false
-        afkHudGui.Parent = playerGui
-
-        local afkPanel = Instance.new("Frame")
-        afkPanel.Name = "AFKPanel"
-        afkPanel.AnchorPoint = Vector2.new(0.5, 0)
-        afkPanel.Position = UDim2.new(0.5, 0, 0, 88)
-        afkPanel.Size = UDim2.fromOffset(390, 194)
-        afkPanel.BackgroundColor3 = Color3.fromRGB(8, 13, 22)
-        afkPanel.BackgroundTransparency = 0.08
-        afkPanel.BorderSizePixel = 0
-        afkPanel.Parent = afkHudGui
-        local afkPanelCorner = Instance.new("UICorner")
-        afkPanelCorner.CornerRadius = UDim.new(0, 12)
-        afkPanelCorner.Parent = afkPanel
-        local afkPanelStroke = Instance.new("UIStroke")
-        afkPanelStroke.Color = Color3.fromRGB(70, 165, 245)
-        afkPanelStroke.Thickness = 1.2
-        afkPanelStroke.Transparency = 0.18
-        afkPanelStroke.Parent = afkPanel
-
-        local afkHeader = Instance.new("TextLabel")
-        afkHeader.Position = UDim2.fromOffset(14, 8)
-        afkHeader.Size = UDim2.new(1, -28, 0, 22)
-        afkHeader.BackgroundTransparency = 1
-        afkHeader.Text = "AFK FARM / ON"
-        afkHeader.TextColor3 = Color3.fromRGB(245, 249, 255)
-        afkHeader.TextSize = 12
-        afkHeader.Font = Enum.Font.GothamBold
-        afkHeader.TextXAlignment = Enum.TextXAlignment.Left
-        afkHeader.Parent = afkPanel
-
-        local afkDivider = Instance.new("Frame")
-        afkDivider.Position = UDim2.fromOffset(12, 34)
-        afkDivider.Size = UDim2.new(1, -24, 0, 1)
-        afkDivider.BackgroundColor3 = Color3.fromRGB(95, 125, 155)
-        afkDivider.BackgroundTransparency = 0.35
-        afkDivider.BorderSizePixel = 0
-        afkDivider.Parent = afkPanel
-
-        helpers.makeAfkRow = function(name, y, initialText)
-            local label = Instance.new("TextLabel")
-            label.Name = name .. "Text"
-            label.Position = UDim2.fromOffset(14, y)
-            label.Size = UDim2.new(1, -28, 0, 16)
-            label.BackgroundTransparency = 1
-            label.Text = initialText
-            label.TextColor3 = Color3.fromRGB(218, 230, 244)
-            label.TextSize = 10
-            label.Font = Enum.Font.GothamSemibold
-            label.TextXAlignment = Enum.TextXAlignment.Left
-            label.Parent = afkPanel
-
-            local bar = Instance.new("Frame")
-            bar.Name = name .. "Bar"
-            bar.Position = UDim2.fromOffset(14, y + 18)
-            bar.Size = UDim2.new(1, -28, 0, 7)
-            bar.BackgroundColor3 = Color3.fromRGB(30, 43, 58)
-            bar.BorderSizePixel = 0
-            bar.ClipsDescendants = true
-            bar.Parent = afkPanel
-            local barCorner = Instance.new("UICorner")
-            barCorner.CornerRadius = UDim.new(1, 0)
-            barCorner.Parent = bar
-            local fill = Instance.new("Frame")
-            fill.Name = "Fill"
-            fill.Size = UDim2.new(0, 0, 1, 0)
-            fill.BackgroundColor3 = Color3.fromRGB(67, 169, 245)
-            fill.BorderSizePixel = 0
-            fill.Parent = bar
-            local fillCorner = Instance.new("UICorner")
-            fillCorner.CornerRadius = UDim.new(1, 0)
-            fillCorner.Parent = fill
-            return label, fill
-        end
-
-        local afkThrowsText, afkThrowsFill = helpers.makeAfkRow("Throws", 42, "ATI�LAR: 3")
-        local afkTrainingText, afkTrainingFill = helpers.makeAfkRow("Training", 78, "TRAINING: 60s")
-        local afkPetsText = Instance.new("TextLabel")
-        afkPetsText.Name = "EquipPetsText"
-        afkPetsText.Position = UDim2.fromOffset(14, 119)
-        afkPetsText.Size = UDim2.new(1, -28, 0, 62)
-        afkPetsText.BackgroundTransparency = 1
-        afkPetsText.Text = "EQUIP PETS: Bekleniyor..."
-        afkPetsText.TextColor3 = Color3.fromRGB(218, 230, 244)
-        afkPetsText.TextSize = 10
-        afkPetsText.Font = Enum.Font.GothamSemibold
-        afkPetsText.TextXAlignment = Enum.TextXAlignment.Left
-        afkPetsText.TextYAlignment = Enum.TextYAlignment.Top
-        afkPetsText.TextWrapped = true
-        afkPetsText.Parent = afkPanel
-
-        helpers.setAfkBar = function(fill, value)
-            fill.Size = UDim2.new(math.clamp(value or 0, 0, 1), 0, 1, 0)
-        end
-
-        helpers.setAfkThrowCount = function(remaining)
-            afkThrowsText.Text = "ATI�LAR: " .. tostring(math.max(0, remaining))
-            helpers.setAfkBar(afkThrowsFill, (autoFarmThrowTarget - math.max(0, remaining)) / autoFarmThrowTarget)
-        end
-
-        helpers.setAfkTraining = function(secondsLeft)
-            local remaining = math.max(0, secondsLeft)
-            afkTrainingText.Text = "TRAINING: " .. tostring(remaining) .. "s"
-            helpers.setAfkBar(afkTrainingFill, (autoFarmTrainingSeconds - remaining) / autoFarmTrainingSeconds)
-        end
-
-        helpers.setAfkPets = function(names)
-            if type(names) ~= "table" then
-                afkPetsText.Text = "EQUIP PETS: Bekleniyor..."
-            elseif #names == 0 then
-                afkPetsText.Text = "EQUIP PETS: �sim bulunamad�"
-            else
-                afkPetsText.Text = "EQUIP PETS: " .. table.concat(names, ", ")
+        -- Prefer the executor's hidden UI container (usually hosted under
+        -- CoreGui). This can place the HUD above ordinary PlayerGui menus.
+        -- If unavailable, fall back safely without breaking the module.
+        local hudParent
+        local getHiddenUI = gethui or get_hidden_gui
+        if type(getHiddenUI) == "function" then
+            local ok, hiddenUI = pcall(getHiddenUI)
+            if ok and typeof(hiddenUI) == "Instance" then
+                hudParent = hiddenUI
             end
+        end
+
+        if not hudParent then
+            local coreGui = game:GetService("CoreGui")
+            local coreGuiOk = pcall(function()
+                hudGui.Parent = coreGui
+            end)
+            if coreGuiOk and hudGui.Parent == coreGui then
+                hudParent = coreGui
+            end
+        end
+
+        if hudParent then
+            hudGui.Parent = hudParent
+        else
+            hudGui.Parent = playerGui
         end
 
         local hudContainer = Instance.new("Frame")
         hudContainer.Name = "StatusContainer"
+        hudContainer.ZIndex = 100000
         hudContainer.AnchorPoint = Vector2.new(0.5, 0)
         hudContainer.Position = UDim2.new(0.5, 0, 0, 88)
         hudContainer.Size = UDim2.fromOffset(390, 78)
@@ -1800,12 +1061,18 @@ function GameModule.Register(api)
         hudInfoText.ZIndex = 3
         hudInfoText.Parent = hudBar
 
+        -- Keep every HUD element on a high ZIndex inside its ScreenGui.
+        for _, hudObject in ipairs(hudContainer:GetDescendants()) do
+            if hudObject:IsA("GuiObject") then
+                hudObject.ZIndex = math.max(hudObject.ZIndex, 100001)
+            end
+        end
+
         local infoHint = Instance.new("TextLabel")
         infoHint.Position = UDim2.fromOffset(13, 39)
-        infoHint.Size = UDim2.new(1, -26, 0, 0)
-        infoHint.Visible = false
+        infoHint.Size = UDim2.new(1, -26, 0, 28)
         infoHint.BackgroundTransparency = 1
-        infoHint.Text = helpers.tr("infoHint")
+        infoHint.Text = tr("infoHint")
         infoHint.TextColor3 = MUTED
         infoHint.TextSize = 9
         infoHint.Font = Enum.Font.Gotham
@@ -1816,7 +1083,6 @@ function GameModule.Register(api)
         infoHint.Parent = infoPanel
 
         local statusDot = Instance.new("Frame")
-        statusDot.Visible = false
         statusDot.Position = UDim2.fromOffset(14, 82)
         statusDot.Size = UDim2.fromOffset(7, 7)
         statusDot.BackgroundColor3 = Color3.fromRGB(115, 130, 150)
@@ -1830,14 +1096,13 @@ function GameModule.Register(api)
 
         statusText = Instance.new("TextLabel")
         statusText.Name = "StatusText"
-        statusText.Position = UDim2.fromOffset(14, 48)
-        statusText.Size = UDim2.new(1, -28, 0, 128)
+        statusText.Position = UDim2.fromOffset(28, 75)
+        statusText.Size = UDim2.new(1, -42, 0, 100)
         statusText.BackgroundTransparency = 1
-        statusText.Text = helpers.tr("idle")
+        statusText.Text = tr("idle")
         statusText.TextColor3 = TEXT
         statusText.TextSize = 10
         statusText.Font = Enum.Font.Gotham
-        statusText.Text = helpers.tr("infoHint")
         statusText.TextWrapped = true
         statusText.TextXAlignment = Enum.TextXAlignment.Left
         statusText.TextYAlignment = Enum.TextYAlignment.Top
@@ -1847,7 +1112,7 @@ function GameModule.Register(api)
         local sliderVisible = true
         local sliderTween
 
-        helpers.setPowerSliderVisible = function(visible, instant)
+        local function setPowerSliderVisible(visible, instant)
             sliderVisible = visible
             if sliderTween then
                 sliderTween:Cancel()
@@ -1863,7 +1128,7 @@ function GameModule.Register(api)
                     sliderContainer.Position = UDim2.fromOffset(12, 69)
                     sliderContainer.Size = UDim2.new(1, -24, 0, 54)
                     sliderContainer.GroupTransparency = 0
-                    mainCard.Size = UDim2.new(1, 0, 0, 132)
+                    mainCard.Size = UDim2.new(1, -20, 0, 132)
                     trainCard.Position = UDim2.fromOffset(10, 198)
                 else
                     sliderContainer.Position = UDim2.fromOffset(12, 54)
@@ -1871,9 +1136,9 @@ function GameModule.Register(api)
                     sliderContainer.GroupTransparency = 1
                     mainCard.Size = UDim2.new(1, -20, 0, 66)
                     trainCard.Position = UDim2.fromOffset(10, 132)
-                    helpers.makeTween(mainCard, 0.3, {Size = UDim2.new(1, 0, 0, 132)})
-                    helpers.makeTween(trainCard, 0.3, {Position = UDim2.fromOffset(10, 198)})
-                    helpers.makeTween(sliderContainer, 0.28, {
+                    makeTween(mainCard, 0.3, {Size = UDim2.new(1, -20, 0, 132)})
+                    makeTween(trainCard, 0.3, {Position = UDim2.fromOffset(10, 198)})
+                    makeTween(sliderContainer, 0.28, {
                         Position = UDim2.fromOffset(12, 69),
                         Size = UDim2.new(1, -24, 0, 54)
                     })
@@ -1897,9 +1162,9 @@ function GameModule.Register(api)
                     mainCard.Size = UDim2.new(1, -20, 0, 66)
                     trainCard.Position = UDim2.fromOffset(10, 132)
                 else
-                    helpers.makeTween(mainCard, 0.28, {Size = UDim2.new(1, -20, 0, 66)})
-                    helpers.makeTween(trainCard, 0.28, {Position = UDim2.fromOffset(10, 132)})
-                    helpers.makeTween(sliderContainer, 0.25, {
+                    makeTween(mainCard, 0.28, {Size = UDim2.new(1, -20, 0, 66)})
+                    makeTween(trainCard, 0.28, {Position = UDim2.fromOffset(10, 132)})
+                    makeTween(sliderContainer, 0.25, {
                         Position = UDim2.fromOffset(12, 52),
                         Size = UDim2.new(1, -24, 0, 0)
                     })
@@ -1920,16 +1185,20 @@ function GameModule.Register(api)
 
         local infoOpen = false
 
-        helpers.refreshLanguage = function()
-            title.Text = "AFK FARM"
-            infoPanelTitle.Text = helpers.tr("infoTitle")
-            infoHint.Text = helpers.tr("infoHint")
-            sliderLabel.Text = string.format("%s: %d", helpers.tr("power"), selectedSpeed)
+        local function refreshLanguage()
+            title.Text = tr("title")
+            infoPanelTitle.Text = tr("infoTitle")
+            infoHint.Text = tr("infoHint")
+            sliderLabel.Text = string.format("%s: %d", tr("power"), selectedSpeed)
             stateLabel.Text = isEnabled and "ON" or "OFF"
-            statusText.Text = helpers.tr("infoHint")
+            local message = tr(currentStatus)
+            if currentStatus == "error" and currentStatusDetail ~= "" then
+                message = message .. currentStatusDetail
+            end
+            statusText.Text = message
         end
 
-        helpers.setSwitchVisual = function(enabled, instant)
+        local function setSwitchVisual(enabled, instant)
             local knobPosition = enabled
                 and UDim2.fromOffset(44, 3)
                 or UDim2.fromOffset(3, 3)
@@ -1950,11 +1219,11 @@ function GameModule.Register(api)
                 switchKnob.BackgroundColor3 = knobColor
                 cardStroke.Transparency = enabled and 0.05 or 0.28
             else
-                helpers.makeTween(switchKnob, 0.22, {Position = knobPosition})
-                helpers.makeTween(switchButton, 0.22, {BackgroundColor3 = switchColor})
-                helpers.makeTween(switchStroke, 0.22, {Transparency = strokeTransparency})
-                helpers.makeTween(switchKnob, 0.22, {BackgroundColor3 = knobColor})
-                helpers.makeTween(cardStroke, 0.25, {
+                makeTween(switchKnob, 0.22, {Position = knobPosition})
+                makeTween(switchButton, 0.22, {BackgroundColor3 = switchColor})
+                makeTween(switchStroke, 0.22, {Transparency = strokeTransparency})
+                makeTween(switchKnob, 0.22, {BackgroundColor3 = knobColor})
+                makeTween(cardStroke, 0.25, {
                     Transparency = enabled and 0.05 or 0.28,
                     Thickness = enabled and 1.8 or 1.35
                 })
@@ -1962,41 +1231,41 @@ function GameModule.Register(api)
 
             stateLabel.Text = enabled and "ON" or "OFF"
             stateLabel.TextColor3 = enabled and ACCENT_BRIGHT or MUTED
-            helpers.setPowerSliderVisible(not enabled, instant)
+            setPowerSliderVisible(not enabled, instant)
             if hudStateText then
                 hudStateText.Text = "AUTO THROW   /   " .. (enabled and "ON" or "OFF")
             end
             if hudGui then
-                hudGui.Enabled = enabled and not autoFarmRunning
+                hudGui.Enabled = enabled
             end
         end
 
-        helpers.openInfo = function()
+        local function openInfo()
             if infoOpen then return end
-            helpers.refreshLanguage()
+            refreshLanguage()
             infoOpen = true
             infoPanel.Visible = true
             infoPanel.Position = UDim2.new(1, 275, 0, 55)
             infoPanel.BackgroundTransparency = 0.15
             infoPanelStroke.Transparency = 0.7
 
-            helpers.makeTween(infoPanel, 0.32, {
+            makeTween(infoPanel, 0.32, {
                 Position = UDim2.new(1, -10, 0, 55),
                 BackgroundTransparency = 0
             })
-            helpers.makeTween(infoPanelStroke, 0.32, {Transparency = 0.18})
+            makeTween(infoPanelStroke, 0.32, {Transparency = 0.18})
         end
 
-        helpers.closeInfo = function()
+        local function closeInfo()
             if not infoOpen then return end
             infoOpen = false
 
-            local closeTween = helpers.makeTween(infoPanel, 0.26, {
+            local closeTween = makeTween(infoPanel, 0.26, {
                 Position = UDim2.new(1, 275, 0, 55),
                 BackgroundTransparency = 0.2
             }, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
 
-            helpers.makeTween(infoPanelStroke, 0.2, {Transparency = 0.75})
+            makeTween(infoPanelStroke, 0.2, {Transparency = 0.75})
             closeTween.Completed:Connect(function()
                 if not infoOpen and infoPanel.Parent then
                     infoPanel.Visible = false
@@ -2006,26 +1275,26 @@ function GameModule.Register(api)
 
         infoButton.MouseButton1Click:Connect(function()
             if infoOpen then
-                helpers.closeInfo()
+                closeInfo()
             else
-                helpers.openInfo()
+                openInfo()
             end
         end)
 
-        closeInfoButton.MouseButton1Click:Connect(helpers.closeInfo)
+        closeInfoButton.MouseButton1Click:Connect(closeInfo)
 
         infoButton.MouseEnter:Connect(function()
-            helpers.makeTween(infoButton, 0.15, {
+            makeTween(infoButton, 0.15, {
                 BackgroundColor3 = Color3.fromRGB(32, 62, 91)
             })
         end)
         infoButton.MouseLeave:Connect(function()
-            helpers.makeTween(infoButton, 0.15, {
+            makeTween(infoButton, 0.15, {
                 BackgroundColor3 = Color3.fromRGB(24, 42, 62)
             })
         end)
 
-        helpers.updateSlider = function(value)
+        local function updateSlider(value)
             if isEnabled then return end
             selectedSpeed = math.clamp(
                 math.floor(value + 0.5),
@@ -2036,22 +1305,22 @@ function GameModule.Register(api)
             local percentage =
                 (selectedSpeed - MIN_POWER) / (MAX_POWER - MIN_POWER)
 
-            helpers.makeTween(sliderFill, 0.08, {
+            makeTween(sliderFill, 0.08, {
                 Size = UDim2.new(percentage, 0, 1, 0)
             }, Enum.EasingStyle.Quad)
 
-            helpers.makeTween(sliderKnob, 0.08, {
+            makeTween(sliderKnob, 0.08, {
                 Position = UDim2.new(percentage, 0, 0.5, 0)
             }, Enum.EasingStyle.Quad)
 
             sliderLabel.Text = string.format(
                 "%s: %d",
-                helpers.tr("power"),
+                tr("power"),
                 selectedSpeed
             )
         end
 
-        helpers.updateSliderFromInput = function(input)
+        local function updateSliderFromInput(input)
             local trackWidth = sliderTrack.AbsoluteSize.X
             if trackWidth <= 0 then return end
 
@@ -2060,7 +1329,7 @@ function GameModule.Register(api)
 
             local percentage = math.clamp(relativeX / trackWidth, 0, 1)
             local value = MIN_POWER + percentage * (MAX_POWER - MIN_POWER)
-            helpers.updateSlider(value)
+            updateSlider(value)
         end
 
         sliderTrack.InputBegan:Connect(function(input)
@@ -2068,7 +1337,7 @@ function GameModule.Register(api)
             if input.UserInputType == Enum.UserInputType.MouseButton1
                 or input.UserInputType == Enum.UserInputType.Touch then
                 isDragging = true
-                helpers.updateSliderFromInput(input)
+                updateSliderFromInput(input)
             end
         end)
 
@@ -2084,7 +1353,7 @@ function GameModule.Register(api)
             if not isDragging or isEnabled or not sliderVisible then return end
             if input.UserInputType == Enum.UserInputType.MouseMovement
                 or input.UserInputType == Enum.UserInputType.Touch then
-                helpers.updateSliderFromInput(input)
+                updateSliderFromInput(input)
             end
         end)
 
@@ -2096,23 +1365,23 @@ function GameModule.Register(api)
         end)
 
         switchButton.MouseEnter:Connect(function()
-            helpers.makeTween(switchStroke, 0.15, {Transparency = isEnabled and 0 or 0.3})
+            makeTween(switchStroke, 0.15, {Transparency = isEnabled and 0 or 0.3})
         end)
         switchButton.MouseLeave:Connect(function()
-            helpers.makeTween(switchStroke, 0.15, {Transparency = isEnabled and 0.08 or 0.55})
+            makeTween(switchStroke, 0.15, {Transparency = isEnabled and 0.08 or 0.55})
         end)
 
-        helpers.updateSlider(selectedSpeed)
-        helpers.setPowerSliderVisible(true, true)
-        helpers.setSwitchVisual(false, true)
-        helpers.refreshLanguage()
+        updateSlider(selectedSpeed)
+        setPowerSliderVisible(true, true)
+        setSwitchVisual(false, true)
+        refreshLanguage()
         if hudGui then hudGui.Enabled = false end
 
                 --==================================================
         -- SESSION CHECK
         --==================================================
 
-        helpers.stillRunning = function(currentId)
+        local function stillRunning(currentId)
             return isEnabled and actionId == currentId
         end
 
@@ -2120,12 +1389,12 @@ function GameModule.Register(api)
         -- CANCELLABLE WAIT
         --==================================================
 
-        helpers.waitWhileEnabled = function(seconds, currentId)
+        local function waitWhileEnabled(seconds, currentId)
             local startTime = os.clock()
             local lastSecond = -1
 
             while os.clock() - startTime < seconds do
-                if not helpers.stillRunning(currentId) then
+                if not stillRunning(currentId) then
                     return false
                 end
 
@@ -2135,29 +1404,29 @@ function GameModule.Register(api)
 
                 if shown ~= lastSecond then
                     lastSecond = shown
-                    helpers.setStatus(currentStatus, string.format("%ds remaining", shown),
+                    setStatus(currentStatus, string.format("%ds remaining", shown),
                         math.clamp(elapsed / math.max(seconds, 0.01), 0, 1))
                 else
-                    helpers.setHudProgress(math.clamp(elapsed / math.max(seconds, 0.01), 0, 1))
+                    setHudProgress(math.clamp(elapsed / math.max(seconds, 0.01), 0, 1))
                 end
 
                 task.wait(0.05)
             end
 
-            return helpers.stillRunning(currentId)
+            return stillRunning(currentId)
         end
 
         --==================================================
         -- THROW COOLDOWN
         --==================================================
 
-        helpers.waitForThrowCooldown = function(currentId)
-            helpers.setStatus("cooldown", "Waiting for the game cooldown...", 0)
-            helpers.debugLog("Waiting for ThrowReadyAt cooldown...")
+        local function waitForThrowCooldown(currentId)
+            setStatus("cooldown")
+            debugLog("Waiting for ThrowReadyAt cooldown...")
 
             local lastDisplayedSecond = -1
 
-            while helpers.stillRunning(currentId) do
+            while stillRunning(currentId) do
                 local readyAt = player:GetAttribute("ThrowReadyAt")
 
                 if type(readyAt) == "number" then
@@ -2170,20 +1439,20 @@ function GameModule.Register(api)
 
                     if displayedSecond ~= lastDisplayedSecond then
                         lastDisplayedSecond = displayedSecond
-                        helpers.setStatus("cooldown", string.format("%ds remaining", displayedSecond), 0)
-                        helpers.debugLog(string.format(
+                        setStatus("cooldown", string.format("%ds remaining", displayedSecond))
+                        debugLog(string.format(
                             "Throw cooldown remaining: %.2f seconds",
                             remaining
                         ))
                     end
 
                     if remaining <= 0 then
-                        helpers.debugLog("Throw cooldown finished! Starting movement.")
+                        debugLog("Throw cooldown finished! Starting movement.")
                         return true
                     end
                 else
-                    helpers.setStatus("cooldown", "Waiting for cooldown timer...", 0)
-                    helpers.debugLog("ThrowReadyAt not available yet. Waiting...")
+                    setStatus("cooldown", "Waiting for cooldown timer...")
+                    debugLog("ThrowReadyAt not available yet. Waiting...")
                 end
 
                 task.wait(0.05)
@@ -2196,7 +1465,7 @@ function GameModule.Register(api)
         -- POWER TARGET CALCULATION
         --==================================================
 
-        helpers.getTargetY = function(power)
+        local function getTargetY(power)
             power = math.clamp(
                 math.floor(power + 0.5),
                 MIN_POWER,
@@ -2220,7 +1489,7 @@ function GameModule.Register(api)
         -- FIND THROW MARKER
         --==================================================
 
-        helpers.getThrowMarker = function()
+        local function getThrowMarker()
             local sequence = playerGui:FindFirstChild("ThrowSequence")
 
             if not sequence then
@@ -2244,17 +1513,17 @@ function GameModule.Register(api)
         -- WAIT FOR THROW MARKER
         --==================================================
 
-        helpers.waitForMarker = function(currentId)
-            helpers.setStatus("marker", "Waiting for the selected power marker...", 0)
-            helpers.debugLog("Waiting for ThrowSequence Marker...")
+        local function waitForMarker(currentId)
+            setStatus("marker")
+            debugLog("Waiting for ThrowSequence Marker...")
 
             local startTime = os.clock()
 
-            while helpers.stillRunning(currentId) do
-                local marker = helpers.getThrowMarker()
+            while stillRunning(currentId) do
+                local marker = getThrowMarker()
 
                 if marker and marker:IsA("GuiObject") then
-                    helpers.debugLog("ThrowSequence Marker found!")
+                    debugLog("ThrowSequence Marker found!")
                     return marker
                 end
 
@@ -2272,16 +1541,16 @@ function GameModule.Register(api)
         -- REAL MARKER POWER DETECTION
         --==================================================
 
-        helpers.waitForSelectedPower = function(power, currentId)
-            local targetY = helpers.getTargetY(power)
+        local function waitForSelectedPower(power, currentId)
+            local targetY = getTargetY(power)
 
-            helpers.debugLog(string.format(
+            debugLog(string.format(
                 "Power target: %d | Target Y: %.6f",
                 power,
                 targetY
             ))
 
-            local marker = helpers.waitForMarker(currentId)
+            local marker = waitForMarker(currentId)
 
             if not marker then
                 return false
@@ -2295,14 +1564,14 @@ function GameModule.Register(api)
             local startTime = os.clock()
 
             if power >= 10 then
-                helpers.debugLog("Detection mode: FIRST PASS (Y decreasing).")
+                debugLog("Detection mode: FIRST PASS (Y decreasing).")
             else
-                helpers.debugLog("Detection mode: SECOND PASS (Y increasing).")
+                debugLog("Detection mode: SECOND PASS (Y increasing).")
             end
 
-            while helpers.stillRunning(currentId) do
+            while stillRunning(currentId) do
                 if not marker.Parent then
-                    marker = helpers.getThrowMarker()
+                    marker = getThrowMarker()
 
                     if not marker then
                         error("ThrowSequence Marker disappeared.")
@@ -2310,8 +1579,6 @@ function GameModule.Register(api)
                 end
 
                 local currentY = marker.Position.Y.Scale
-                -- The HUD bar follows the marker's real position in the game meter.
-                helpers.setHudProgress(1 - math.clamp(currentY, 0, 1))
 
                 if previousY ~= nil then
                     local difference = currentY - previousY
@@ -2326,7 +1593,7 @@ function GameModule.Register(api)
                         if not sawAscending then
                             sawAscending = true
 
-                            helpers.debugLog(
+                            debugLog(
                                 "Marker reversed direction. Second pass started."
                             )
                         end
@@ -2334,7 +1601,7 @@ function GameModule.Register(api)
 
                     if power >= 10 and sawDescending then
                         if currentY <= targetY + MARKER_TOLERANCE then
-                            helpers.debugLog(string.format(
+                            debugLog(string.format(
                                 "POWER %d CAUGHT! Y: %.6f",
                                 power,
                                 currentY
@@ -2346,7 +1613,7 @@ function GameModule.Register(api)
 
                     if power < 10 and sawAscending then
                         if currentY >= targetY - MARKER_TOLERANCE then
-                            helpers.debugLog(string.format(
+                            debugLog(string.format(
                                 "POWER %d CAUGHT! Y: %.6f",
                                 power,
                                 currentY
@@ -2378,12 +1645,12 @@ function GameModule.Register(api)
         -- MOUSE CLICK
         --==================================================
 
-        helpers.performClick = function(currentId)
-            if not helpers.stillRunning(currentId) then
+        local function performClick(currentId)
+            if not stillRunning(currentId) then
                 return false
             end
 
-            helpers.setStatus("throwing", "Sending throw input...", 0)
+            setStatus("throwing", "Sending throw input...", 0.9)
             local mouseLocation = UserInputService:GetMouseLocation()
 
             VirtualInputManager:SendMouseButtonEvent(
@@ -2406,7 +1673,7 @@ function GameModule.Register(api)
                 0
             )
 
-            helpers.debugLog("MB1 click completed.")
+            debugLog("MB1 click completed.")
 
             return true
         end
@@ -2415,7 +1682,7 @@ function GameModule.Register(api)
         -- GET STARTERAREA POSITION
         --==================================================
 
-        helpers.getStarterAreaPosition = function()
+        local function getStarterAreaPosition()
             local starterArea = workspace:WaitForChild("StarterArea")
 
             if starterArea:IsA("BasePart") then
@@ -2429,7 +1696,7 @@ function GameModule.Register(api)
         -- GET CHARACTER REFERENCES
         --==================================================
 
-        helpers.getCharacterReferences = function()
+        local function getCharacterReferences()
             local character = player.Character
 
             if not character then
@@ -2449,7 +1716,7 @@ function GameModule.Register(api)
         -- WAYPOINT DISTANCE
         --==================================================
 
-        helpers.getWaypointDistance = function(rootPart, waypoint)
+        local function getWaypointDistance(rootPart, waypoint)
             if not rootPart or not waypoint then
                 return math.huge
             end
@@ -2457,11 +1724,11 @@ function GameModule.Register(api)
             return (rootPart.Position - waypoint.Position).Magnitude
         end
 
-        helpers.hasReachedWaypoint = function(rootPart, waypoint)
+        local function hasReachedWaypoint(rootPart, waypoint)
             local distance =
-                helpers.getWaypointDistance(rootPart, waypoint)
+                getWaypointDistance(rootPart, waypoint)
 
-            helpers.debugLog(string.format(
+            debugLog(string.format(
                 "Waypoint distance: %.2f studs",
                 distance
             ))
@@ -2473,13 +1740,13 @@ function GameModule.Register(api)
         -- FOLLOW PATH
         --==================================================
 
-        helpers.followPath = function(path, character, humanoid, currentId)
+        local function followPath(path, character, humanoid, currentId)
             local waypoints = path:GetWaypoints()
 
-            helpers.debugLog("Route found. Waypoints: " .. #waypoints)
+            debugLog("Route found. Waypoints: " .. #waypoints)
 
             for index, waypoint in ipairs(waypoints) do
-                if not helpers.stillRunning(currentId) then
+                if not stillRunning(currentId) then
                     return false
                 end
 
@@ -2494,8 +1761,8 @@ function GameModule.Register(api)
                     return false
                 end
 
-                if helpers.hasReachedWaypoint(rootPart, waypoint) then
-                    helpers.debugLog(
+                if hasReachedWaypoint(rootPart, waypoint) then
+                    debugLog(
                         "Waypoint " .. index .. " already reached. Skipping."
                     )
 
@@ -2504,10 +1771,10 @@ function GameModule.Register(api)
 
                 if waypoint.Action == Enum.PathWaypointAction.Jump then
                     humanoid.Jump = true
-                    helpers.debugLog("Jumping over obstacle...")
+                    debugLog("Jumping over obstacle...")
                 end
 
-                helpers.debugLog(
+                debugLog(
                     "Moving to waypoint "
                     .. index
                     .. "/"
@@ -2519,7 +1786,7 @@ function GameModule.Register(api)
                 local startTime = os.clock()
                 local reached = false
 
-                while helpers.stillRunning(currentId) do
+                while stillRunning(currentId) do
                     if player.Character ~= character then
                         return false
                     end
@@ -2532,12 +1799,12 @@ function GameModule.Register(api)
                     end
 
                     local distance =
-                        helpers.getWaypointDistance(rootPart, waypoint)
+                        getWaypointDistance(rootPart, waypoint)
 
                     if distance <= WAYPOINT_REACH_DISTANCE then
                         reached = true
 
-                        helpers.debugLog(string.format(
+                        debugLog(string.format(
                             "Waypoint %d reached at %.2f studs.",
                             index,
                             distance
@@ -2546,19 +1813,19 @@ function GameModule.Register(api)
                         break
                     end
 
-                    if os.clock() - startTime >= WAYPOINT_TIMEOUT then
+                    if os.clock() - startTime >= THROW_WAYPOINT_TIMEOUT then
                         break
                     end
 
-                    task.wait(0.1)
+                    task.wait(THROW_PATH_CHECK_INTERVAL)
                 end
 
-                if not helpers.stillRunning(currentId) then
+                if not stillRunning(currentId) then
                     return false
                 end
 
                 if not reached then
-                    helpers.debugLog(
+                    debugLog(
                         "Waypoint timeout at "
                         .. index
                         .. ". Recalculation required."
@@ -2575,25 +1842,72 @@ function GameModule.Register(api)
         -- PATHFINDING MOVEMENT
         --==================================================
 
-        helpers.moveToStarterArea = function(currentId)
-            helpers.setStatus("moving", nil)
-            helpers.debugLog("Finding path to StarterArea...")
+        local function moveToStarterArea(currentId)
+            setStatus("moving", nil)
+            debugLog("Trying a quick teleport to StarterArea first...")
 
-            local character, humanoid, rootPart =
-                helpers.getCharacterReferences()
+            local character, humanoid, rootPart = getCharacterReferences()
 
             if not character or not humanoid or not rootPart then
                 error("Character references not found.")
             end
 
-            local targetPosition = helpers.getStarterAreaPosition()
+            local targetPosition = getStarterAreaPosition()
 
-            if not helpers.stillRunning(currentId) then
+            if not stillRunning(currentId) then
                 return false
             end
 
+            local initialDistance = (rootPart.Position - targetPosition).Magnitude
+
+            if initialDistance <= WAYPOINT_REACH_DISTANCE then
+                debugLog("Already near StarterArea. No movement needed.")
+                return true
+            end
+
+            -- First attempt: teleport directly to the throw area.
+            local originalCFrame = rootPart.CFrame
+            local teleportWorked = pcall(function()
+                rootPart.CFrame = CFrame.new(targetPosition) * (originalCFrame - originalCFrame.Position)
+            end)
+
+            if teleportWorked then
+                task.wait(TELEPORT_VERIFY_DELAY)
+
+                if not stillRunning(currentId) then
+                    return false
+                end
+
+                character, humanoid, rootPart = getCharacterReferences()
+
+                if character and rootPart
+                    and (rootPart.Position - targetPosition).Magnitude <= WAYPOINT_REACH_DISTANCE then
+                    debugLog("Teleport to StarterArea succeeded.")
+                    return true
+                end
+
+                debugLog("Teleport was rejected or did not reach StarterArea. Falling back to pathfinding.")
+
+                -- Restore the starting point before normal pathfinding.
+                if player.Character == character and rootPart then
+                    pcall(function()
+                        rootPart.CFrame = originalCFrame
+                    end)
+                end
+                task.wait(0.08)
+            else
+                debugLog("Teleport attempt failed. Falling back to pathfinding.")
+            end
+
+            -- Fallback: preserve the existing obstacle-aware walking route.
+            character, humanoid, rootPart = getCharacterReferences()
+
+            if not character or not humanoid or not rootPart then
+                error("Character references not found after teleport attempt.")
+            end
+
             for attempt = 1, MAX_PATH_RETRIES do
-                if not helpers.stillRunning(currentId) then
+                if not stillRunning(currentId) then
                     return false
                 end
 
@@ -2601,23 +1915,16 @@ function GameModule.Register(api)
                     return false
                 end
 
-                rootPart =
-                    character:FindFirstChild("HumanoidRootPart")
+                rootPart = character:FindFirstChild("HumanoidRootPart")
 
                 if not rootPart then
                     return false
                 end
 
-                local targetDistance =
-                    (rootPart.Position - targetPosition).Magnitude
-
-                helpers.debugLog(string.format(
-                    "StarterArea distance: %.2f studs",
-                    targetDistance
-                ))
+                local targetDistance = (rootPart.Position - targetPosition).Magnitude
 
                 if targetDistance <= WAYPOINT_REACH_DISTANCE then
-                    helpers.debugLog("Already near StarterArea. No extra movement.")
+                    debugLog("StarterArea reached. No extra movement needed.")
                     return true
                 end
 
@@ -2629,73 +1936,49 @@ function GameModule.Register(api)
                     WaypointSpacing = 4
                 })
 
-                helpers.debugLog(
-                    "Calculating route. Attempt "
-                    .. attempt
-                    .. "/"
-                    .. MAX_PATH_RETRIES
-                )
+                debugLog("Calculating walking route. Attempt " .. attempt .. "/" .. MAX_PATH_RETRIES)
 
                 local computed, computeError = pcall(function()
-                    path:ComputeAsync(
-                        rootPart.Position,
-                        targetPosition
-                    )
+                    path:ComputeAsync(rootPart.Position, targetPosition)
                 end)
 
                 if not computed then
-                    helpers.debugLog(
-                        "Path calculation error: "
-                        .. tostring(computeError)
-                    )
-
-                    task.wait(0.5)
+                    debugLog("Path calculation error: " .. tostring(computeError))
+                    task.wait(0.1)
                     continue
                 end
 
-                if not helpers.stillRunning(currentId) then
+                if not stillRunning(currentId) then
                     return false
                 end
 
                 if path.Status ~= Enum.PathStatus.Success then
-                    helpers.debugLog("Pathfinding status: " .. tostring(path.Status))
-                    task.wait(0.5)
+                    debugLog("Pathfinding status: " .. tostring(path.Status))
+                    task.wait(0.1)
                     continue
                 end
 
-                local success = helpers.followPath(
-                    path,
-                    character,
-                    humanoid,
-                    currentId
-                )
+                local pathSuccess = followPath(path, character, humanoid, currentId)
 
-                if success then
-                    rootPart =
-                        character:FindFirstChild("HumanoidRootPart")
+                if pathSuccess then
+                    rootPart = character:FindFirstChild("HumanoidRootPart")
 
                     if rootPart then
-                        local finalDistance =
-                            (rootPart.Position - targetPosition).Magnitude
-
-                        helpers.debugLog(string.format(
-                            "Final StarterArea distance: %.2f studs",
-                            finalDistance
-                        ))
+                        local finalDistance = (rootPart.Position - targetPosition).Magnitude
 
                         if finalDistance <= WAYPOINT_REACH_DISTANCE then
-                            helpers.debugLog("StarterArea reached successfully!")
+                            debugLog("StarterArea reached successfully by walking!")
                             return true
                         end
                     end
                 end
 
-                if not helpers.stillRunning(currentId) then
+                if not stillRunning(currentId) then
                     return false
                 end
 
-                helpers.debugLog("Recalculating route...")
-                task.wait(0.5)
+                debugLog("Recalculating walking route...")
+                task.wait(0.1)
             end
 
             error("Could not reach StarterArea after path retries.")
@@ -2705,8 +1988,8 @@ function GameModule.Register(api)
         -- RESET CHARACTER
         --==================================================
 
-        helpers.resetCharacter = function(currentId)
-            if not helpers.stillRunning(currentId) then
+        local function resetCharacter(currentId)
+            if not stillRunning(currentId) then
                 return false
             end
 
@@ -2723,12 +2006,12 @@ function GameModule.Register(api)
                 error("Humanoid not found before reset.")
             end
 
-            helpers.setStatus("resetting", "Respawning character...")
-            helpers.debugLog("Resetting character...")
+            setStatus("resetting", "Respawning character...")
+            debugLog("Resetting character...")
 
             humanoid.Health = 0
 
-            while helpers.stillRunning(currentId) do
+            while stillRunning(currentId) do
                 local newCharacter = player.Character
 
                 if newCharacter and newCharacter ~= oldCharacter then
@@ -2741,7 +2024,7 @@ function GameModule.Register(api)
                     if newHumanoid and newRoot
                         and newHumanoid.Health > 0 then
 
-                        helpers.debugLog("Character respawned!")
+                        debugLog("Character respawned!")
                         return true
                     end
                 end
@@ -2756,7 +2039,7 @@ function GameModule.Register(api)
         -- AUTO TRAIN: FIND TRAINING SPOT AND EXIT CONTROL
         --==================================================
 
-        helpers.findTrainingSpot = function()
+        local function findTrainingSpot()
             local plotProps = workspace:FindFirstChild("LocalPlotProps")
             if not plotProps then
                 plotProps = workspace:FindFirstChild("LocalPlotProps", true)
@@ -2780,7 +2063,7 @@ function GameModule.Register(api)
             return trainingSpot
         end
 
-        helpers.getTrainingSpotPosition = function(spot)
+        local function getTrainingSpotPosition(spot)
             if spot:IsA("BasePart") then
                 return spot.Position
             elseif spot:IsA("Model") then
@@ -2793,58 +2076,69 @@ function GameModule.Register(api)
             return nil
         end
 
-        helpers.findTrainingStopButton = function()
-            -- Exact game UI path: Players > LocalPlayer > PlayerGui > TrainingSequence > Button
-            local trainingSequence = playerGui:FindFirstChild("TrainingSequence")
-            if not trainingSequence then
-                return nil
+        local function findTrainingStopButton()
+            local roots = {playerGui, workspace}
+            for _, root in ipairs(roots) do
+                for _, object in ipairs(root:GetDescendants()) do
+                    if object:IsA("GuiButton") then
+                        local buttonText = ""
+                        if object:IsA("TextButton") then
+                            buttonText = string.upper((object.Text or ""):gsub("%s+", ""))
+                        end
+                        local objectName = string.upper(object.Name or "")
+                        if buttonText == "STOP" or objectName == "STOP" or objectName:find("STOPTRAIN", 1, true) then
+                            return object
+                        end
+                    end
+                end
             end
-
-            local stopButton = trainingSequence:FindFirstChild("Button", true)
-            if stopButton and stopButton:IsA("GuiButton") then
-                return stopButton
-            end
-
             return nil
         end
 
-        helpers.pressTrainingStopWithoutMouse = function()
-            local stopButton = helpers.findTrainingStopButton()
+        local function pressTrainingStopWithoutMouse()
+            local stopButton = findTrainingStopButton()
             if not stopButton then
-                warn("[BZHUB AUTO TRAIN] STOP control was not found at PlayerGui.TrainingSequence.Button.")
+                warn("[BZHUB AUTO TRAIN] STOP button was not found in PlayerGui or Workspace.")
                 return false, "STOP button not found"
             end
 
-            -- User requested SPACE instead of clicking the game's STOP button.
-            -- This intentionally sends SPACE directly through keyboard input,
-            -- without using mouse input or GUI event injection.
-            local keyCode = Enum.KeyCode.Space
+            debugLog("Training STOP control found: " .. stopButton:GetFullName())
 
-            if type(keypress) == "function" and type(keyrelease) == "function" then
+            -- Fire the GUI's click signal directly. This does not move/click the real mouse (MB1).
+            if typeof(firesignal) == "function" then
                 local ok, err = pcall(function()
-                    keypress(0x20)
-                    task.wait(0.08)
-                    keyrelease(0x20)
+                    firesignal(stopButton.MouseButton1Click)
                 end)
                 if ok then
-                    helpers.debugLog("Training stop requested with SPACE via Solara keyboard input.")
+                    debugLog("Training STOP signal fired without MB1.")
                     return true
                 end
-                warn("[BZHUB AUTO TRAIN] Solara SPACE input failed: " .. tostring(err))
+                warn("[BZHUB AUTO TRAIN] Could not fire STOP signal: " .. tostring(err))
+                return false, tostring(err)
             end
 
-            local virtualOk, virtualErr = pcall(function()
-                VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
-                task.wait(0.08)
-                VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
-            end)
-            if virtualOk then
-                helpers.debugLog("Training stop requested with SPACE via VirtualInputManager.")
-                return true
+            -- Some executors expose the button connections but not firesignal.
+            if typeof(getconnections) == "function" then
+                local ok, connections = pcall(function()
+                    return getconnections(stopButton.MouseButton1Click)
+                end)
+                if ok and type(connections) == "table" and #connections > 0 then
+                    local fired = false
+                    for _, connection in ipairs(connections) do
+                        if connection.Enabled and type(connection.Function) == "function" then
+                            local success = pcall(connection.Function)
+                            fired = fired or success
+                        end
+                    end
+                    if fired then
+                        debugLog("Training STOP callback invoked without MB1.")
+                        return true
+                    end
+                end
             end
 
-            warn("[BZHUB AUTO TRAIN] Could not send SPACE: " .. tostring(virtualErr))
-            return false, "SPACE input is unavailable: " .. tostring(virtualErr)
+            warn("[BZHUB AUTO TRAIN] Executor has no supported signal-fire function; STOP was not activated.")
+            return false, "Executor does not support signal firing"
         end
 
         startTrain = function()
@@ -2854,72 +2148,169 @@ function GameModule.Register(api)
             task.spawn(function()
                 local ok, err = pcall(function()
                     activeHudMode = "train"
-                    helpers.setStatus("trainMoving", "Walking to TrainingSpot...")
+                    setStatus("trainMoving", "Trying a quick teleport to TrainingSpot...")
 
-                    local spot, findError = helpers.findTrainingSpot()
+                    local spot, findError = findTrainingSpot()
                     if not spot then error(findError) end
-                    local targetPosition = helpers.getTrainingSpotPosition(spot)
+                    local targetPosition = getTrainingSpotPosition(spot)
                     if not targetPosition then error("TrainingSpot has no usable position.") end
 
-                    local character, humanoid, rootPart = helpers.getCharacterReferences()
+                    local character, humanoid, rootPart = getCharacterReferences()
                     if not character or not humanoid or not rootPart then
                         error("Character references are unavailable.")
                     end
 
-                    local path = PathfindingService:CreatePath({
-                        AgentRadius = 2,
-                        AgentHeight = 5,
-                        AgentCanJump = true,
-                        AgentCanClimb = true,
-                        WaypointSpacing = 4
-                    })
-                    path:ComputeAsync(rootPart.Position, targetPosition)
-                    if path.Status ~= Enum.PathStatus.Success then
-                        error("Pathfinding failed: " .. tostring(path.Status))
+                    if not trainEnabled or trainActionId ~= thisTrainId then return end
+
+                    local initialDistance = (rootPart.Position - targetPosition).Magnitude
+                    local reachedTrainingSpot = initialDistance <= WAYPOINT_REACH_DISTANCE
+
+                    if reachedTrainingSpot then
+                        debugLog("Already near TrainingSpot. No movement needed.")
+                    else
+                        -- First attempt: teleport directly to TrainingSpot.
+                        local originalCFrame = rootPart.CFrame
+                        local teleportWorked = pcall(function()
+                            rootPart.CFrame = CFrame.new(targetPosition)
+                                * (originalCFrame - originalCFrame.Position)
+                        end)
+
+                        if teleportWorked then
+                            task.wait(TELEPORT_VERIFY_DELAY)
+
+                            if not trainEnabled or trainActionId ~= thisTrainId then return end
+
+                            character, humanoid, rootPart = getCharacterReferences()
+                            if character and rootPart
+                                and (rootPart.Position - targetPosition).Magnitude <= WAYPOINT_REACH_DISTANCE then
+                                reachedTrainingSpot = true
+                                debugLog("Teleport to TrainingSpot succeeded.")
+                            else
+                                debugLog("TrainingSpot teleport failed. Falling back to pathfinding.")
+                                if character == player.Character and rootPart then
+                                    pcall(function()
+                                        rootPart.CFrame = originalCFrame
+                                    end)
+                                end
+                                task.wait(0.08)
+                            end
+                        else
+                            debugLog("TrainingSpot teleport attempt failed. Falling back to pathfinding.")
+                        end
                     end
 
-                    local waypoints = path:GetWaypoints()
-                    local totalPathDistance = 0
-                    local previousPosition = rootPart.Position
-                    for _, waypoint in ipairs(waypoints) do
-                        totalPathDistance += (waypoint.Position - previousPosition).Magnitude
-                        previousPosition = waypoint.Position
-                    end
-                    totalPathDistance = math.max(totalPathDistance, 0.001)
-                    local completedPathDistance = 0
+                    -- Fallback: use obstacle-aware pathfinding with jumping.
+                    if not reachedTrainingSpot then
+                        character, humanoid, rootPart = getCharacterReferences()
+                        if not character or not humanoid or not rootPart then
+                            error("Character references are unavailable after teleport attempt.")
+                        end
 
-                    helpers.setStatus("trainMoving", "Calculating route...", 0)
-                    for index, waypoint in ipairs(waypoints) do
-                        if not trainEnabled or trainActionId ~= thisTrainId then return end
-                        if player.Character ~= character then return end
-                        rootPart = character:FindFirstChild("HumanoidRootPart")
-                        if not rootPart then error("HumanoidRootPart disappeared.") end
+                        local arrived = false
 
-                        humanoid:MoveTo(waypoint.Position)
-                        local segmentStartDistance = (rootPart.Position - waypoint.Position).Magnitude
-                        local started = os.clock()
-                        while trainEnabled and trainActionId == thisTrainId do
+                        for attempt = 1, MAX_PATH_RETRIES do
+                            if not trainEnabled or trainActionId ~= thisTrainId then return end
                             if player.Character ~= character then return end
+
                             rootPart = character:FindFirstChild("HumanoidRootPart")
-                            if not rootPart then return end
-                            local remainingDistance = (rootPart.Position - waypoint.Position).Magnitude
-                            local segmentProgress = 1 - math.clamp(remainingDistance / math.max(segmentStartDistance, 0.001), 0, 1)
-                            local totalProgress = (completedPathDistance + segmentStartDistance * segmentProgress) / totalPathDistance
-                            helpers.setStatus("trainMoving", string.format("Waypoint %d/%d", index, #waypoints), totalProgress)
-                            if remainingDistance <= 3.5 then
+                            if not rootPart then error("HumanoidRootPart disappeared.") end
+
+                            if (rootPart.Position - targetPosition).Magnitude <= WAYPOINT_REACH_DISTANCE then
+                                arrived = true
                                 break
                             end
-                            if os.clock() - started > WAYPOINT_TIMEOUT then
-                                error("Timed out while walking to TrainingSpot (waypoint " .. index .. ").")
+
+                            local path = PathfindingService:CreatePath({
+                                AgentRadius = 2,
+                                AgentHeight = 5,
+                                AgentCanJump = true,
+                                AgentCanClimb = true,
+                                WaypointSpacing = 4
+                            })
+
+                            local computed, computeError = pcall(function()
+                                path:ComputeAsync(rootPart.Position, targetPosition)
+                            end)
+
+                            if not computed then
+                                debugLog("Auto Train path calculation failed: " .. tostring(computeError))
+                                task.wait(0.1)
+                                continue
                             end
+
+                            if path.Status ~= Enum.PathStatus.Success then
+                                debugLog("Auto Train path status: " .. tostring(path.Status))
+                                task.wait(0.1)
+                                continue
+                            end
+
+                            local waypoints = path:GetWaypoints()
+                            local pathReached = true
+
+                            for index, waypoint in ipairs(waypoints) do
+                                if not trainEnabled or trainActionId ~= thisTrainId then return end
+                                if player.Character ~= character then return end
+
+                                rootPart = character:FindFirstChild("HumanoidRootPart")
+                                if not rootPart then error("HumanoidRootPart disappeared.") end
+
+                                if (rootPart.Position - waypoint.Position).Magnitude <= 3.5 then
+                                    continue
+                                end
+
+                                if waypoint.Action == Enum.PathWaypointAction.Jump then
+                                    humanoid.Jump = true
+                                end
+
+                                humanoid:MoveTo(waypoint.Position)
+                                local waypointStarted = os.clock()
+                                local waypointReached = false
+
+                                while trainEnabled and trainActionId == thisTrainId do
+                                    if player.Character ~= character then return end
+                                    rootPart = character:FindFirstChild("HumanoidRootPart")
+                                    if not rootPart then return end
+
+                                    if (rootPart.Position - waypoint.Position).Magnitude <= 3.5 then
+                                        waypointReached = true
+                                        break
+                                    end
+
+                                    if os.clock() - waypointStarted >= WAYPOINT_TIMEOUT then
+                                        break
+                                    end
+
+                                    task.wait(THROW_PATH_CHECK_INTERVAL)
+                                end
+
+                                if not trainEnabled or trainActionId ~= thisTrainId then return end
+                                if not waypointReached then
+                                    pathReached = false
+                                    debugLog("Auto Train waypoint timeout at " .. index .. "; recalculating path.")
+                                    break
+                                end
+                            end
+
+                            if pathReached then
+                                rootPart = character:FindFirstChild("HumanoidRootPart")
+                                if rootPart and (rootPart.Position - targetPosition).Magnitude <= WAYPOINT_REACH_DISTANCE then
+                                    arrived = true
+                                    break
+                                end
+                            end
+
                             task.wait(0.1)
                         end
-                        completedPathDistance += segmentStartDistance
+
+                        if not arrived then
+                            error("Could not reach TrainingSpot after teleport and pathfinding attempts.")
+                        end
                     end
 
                     if not trainEnabled or trainActionId ~= thisTrainId then return end
-                    helpers.setStatus("training", "TrainingSpot reached. Training is active.", 1)
-                    helpers.debugLog("TrainingSpot reached. Waiting until Auto Train is disabled.")
+                    setStatus("training", "TrainingSpot reached. Training is active.")
+                    debugLog("TrainingSpot reached. Waiting until Auto Train is disabled.")
+
                     while trainEnabled and trainActionId == thisTrainId do
                         task.wait(0.2)
                     end
@@ -2927,7 +2318,7 @@ function GameModule.Register(api)
 
                 if not ok and trainActionId == thisTrainId then
                     warn("[BZHUB AUTO TRAIN ERROR] " .. tostring(err))
-                    helpers.setStatus("trainError", tostring(err))
+                    setStatus("trainError", tostring(err))
                 end
             end)
         end
@@ -2937,18 +2328,17 @@ function GameModule.Register(api)
             activeHudMode = isEnabled and "throw" or "train"
             if trainEnabled then return end
 
-            if hudGui then hudGui.Enabled = false end
-            helpers.setStatus("trainStopping", "Activating the game's STOP control...", 0)
+            setStatus("trainStopping", "Activating the game's STOP control...")
             task.spawn(function()
-                local stopped, stopError = helpers.pressTrainingStopWithoutMouse()
+                local stopped, stopError = pressTrainingStopWithoutMouse()
                 if not stopped then
-                    helpers.debugLog("Could not activate STOP control: " .. tostring(stopError))
+                    debugLog("Could not activate STOP control: " .. tostring(stopError))
                 end
                 if isEnabled then
                     activeHudMode = "throw"
-                    helpers.setStatus(currentStatus, currentStatusDetail)
+                    setStatus(currentStatus, currentStatusDetail)
                 else
-                    helpers.setStatus("trainStopped")
+                    setStatus("trainStopped")
                 end
             end)
         end
@@ -2957,32 +2347,32 @@ function GameModule.Register(api)
         -- MAIN FARM LOOP
         --==================================================
 
-        helpers.startFarm = function()
+        local function startFarm()
             actionId += 1
 
             local currentId = actionId
 
-            firstCycle = not autoFarmRunning or autoFarmFirstCycle
+            firstCycle = true
 
             task.spawn(function()
                 local success, err = pcall(function()
 
-                    helpers.setStatus("starting")
-                    helpers.debugLog("Farm started.")
+                    setStatus("starting")
+                    debugLog("Farm started.")
 
-                    while helpers.stillRunning(currentId) do
+                    while stillRunning(currentId) do
 
                         -- 1. WALK TO STARTERAREA
-                        if not helpers.moveToStarterArea(currentId) then
+                        if not moveToStarterArea(currentId) then
                             break
                         end
 
                         -- 2. ONLY FIRST CYCLE: WAIT 6 SECONDS
                         if firstCycle then
-                            helpers.setStatus("initialWait", "6s remaining", 0)
-                            helpers.debugLog("First cycle: waiting 6 seconds at StarterArea...")
+                            setStatus("initialWait", "6s remaining", 0)
+                            debugLog("First cycle: waiting 6 seconds at StarterArea...")
 
-                            if not helpers.waitWhileEnabled(
+                            if not waitWhileEnabled(
                                 INITIAL_STARTER_WAIT,
                                 currentId
                             ) then
@@ -2990,19 +2380,18 @@ function GameModule.Register(api)
                             end
 
                             firstCycle = false
-                            if autoFarmRunning then autoFarmFirstCycle = false end
                         end
 
                         -- 3. GET SELECTED POWER
                         local targetPower = selectedSpeed
 
-                        helpers.debugLog(
+                        debugLog(
                             "StarterArea reached. Selected power: "
                             .. targetPower
                         )
 
                         -- 4. WAIT FOR MARKER POWER
-                        if not helpers.waitForSelectedPower(
+                        if not waitForSelectedPower(
                             targetPower,
                             currentId
                         ) then
@@ -3010,14 +2399,14 @@ function GameModule.Register(api)
                         end
 
                         -- 5. CLICK / THROW
-                        if not helpers.performClick(currentId) then
+                        if not performClick(currentId) then
                             break
                         end
 
                         -- 6. WAIT BEFORE RESET
-                        helpers.debugLog("Waiting 1 second before reset...")
+                        debugLog("Waiting 1 second before reset...")
 
-                        if not helpers.waitWhileEnabled(
+                        if not waitWhileEnabled(
                             AFTER_CLICK_DELAY,
                             currentId
                         ) then
@@ -3025,32 +2414,21 @@ function GameModule.Register(api)
                         end
 
                         -- 7. RESET CHARACTER
-                        if not helpers.resetCharacter(currentId) then
+                        if not resetCharacter(currentId) then
                             break
                         end
 
                         -- 8. WAIT UNTIL THROW COOLDOWN IS ZERO
-                        if not helpers.waitForThrowCooldown(currentId) then
+                        if not waitForThrowCooldown(currentId) then
                             break
                         end
 
-                        if autoFarmRunning then
-                            autoFarmThrowCount += 1
-                            helpers.setAfkThrowCount(autoFarmThrowTarget - autoFarmThrowCount)
-                            if autoFarmThrowCount >= autoFarmThrowTarget then
-                                autoFarmThrowDone = true
-                                isEnabled = false
-                                helpers.setSwitchVisual(false, false)
-                                break
-                            end
-                        end
-
                         -- 9. LOOP RESTARTS AND WALKS TO STARTERAREA
-                        helpers.debugLog("Cooldown finished. Moving to StarterArea...")
+                        debugLog("Cooldown finished. Moving to StarterArea...")
 
-                        -- D�ng� ba�a d�ner:
-                        -- StarterArea'ya y�r�r, animasyon ba�lar,
-                        -- g�� yakalan�r, f�rlat�l�r ve tekrar reset at�l�r.
+                        -- Döngü başa döner:
+                        -- StarterArea'ya yürür, animasyon başlar,
+                        -- güç yakalanır, fırlatılır ve tekrar reset atılır.
                     end
 
                 end)
@@ -3060,271 +2438,54 @@ function GameModule.Register(api)
 
                     if currentId == actionId then
                         isEnabled = false
-                        if autoFarmRunning then
-                            autoFarmThrowDone = true
-                            autoFarmRunning = false
-                            autoFarmWorkerId += 1
-                            autoFarmButton.Text = "START"
-                            autoFarmButton.BackgroundColor3 = Color3.fromRGB(12, 25, 65)
-                            afkHeader.Text = "AFK FARM / ERROR"
-                        end
-                        helpers.setSwitchVisual(false, false)
-                        helpers.setStatus("error", tostring(err))
+
+                        setSwitchVisual(false, false)
+                        setStatus("error", tostring(err))
                         if hudGui then hudGui.Enabled = false end
                     end
                 end
 
-                helpers.debugLog("Farm loop stopped.")
+                debugLog("Farm loop stopped.")
             end)
         end
-
-        --==================================================
-        -- AFK FARM SEQUENCE
-        --==================================================
-
-        helpers.stopAutomationToggles = function()
-            -- Stop Auto Throw in both the UI and game-side worker.
-            if isEnabled then
-                isEnabled = false
-                actionId += 1
-            end
-            helpers.setSwitchVisual(false, true)
-
-            -- Stop Auto Train and its in-game training session (SPACE), only if it was active.
-            local wasTraining = trainEnabled
-            if wasTraining then
-                trainEnabled = false
-                trainActionId += 1
-            end
-            trainStateLabel.Text = "OFF"
-            trainStateLabel.TextColor3 = MUTED
-            helpers.setRedSwitch(trainSwitch, trainKnob, trainSwitchStroke, false, true)
-            if wasTraining and stopTrain then stopTrain() end
-
-            -- Stop Auto 2X worker and reset its switch.
-            helpers.setAuto2xEnabled(false, true)
-
-            -- Stop Auto Equip Best Pet worker.
-            autoEquipBestEnabled = false
-            autoEquipBestWorkerId += 1
-            equipStateLabel.Text = "OFF"
-            equipStateLabel.TextColor3 = MUTED
-            helpers.setEquipSwitchVisual(false, true)
-            helpers.makeTween(equipBestStroke, 0.15, {Transparency = 0.3, Thickness = 1.35})
-
-            if hudGui then hudGui.Enabled = false end
-            if infoOpen then helpers.closeInfo() end
-        end
-
-        helpers.setTrainForAutoFarm = function(enabled)
-            if enabled then
-                trainEnabled = true
-                activeHudMode = "train"
-                trainStateLabel.Text = "ON"
-                trainStateLabel.TextColor3 = TRAIN_RED_BRIGHT
-                helpers.setRedSwitch(trainSwitch, trainKnob, trainSwitchStroke, true, true)
-                auto2xRow.Visible = true
-                auto2xRow.BackgroundTransparency = 0.12
-                auto2xRow.Position = UDim2.fromOffset(12, 66)
-                trainCard.Size = UDim2.new(1, 0, 0, 116)
-                trainCardStroke.Transparency = 0.08
-                trainCardStroke.Thickness = 1.8
-                currentStatus = "trainMoving"
-                startTrain()
-                helpers.setAuto2xEnabled(true, true)
-            else
-                trainEnabled = false
-                trainActionId += 1
-                trainStateLabel.Text = "OFF"
-                trainStateLabel.TextColor3 = MUTED
-                helpers.setRedSwitch(trainSwitch, trainKnob, trainSwitchStroke, false, true)
-                helpers.setAuto2xEnabled(false, true)
-                auto2xRow.Visible = false
-                trainCard.Size = UDim2.new(1, 0, 0, 62)
-                trainCardStroke.Transparency = 0.3
-                trainCardStroke.Thickness = 1.35
-                if stopTrain then stopTrain() end
-            end
-        end
-
-        helpers.readEquippedPetNames = function()
-            local found, names = {}, {}
-            local function scan(container)
-                if not container then return end
-                for _, child in ipairs(container:GetChildren()) do
-                    if child:IsA("Tool") then
-                        local animalId = child:GetAttribute("AnimalId")
-                        if animalId ~= nil and not found[tostring(animalId)] then
-                            found[tostring(animalId)] = true
-                            table.insert(names, child.Name)
-                        end
-                    end
-                end
-            end
-            scan(player:FindFirstChild("Backpack"))
-            scan(player.Character)
-            table.sort(names)
-            return names
-        end
-
-        helpers.startAutoFarm = function()
-            if autoFarmRunning then return end
-            autoFarmRunning = true
-            autoFarmWorkerId += 1
-            local thisWorkerId = autoFarmWorkerId
-
-            helpers.stopAutomationToggles()
-            autoFarmButton.Text = "STOP"
-            autoFarmButton.BackgroundColor3 = Color3.fromRGB(12, 25, 65)
-            afkHudGui.Enabled = true
-            afkHeader.Text = "AFK FARM / ON"
-            helpers.setAfkThrowCount(autoFarmThrowTarget)
-            helpers.setAfkTraining(autoFarmTrainingSeconds)
-            autoFarmFirstCycle = true
-            helpers.setAfkPets(nil)
-
-            task.spawn(function()
-                local ok, err = pcall(function()
-                    while autoFarmRunning and autoFarmWorkerId == thisWorkerId do
-                        -- Phase 1: three throws at 20 power.
-                        helpers.stopAutomationToggles()
-                        selectedSpeed = 20
-                        helpers.updateSlider(selectedSpeed)
-                        sliderLabel.Text = string.format("%s: %d", helpers.tr("power"), selectedSpeed)
-                        autoFarmThrowCount = 0
-                        autoFarmThrowDone = false
-                        helpers.setAfkThrowCount(autoFarmThrowTarget)
-                        isEnabled = true
-                        activeHudMode = "throw"
-                        helpers.setSwitchVisual(true, true)
-                        helpers.startFarm()
-
-                        while autoFarmRunning and autoFarmWorkerId == thisWorkerId and not autoFarmThrowDone do
-                            task.wait(0.1)
-                        end
-                        if not autoFarmRunning or autoFarmWorkerId ~= thisWorkerId then break end
-
-                        -- Phase 2: train for 60 seconds while Auto 2X is active.
-                        helpers.setTrainForAutoFarm(true)
-                        local trainingStarted = os.clock()
-                        local trainingReady = false
-                        while autoFarmRunning and autoFarmWorkerId == thisWorkerId do
-                            if currentStatus == "training" then
-                                trainingReady = true
-                                break
-                            elseif currentStatus == "trainError" then
-                                error("Auto Train: " .. tostring(currentStatusDetail))
-                            end
-                            if os.clock() - trainingStarted > 120 then
-                                error("TrainingSpot'a 120 saniye i�inde ula��lamad�.")
-                            end
-                            task.wait(0.1)
-                        end
-                        if not autoFarmRunning or autoFarmWorkerId ~= thisWorkerId then break end
-                        if not trainingReady then error("Training ba�lat�lamad�.") end
-
-                        for remaining = autoFarmTrainingSeconds, 0, -1 do
-                            if not autoFarmRunning or autoFarmWorkerId ~= thisWorkerId then break end
-                            helpers.setAfkTraining(remaining)
-                            task.wait(1)
-                        end
-                        if not autoFarmRunning or autoFarmWorkerId ~= thisWorkerId then break end
-
-                        -- Phase 3: stop training, then equip best pets and list names.
-                        helpers.setTrainForAutoFarm(false)
-                        task.wait(1)
-                        local equipped = helpers.invokeEquipBest()
-                        task.wait(1)
-                        local petNames = helpers.readEquippedPetNames()
-                        helpers.setAfkPets(petNames)
-                        helpers.debugLog("AFK Farm Equip Best: " .. tostring(equipped) .. "; pets: " .. table.concat(petNames, ", "))
-                        task.wait(1)
-                    end
-                end)
-
-                if not ok then
-                    warn("[BZHUB AFK FARM ERROR] " .. tostring(err))
-                    autoFarmRunning = false
-                    autoFarmWorkerId += 1
-                    helpers.stopAutomationToggles()
-                    autoFarmButton.Text = "START"
-                    autoFarmButton.BackgroundColor3 = Color3.fromRGB(12, 25, 65)
-                    afkHeader.Text = "AFK FARM / ERROR"
-                    afkHudGui.Enabled = true
-                end
-            end)
-        end
-
-        helpers.stopAutoFarm = function()
-            if not autoFarmRunning then return end
-            autoFarmRunning = false
-            autoFarmWorkerId += 1
-            autoFarmThrowDone = true
-            helpers.stopAutomationToggles()
-            autoFarmButton.Text = "START"
-            autoFarmButton.BackgroundColor3 = Color3.fromRGB(12, 25, 65)
-            afkHeader.Text = "AFK FARM / OFF"
-            afkHudGui.Enabled = false
-            helpers.setAfkThrowCount(autoFarmThrowTarget)
-            helpers.setAfkTraining(autoFarmTrainingSeconds)
-        end
-
-        autoFarmButton.MouseButton1Click:Connect(function()
-            if autoFarmRunning then
-                helpers.stopAutoFarm()
-            else
-                helpers.startAutoFarm()
-            end
-        end)
 
         --==================================================
         -- TOGGLE
         --==================================================
 
         switchButton.MouseButton1Click:Connect(function()
-            if autoFarmRunning then return end
-            if not isEnabled and trainEnabled then
-                helpers.debugLog("Auto Throw toggle blocked: Auto Train is already enabled.")
-                return
-            end
-
             isEnabled = not isEnabled
 
             if isEnabled then
                 activeHudMode = "throw"
-                helpers.setSwitchVisual(true, false)
-                helpers.setStatus("starting")
-                helpers.debugLog("Farm enabled.")
-                helpers.startFarm()
+                setSwitchVisual(true, false)
+                setStatus("starting")
+                debugLog("Farm enabled.")
+                startFarm()
             else
                 actionId += 1
-                helpers.setSwitchVisual(false, false)
+                setSwitchVisual(false, false)
                 if trainEnabled then
                     activeHudMode = "train"
-                    helpers.setStatus("training")
+                    setStatus("training")
                 else
-                    helpers.setStatus("stopped")
+                    setStatus("stopped")
                     if hudGui then hudGui.Enabled = false end
                 end
-                helpers.debugLog("Farm disabled.")
+                debugLog("Farm disabled.")
             end
         end)
 
-        helpers.debugLog("Farm module loaded.")
+        debugLog("Farm module loaded.")
 
         -- Keep labels synchronized if the Roblox client language changes.
         LocalizationService:GetPropertyChangedSignal("RobloxLocaleId"):Connect(function()
-            helpers.refreshLanguage()
+            refreshLanguage()
         end)
+
     end)
     
-    
-    
-    
-    
-
-    
-        api.AddCategory("Upgrades", "UPGRADES", function(page)
+    api.AddCategory("Upgrades", "UPGRADES", function(page)
     
         --==================================================
         -- COLORS
