@@ -3318,282 +3318,285 @@ function GameModule.Register(api)
         end)
     end)
     api.AddCategory("Upgrades", "UPGRADES", function(page)
-    
-        --==================================================
-        -- SERVICES
-        --==================================================
-    
-        local TweenService = game:GetService("TweenService")
-    
-        --==================================================
-        -- SELL ALL ANIMALS BUTTON
-        --==================================================
-    
-        local sellAllButton = Instance.new("TextButton")
-        sellAllButton.Name = "SellAllAnimals"
-        sellAllButton.Size = UDim2.fromOffset(160, 27)
-        sellAllButton.Position = UDim2.fromOffset(10, 10)
-    
-        sellAllButton.BackgroundColor3 = Color3.fromRGB(12, 25, 65)
-        sellAllButton.BorderSizePixel = 0
-    
-        sellAllButton.Text = "SELL ALL ANIMALS"
-        sellAllButton.TextColor3 = Color3.fromRGB(235, 250, 255)
-        sellAllButton.TextSize = 11
-        sellAllButton.Font = Enum.Font.GothamBold
-    
-        sellAllButton.AutoButtonColor = false
-        sellAllButton.ZIndex = 5
-        sellAllButton.Parent = page
-    
-        --==================================================
-        -- CORNER
-        --==================================================
-    
-        local sellCorner = Instance.new("UICorner")
-        sellCorner.CornerRadius = UDim.new(0, 8)
-        sellCorner.Parent = sellAllButton
-    
-        --==================================================
-        -- GRADIENT
-        --==================================================
-    
-        local sellGradient = Instance.new("UIGradient")
-        sellGradient.Name = "SellAllGradient"
-    
-        local normalGradient = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(8, 20, 65)),
-            ColorSequenceKeypoint.new(0.35, Color3.fromRGB(15, 75, 160)),
-            ColorSequenceKeypoint.new(0.7, Color3.fromRGB(15, 145, 210)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(35, 220, 240))
-        })
-    
-        local hoverGradient = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 55, 130)),
-            ColorSequenceKeypoint.new(0.35, Color3.fromRGB(20, 125, 220)),
-            ColorSequenceKeypoint.new(0.7, Color3.fromRGB(25, 195, 245)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 245, 255))
-        })
-    
-        sellGradient.Color = normalGradient
-        sellGradient.Rotation = 0
-        sellGradient.Offset = Vector2.new(-0.35, 0)
-        sellGradient.Parent = sellAllButton
-    
-        --==================================================
-        -- GRADIENT ANIMATION
-        --==================================================
-    
-        local gradientTween = TweenService:Create(
+
+    --==================================================
+    -- SERVICES
+    --==================================================
+
+    local TweenService = game:GetService("TweenService")
+
+    --==================================================
+    -- SELL ALL ANIMALS BUTTON
+    --==================================================
+
+    local sellAllButton = Instance.new("TextButton")
+    sellAllButton.Name = "SellAllAnimals"
+    sellAllButton.Size = UDim2.fromOffset(160, 27)
+    sellAllButton.Position = UDim2.fromOffset(10, 10)
+
+    sellAllButton.BackgroundColor3 = Color3.fromRGB(12, 25, 65)
+    sellAllButton.BorderSizePixel = 0
+
+    sellAllButton.Text = "SELL ALL ANIMALS"
+    sellAllButton.TextColor3 = Color3.fromRGB(235, 250, 255)
+    sellAllButton.TextSize = 11
+    sellAllButton.Font = Enum.Font.GothamBold
+
+    sellAllButton.AutoButtonColor = false
+    sellAllButton.ZIndex = 5
+    sellAllButton.Parent = page
+
+    --==================================================
+    -- CORNER
+    --==================================================
+
+    local sellCorner = Instance.new("UICorner")
+    sellCorner.CornerRadius = UDim.new(0, 8)
+    sellCorner.Parent = sellAllButton
+
+    --==================================================
+    -- GRADIENT
+    --==================================================
+
+    local sellGradient = Instance.new("UIGradient")
+    sellGradient.Name = "SellAllGradient"
+
+    local normalGradient = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(8, 20, 65)),
+        ColorSequenceKeypoint.new(0.35, Color3.fromRGB(15, 75, 160)),
+        ColorSequenceKeypoint.new(0.7, Color3.fromRGB(15, 145, 210)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(35, 220, 240))
+    })
+
+    local hoverGradient = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 55, 130)),
+        ColorSequenceKeypoint.new(0.35, Color3.fromRGB(20, 125, 220)),
+        ColorSequenceKeypoint.new(0.7, Color3.fromRGB(25, 195, 245)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 245, 255))
+    })
+
+    sellGradient.Color = normalGradient
+    sellGradient.Rotation = 0
+    sellGradient.Offset = Vector2.new(-0.35, 0)
+    sellGradient.Parent = sellAllButton
+
+    --==================================================
+    -- GRADIENT ANIMATION
+    --==================================================
+
+    local gradientTween = TweenService:Create(
+        sellGradient,
+        TweenInfo.new(
+            5,
+            Enum.EasingStyle.Sine,
+            Enum.EasingDirection.InOut,
+            -1,
+            true
+        ),
+        {
+            Offset = Vector2.new(0.35, 0)
+        }
+    )
+
+    gradientTween:Play()
+
+    --==================================================
+    -- OUTER NEON GLOW
+    --==================================================
+
+    local glowOuter = Instance.new("Frame")
+    glowOuter.Name = "NeonGlowOuter"
+    glowOuter.AnchorPoint = Vector2.new(0.5, 0.5)
+    glowOuter.Position = UDim2.fromScale(0.5, 0.5)
+    glowOuter.Size = UDim2.new(1, 18, 1, 16)
+    glowOuter.BackgroundTransparency = 1
+    glowOuter.BorderSizePixel = 0
+    glowOuter.ZIndex = 2
+    glowOuter.Parent = sellAllButton
+
+    local glowOuterCorner = Instance.new("UICorner")
+    glowOuterCorner.CornerRadius = UDim.new(0, 13)
+    glowOuterCorner.Parent = glowOuter
+
+    local glowOuterStroke = Instance.new("UIStroke")
+    glowOuterStroke.Color = Color3.fromRGB(0, 145, 255)
+    glowOuterStroke.Thickness = 8
+    glowOuterStroke.Transparency = 1
+    glowOuterStroke.Parent = glowOuter
+
+    --==================================================
+    -- INNER NEON GLOW
+    --==================================================
+
+    local glowInner = Instance.new("Frame")
+    glowInner.Name = "NeonGlowInner"
+    glowInner.AnchorPoint = Vector2.new(0.5, 0.5)
+    glowInner.Position = UDim2.fromScale(0.5, 0.5)
+    glowInner.Size = UDim2.new(1, 8, 1, 8)
+    glowInner.BackgroundTransparency = 1
+    glowInner.BorderSizePixel = 0
+    glowInner.ZIndex = 3
+    glowInner.Parent = sellAllButton
+
+    local glowInnerCorner = Instance.new("UICorner")
+    glowInnerCorner.CornerRadius = UDim.new(0, 11)
+    glowInnerCorner.Parent = glowInner
+
+    local glowInnerStroke = Instance.new("UIStroke")
+    glowInnerStroke.Color = Color3.fromRGB(70, 190, 255)
+    glowInnerStroke.Thickness = 4
+    glowInnerStroke.Transparency = 1
+    glowInnerStroke.Parent = glowInner
+
+    --==================================================
+    -- MAIN STROKE
+    --==================================================
+
+    local sellStroke = Instance.new("UIStroke")
+    sellStroke.Color = Color3.fromRGB(45, 155, 255)
+    sellStroke.Thickness = 1
+    sellStroke.Transparency = 0.72
+    sellStroke.Parent = sellAllButton
+
+    --==================================================
+    -- BUTTON SCALE
+    --==================================================
+
+    local sellScale = Instance.new("UIScale")
+    sellScale.Scale = 1
+    sellScale.Parent = sellAllButton
+
+    --==================================================
+    -- HOVER EFFECT
+    --==================================================
+
+    sellAllButton.MouseEnter:Connect(function()
+
+        TweenService:Create(
             sellGradient,
-            TweenInfo.new(
-                5,
-                Enum.EasingStyle.Sine,
-                Enum.EasingDirection.InOut,
-                -1,
-                true
-            ),
+            TweenInfo.new(0.55, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
             {
-                Offset = Vector2.new(0.35, 0)
+                Color = hoverGradient
             }
-        )
-    
-        gradientTween:Play()
-    
-        --==================================================
-        -- OUTER NEON GLOW
-        --==================================================
-    
-        local glowOuter = Instance.new("Frame")
-        glowOuter.Name = "NeonGlowOuter"
-        glowOuter.AnchorPoint = Vector2.new(0.5, 0.5)
-        glowOuter.Position = UDim2.fromScale(0.5, 0.5)
-        glowOuter.Size = UDim2.new(1, 18, 1, 16)
-        glowOuter.BackgroundTransparency = 1
-        glowOuter.BorderSizePixel = 0
-        glowOuter.ZIndex = 2
-        glowOuter.Parent = sellAllButton
-    
-        local glowOuterCorner = Instance.new("UICorner")
-        glowOuterCorner.CornerRadius = UDim.new(0, 13)
-        glowOuterCorner.Parent = glowOuter
-    
-        local glowOuterStroke = Instance.new("UIStroke")
-        glowOuterStroke.Color = Color3.fromRGB(0, 145, 255)
-        glowOuterStroke.Thickness = 8
-        glowOuterStroke.Transparency = 1
-        glowOuterStroke.Parent = glowOuter
-    
-        --==================================================
-        -- INNER NEON GLOW
-        --==================================================
-    
-        local glowInner = Instance.new("Frame")
-        glowInner.Name = "NeonGlowInner"
-        glowInner.AnchorPoint = Vector2.new(0.5, 0.5)
-        glowInner.Position = UDim2.fromScale(0.5, 0.5)
-        glowInner.Size = UDim2.new(1, 8, 1, 8)
-        glowInner.BackgroundTransparency = 1
-        glowInner.BorderSizePixel = 0
-        glowInner.ZIndex = 3
-        glowInner.Parent = sellAllButton
-    
-        local glowInnerCorner = Instance.new("UICorner")
-        glowInnerCorner.CornerRadius = UDim.new(0, 11)
-        glowInnerCorner.Parent = glowInner
-    
-        local glowInnerStroke = Instance.new("UIStroke")
-        glowInnerStroke.Color = Color3.fromRGB(70, 190, 255)
-        glowInnerStroke.Thickness = 4
-        glowInnerStroke.Transparency = 1
-        glowInnerStroke.Parent = glowInner
-    
-        --==================================================
-        -- MAIN STROKE
-        --==================================================
-    
-        local sellStroke = Instance.new("UIStroke")
-        sellStroke.Color = Color3.fromRGB(45, 155, 255)
-        sellStroke.Thickness = 1
-        sellStroke.Transparency = 0.72
-        sellStroke.Parent = sellAllButton
-    
-        --==================================================
-        -- BUTTON SCALE
-        --==================================================
-    
-        local sellScale = Instance.new("UIScale")
-        sellScale.Scale = 1
-        sellScale.Parent = sellAllButton
-    
-        --==================================================
-        -- HOVER EFFECT
-        --==================================================
-    
-        sellAllButton.MouseEnter:Connect(function()
-    
-            TweenService:Create(
-                sellGradient,
-                TweenInfo.new(0.55, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-                {
-                    Color = hoverGradient
-                }
-            ):Play()
-    
-            TweenService:Create(
-                sellScale,
-                TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-                {
-                    Scale = 1.09
-                }
-            ):Play()
-    
-            TweenService:Create(
-                sellStroke,
-                TweenInfo.new(0.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
-                {
-                    Transparency = 0.02,
-                    Thickness = 2
-                }
-            ):Play()
-    
-            TweenService:Create(
-                glowOuterStroke,
-                TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
-                {
-                    Transparency = 0.28,
-                    Thickness = 10
-                }
-            ):Play()
-    
-            TweenService:Create(
-                glowInnerStroke,
-                TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
-                {
-                    Transparency = 0.12,
-                    Thickness = 5
-                }
-            ):Play()
-    
-        end)
-    
-        --==================================================
-        -- HOVER END
-        --==================================================
-    
-        sellAllButton.MouseLeave:Connect(function()
-    
-            TweenService:Create(
-                sellGradient,
-                TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-                {
-                    Color = normalGradient
-                }
-            ):Play()
-    
-            TweenService:Create(
-                sellScale,
-                TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-                {
-                    Scale = 1
-                }
-            ):Play()
-    
-            TweenService:Create(
-                sellStroke,
-                TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
-                {
-                    Transparency = 0.72,
-                    Thickness = 1
-                }
-            ):Play()
-    
-            TweenService:Create(
-                glowOuterStroke,
-                TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
-                {
-                    Transparency = 1,
-                    Thickness = 8
-                }
-            ):Play()
-    
-            TweenService:Create(
-                glowInnerStroke,
-                TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
-                {
-                    Transparency = 1,
-                    Thickness = 4
-                }
-            ):Play()
-    
-        end)
-    
-        --==================================================
-        -- PRESS EFFECT
-        --==================================================
-    
-        sellAllButton.MouseButton1Down:Connect(function()
-    
-            TweenService:Create(
-                sellScale,
-                TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                {
-                    Scale = 0.96
-                }
-            ):Play()
-    
-        end)
-    
-        sellAllButton.MouseButton1Up:Connect(function()
-    
-            TweenService:Create(
-                sellScale,
-                TweenInfo.new(0.12, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-                {
-                    Scale = 1.09
-                }
-            ):Play()
+        ):Play()
+
+        TweenService:Create(
+            sellScale,
+            TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+            {
+                Scale = 1.09
+            }
+        ):Play()
+
+        TweenService:Create(
+            sellStroke,
+            TweenInfo.new(0.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+            {
+                Transparency = 0.02,
+                Thickness = 2
+            }
+        ):Play()
+
+        TweenService:Create(
+            glowOuterStroke,
+            TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+            {
+                Transparency = 0.28,
+                Thickness = 10
+            }
+        ):Play()
+
+        TweenService:Create(
+            glowInnerStroke,
+            TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+            {
+                Transparency = 0.12,
+                Thickness = 5
+            }
+        ):Play()
+
     end)
+
+    --==================================================
+    -- HOVER END
+    --==================================================
+
+    sellAllButton.MouseLeave:Connect(function()
+
+        TweenService:Create(
+            sellGradient,
+            TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+            {
+                Color = normalGradient
+            }
+        ):Play()
+
+        TweenService:Create(
+            sellScale,
+            TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+            {
+                Scale = 1
+            }
+        ):Play()
+
+        TweenService:Create(
+            sellStroke,
+            TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+            {
+                Transparency = 0.72,
+                Thickness = 1
+            }
+        ):Play()
+
+        TweenService:Create(
+            glowOuterStroke,
+            TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+            {
+                Transparency = 1,
+                Thickness = 8
+            }
+        ):Play()
+
+        TweenService:Create(
+            glowInnerStroke,
+            TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+            {
+                Transparency = 1,
+                Thickness = 4
+            }
+        ):Play()
+
+    end)
+
+    --==================================================
+    -- PRESS EFFECT
+    --==================================================
+
+    sellAllButton.MouseButton1Down:Connect(function()
+
+        TweenService:Create(
+            sellScale,
+            TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {
+                Scale = 0.96
+            }
+        ):Play()
+
+    end)
+
+    sellAllButton.MouseButton1Up:Connect(function()
+
+        TweenService:Create(
+            sellScale,
+            TweenInfo.new(0.12, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+            {
+                Scale = 1.09
+            }
+        ):Play()
+
+    end)
+
+end)
 end
 
 return GameModule
