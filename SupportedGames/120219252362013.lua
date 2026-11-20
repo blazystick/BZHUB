@@ -3318,67 +3318,63 @@ function GameModule.Register(api)
         end)
     end)
     api.AddCategory("Upgrades", "UPGRADES", function(page)
-
+    
         --==================================================
         -- SELL ALL ANIMALS BUTTON
         --==================================================
-
+    
+        local CARD = Color3.fromRGB(17, 23, 33)
+    
         local sellAllButton = Instance.new("TextButton")
         sellAllButton.Name = "SellAllAnimals"
         sellAllButton.Size = UDim2.new(1, -16, 0, 42)
         sellAllButton.Position = UDim2.fromOffset(8, 8)
     
-        sellAllButton.BackgroundColor3 = Color3.fromRGB(130, 0, 0)
+        sellAllButton.BackgroundColor3 = CARD
         sellAllButton.BorderSizePixel = 0
     
         sellAllButton.Text = "SELL ALL ANIMALS"
         sellAllButton.TextColor3 = Color3.fromRGB(235, 250, 255)
         sellAllButton.TextSize = 11
         sellAllButton.Font = Enum.Font.GothamBold
-        sellAllButton.TextTransparency = 0
-        sellAllButton.TextStrokeTransparency = 1
     
         sellAllButton.AutoButtonColor = false
         sellAllButton.ZIndex = 5
         sellAllButton.Parent = page
-
+    
         --==================================================
-        -- CORNER
+        -- ROUNDED CORNERS
         --==================================================
-
+    
         local sellCorner = Instance.new("UICorner")
         sellCorner.CornerRadius = UDim.new(0, 9)
         sellCorner.Parent = sellAllButton
-
+    
         --==================================================
-        -- STATIC RED GRADIENT
+        -- RED GRADIENT
         --==================================================
     
         local sellGradient = Instance.new("UIGradient")
         sellGradient.Rotation = 0
-
-        sellGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(
-                0.00,
-                Color3.fromRGB(235, 35, 35)
-            ),
     
-            ColorSequenceKeypoint.new(
-                1.00,
-                Color3.fromRGB(35, 0, 0)
-            )
+        sellGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0.00, Color3.fromRGB(105, 12, 20)),
+            ColorSequenceKeypoint.new(0.25, Color3.fromRGB(55, 12, 20)),
+            ColorSequenceKeypoint.new(0.50, CARD),
+            ColorSequenceKeypoint.new(0.75, Color3.fromRGB(55, 12, 20)),
+            ColorSequenceKeypoint.new(1.00, Color3.fromRGB(105, 12, 20))
         })
-
+    
         sellGradient.Parent = sellAllButton
-
+    
         --==================================================
-        -- BORDER
+        -- RED BORDER
         --==================================================
-
+    
         local sellStroke = Instance.new("UIStroke")
-        sellStroke.Color = Color3.fromRGB(255, 65, 65)
-        sellStroke.Thickness = 1
-        sellStroke.Transparency = 0.25
+        sellStroke.Color = Color3.fromRGB(190, 35, 48)
+        sellStroke.Thickness = 1.3
+        sellStroke.Transparency = 0
         sellStroke.Parent = sellAllButton
     end)
 end
