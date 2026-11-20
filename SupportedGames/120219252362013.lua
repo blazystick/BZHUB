@@ -3323,8 +3323,6 @@ function GameModule.Register(api)
         -- SELL ALL ANIMALS BUTTON
         --==================================================
 
-        local TweenService = game:GetService("TweenService")
-
         local sellAllButton = Instance.new("TextButton")
         sellAllButton.Name = "SellAllAnimals"
         sellAllButton.Size = UDim2.new(1, -16, 0, 42)
@@ -3338,46 +3336,29 @@ function GameModule.Register(api)
         sellAllButton.AutoButtonColor = false
         sellAllButton.Parent = page
 
+        -- Rounded corners
         local sellCorner = Instance.new("UICorner")
         sellCorner.CornerRadius = UDim.new(0, 9)
         sellCorner.Parent = sellAllButton
-    
-        -- Hareketli kırmızı gradient
+
+        -- Static red gradient
         local sellGradient = Instance.new("UIGradient")
         sellGradient.Rotation = 0
         sellGradient.Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0.00, Color3.fromRGB(235, 35, 35)),
-            ColorSequenceKeypoint.new(0.25, Color3.fromRGB(65, 0, 0)),
-            ColorSequenceKeypoint.new(0.50, Color3.fromRGB(235, 35, 35)),
-            ColorSequenceKeypoint.new(0.75, Color3.fromRGB(65, 0, 0)),
+            ColorSequenceKeypoint.new(0.50, Color3.fromRGB(65, 0, 0)),
             ColorSequenceKeypoint.new(1.00, Color3.fromRGB(235, 35, 35))
         })
         sellGradient.Parent = sellAllButton
 
+        -- Border
         local sellStroke = Instance.new("UIStroke")
         sellStroke.Color = Color3.fromRGB(255, 65, 65)
         sellStroke.Thickness = 1
         sellStroke.Transparency = 0.25
         sellStroke.Parent = sellAllButton
 
-        -- Kesintisiz gradient animasyonu
-        sellGradient.Offset = Vector2.new(1, 0)
 
-        local gradientTween = TweenService:Create(
-            sellGradient,
-            TweenInfo.new(
-                6,
-                Enum.EasingStyle.Linear,
-                Enum.EasingDirection.InOut,
-                -1,
-                false
-            ),
-            {
-                Offset = Vector2.new(-1, 0)
-            }
-        )
-
-        gradientTween:Play()
 
     end)
 end
