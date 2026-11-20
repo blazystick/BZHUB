@@ -1,4 +1,4 @@
-
+--123123123
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -42,7 +42,6 @@ function GameModule.Register(api)
         local MAX_PATH_RETRIES = 3
 
         local selectedSpeed = 1
-        local minimumCashPerSecond = 0
         local isEnabled = false
         local trainEnabled = false
         local autoEquipBestEnabled = false
@@ -223,10 +222,6 @@ function GameModule.Register(api)
                     message = "Throwing..."
                 elseif key == "resetting" then
                     message = "Respawning character..."
-                elseif key == "sellMoving" then
-                    message = "Walking to the sell area..."
-                elseif key == "sellWaiting" then
-                    message = "Waiting for you to manually sell low-income pets..."
                 elseif key == "starting" then
                     message = "Starting Auto Throw..."
                 elseif key == "trainMoving" then
@@ -572,7 +567,7 @@ function GameModule.Register(api)
         local mainCard = Instance.new("Frame")
         mainCard.Name = "AutoThrowCard"
         mainCard.Position = UDim2.new(0, 0, 0, 0)
-        mainCard.Size = UDim2.new(1, 0, 0, 178)
+        mainCard.Size = UDim2.new(1, 0, 0, 132)
         mainCard.BackgroundColor3 = CARD
         mainCard.BorderSizePixel = 0
         mainCard.LayoutOrder = 2
@@ -763,112 +758,6 @@ function GameModule.Register(api)
         local knobCorner = Instance.new("UICorner")
         knobCorner.CornerRadius = UDim.new(1, 0)
         knobCorner.Parent = sliderKnob
-
-
-        -- Minimum pet income filter (Cash/S).
-        local incomeFilterLabel = Instance.new("TextLabel")
-        incomeFilterLabel.Name = "MinimumIncomeLabel"
-        incomeFilterLabel.Position = UDim2.fromOffset(12, 133)
-        incomeFilterLabel.Size = UDim2.new(1, -142, 0, 28)
-        incomeFilterLabel.BackgroundTransparency = 1
-        incomeFilterLabel.Text = "Minimum Cash/S"
-        incomeFilterLabel.TextColor3 = TEXT
-        incomeFilterLabel.TextSize = 11
-        incomeFilterLabel.Font = Enum.Font.GothamMedium
-        incomeFilterLabel.TextXAlignment = Enum.TextXAlignment.Left
-        incomeFilterLabel.Parent = mainCard
-
-        local incomeFilterBox = Instance.new("TextBox")
-        incomeFilterBox.Name = "MinimumIncomeInput"
-        incomeFilterBox.AnchorPoint = Vector2.new(1, 0)
-        incomeFilterBox.Position = UDim2.new(1, -12, 0, 130)
-        incomeFilterBox.Size = UDim2.fromOffset(112, 32)
-        incomeFilterBox.BackgroundColor3 = Color3.fromRGB(24, 34, 48)
-        incomeFilterBox.BorderSizePixel = 0
-        incomeFilterBox.Text = "0"
-        incomeFilterBox.PlaceholderText = "e.g. 1K / 1M"
-        incomeFilterBox.PlaceholderColor3 = MUTED
-        incomeFilterBox.TextColor3 = TEXT
-        incomeFilterBox.TextSize = 12
-        incomeFilterBox.Font = Enum.Font.GothamBold
-        incomeFilterBox.ClearTextOnFocus = false
-        incomeFilterBox.TextXAlignment = Enum.TextXAlignment.Center
-        incomeFilterBox.Parent = mainCard
-
-        local incomeInputCorner = Instance.new("UICorner")
-        incomeInputCorner.CornerRadius = UDim.new(0, 8)
-        incomeInputCorner.Parent = incomeFilterBox
-
-        local incomeInputStroke = Instance.new("UIStroke")
-        incomeInputStroke.Color = ACCENT
-        incomeInputStroke.Transparency = 0.45
-        incomeInputStroke.Thickness = 1
-        incomeInputStroke.Parent = incomeFilterBox
-
-        local incomeFilterHint = Instance.new("TextLabel")
-        incomeFilterHint.Name = "MinimumIncomeHint"
-        incomeFilterHint.Position = UDim2.fromOffset(12, 158)
-        incomeFilterHint.Size = UDim2.new(1, -24, 0, 14)
-        incomeFilterHint.BackgroundTransparency = 1
-        incomeFilterHint.Text = '"0" is disabled; suffixes like K, M, B, T, Qa, Qi, Sx, Sp, Oc, etc. are supported.'
-        incomeFilterHint.TextColor3 = MUTED
-        incomeFilterHint.TextSize = 9
-        incomeFilterHint.Font = Enum.Font.Gotham
-        incomeFilterHint.TextXAlignment = Enum.TextXAlignment.Left
-        incomeFilterHint.Parent = mainCard
-
-        local incomeSuffixMultipliers = {
-            [""] = 1,
-            K = 1e3, M = 1e6, B = 1e9, T = 1e12,
-            QA = 1e15, QI = 1e18, SX = 1e21, SP = 1e24,
-            OC = 1e27, NO = 1e30, DC = 1e33,
-            UD = 1e36, DD = 1e39, TD = 1e42,
-            QAD = 1e45, QID = 1e48, SXD = 1e51, SPD = 1e54,
-            OCD = 1e57, NOD = 1e60, VG = 1e63,
-            UVG = 1e66, DVG = 1e69, TVG = 1e72,
-            QAVG = 1e75, QIVG = 1e78, SXVG = 1e81, SPVG = 1e84,
-            OCVG = 1e87, NOVG = 1e90, TG = 1e93,
-            UTG = 1e96, DTG = 1e99, TTG = 1e102,
-            QATG = 1e105, QITG = 1e108, SXTG = 1e111,
-            SPTG = 1e114, OCTG = 1e117, NOTG = 1e120,
-            QAG = 1e123, QIG = 1e126, SXG = 1e129, SPG = 1e132,
-            OCG = 1e135, NOG = 1e138, CT = 1e303
-        }
-
-        local function parseIncomeThreshold(raw)
-            local cleaned = tostring(raw or ""):upper():gsub("[%s,]", "")
-            if cleaned == "" or cleaned == "0" then return 0 end
-
-            local numberPart, suffix = cleaned:match("^(%d+%.?%d*)([A-Z]*)$")
-            if not numberPart then return nil end
-
-            local number = tonumber(numberPart)
-            local multiplier = incomeSuffixMultipliers[suffix]
-            if not number or number < 0 or not multiplier then return nil end
-
-            local result = number * multiplier
-            if result ~= result or result == math.huge then
-                return math.huge
-            end
-            return math.floor(result + 0.5)
-        end
-
-        incomeFilterBox.FocusLost:Connect(function()
-            local parsed = parseIncomeThreshold(incomeFilterBox.Text)
-            if parsed == nil then
-                incomeFilterBox.Text = tostring(minimumCashPerSecond)
-                incomeFilterHint.Text = "Invalid value. Example: 100 / 1K / 1M"
-                incomeFilterHint.TextColor3 = Color3.fromRGB(255, 120, 130)
-                return
-            end
-
-            minimumCashPerSecond = parsed
-            incomeFilterBox.Text = tostring(parsed)
-            incomeFilterHint.Text = parsed == 0
-                and '"0" is disabled; suffixes like K, M, B, T, Qa, Qi, Sx, Sp, Oc, etc. are supported.'
-                or ("Minimum: " .. tostring(parsed) .. " Cash/S")
-            incomeFilterHint.TextColor3 = MUTED
-        end)
 
         --==================================================
         -- AUTO TRAIN CARD (UI CONTROL)
@@ -1960,17 +1849,6 @@ function GameModule.Register(api)
 
         helpers.setPowerSliderVisible = function(visible, instant)
             sliderVisible = visible
-
-            -- Keep the income filter visible at all times; only lock editing while Auto Throw is ON.
-            incomeFilterLabel.Visible = true
-            incomeFilterBox.Visible = true
-            incomeFilterHint.Visible = true
-            incomeFilterBox.Active = visible
-            incomeFilterBox.TextEditable = visible
-            incomeFilterBox.BackgroundColor3 = visible
-                and Color3.fromRGB(24, 34, 48)
-                or Color3.fromRGB(31, 39, 51)
-            incomeInputStroke.Transparency = visible and 0.45 or 0.72
             if sliderTween then
                 sliderTween:Cancel()
                 sliderTween = nil
@@ -1985,16 +1863,16 @@ function GameModule.Register(api)
                     sliderContainer.Position = UDim2.fromOffset(12, 69)
                     sliderContainer.Size = UDim2.new(1, -24, 0, 54)
                     sliderContainer.GroupTransparency = 0
-                    mainCard.Size = UDim2.new(1, 0, 0, 178)
-                    trainCard.Position = UDim2.fromOffset(10, 244)
+                    mainCard.Size = UDim2.new(1, 0, 0, 132)
+                    trainCard.Position = UDim2.fromOffset(10, 198)
                 else
                     sliderContainer.Position = UDim2.fromOffset(12, 54)
                     sliderContainer.Size = UDim2.new(1, -24, 0, 0)
                     sliderContainer.GroupTransparency = 1
-                    mainCard.Size = UDim2.new(1, -20, 0, 62)
-                    trainCard.Position = UDim2.fromOffset(10, 128)
-                    helpers.makeTween(mainCard, 0.3, {Size = UDim2.new(1, 0, 0, 178)})
-                    helpers.makeTween(trainCard, 0.3, {Position = UDim2.fromOffset(10, 244)})
+                    mainCard.Size = UDim2.new(1, -20, 0, 66)
+                    trainCard.Position = UDim2.fromOffset(10, 132)
+                    helpers.makeTween(mainCard, 0.3, {Size = UDim2.new(1, 0, 0, 132)})
+                    helpers.makeTween(trainCard, 0.3, {Position = UDim2.fromOffset(10, 198)})
                     helpers.makeTween(sliderContainer, 0.28, {
                         Position = UDim2.fromOffset(12, 69),
                         Size = UDim2.new(1, -24, 0, 54)
@@ -2016,11 +1894,11 @@ function GameModule.Register(api)
                     sliderContainer.Position = UDim2.fromOffset(12, 54)
                     sliderContainer.Size = UDim2.new(1, -24, 0, 0)
                     sliderContainer.GroupTransparency = 1
-                    mainCard.Size = UDim2.new(1, 0, 0, 178)
-                    trainCard.Position = UDim2.fromOffset(10, 244)
+                    mainCard.Size = UDim2.new(1, -20, 0, 66)
+                    trainCard.Position = UDim2.fromOffset(10, 132)
                 else
-                    helpers.makeTween(mainCard, 0.28, {Size = UDim2.new(1, 0, 0, 178)})
-                    helpers.makeTween(trainCard, 0.28, {Position = UDim2.fromOffset(10, 244)})
+                    helpers.makeTween(mainCard, 0.28, {Size = UDim2.new(1, -20, 0, 66)})
+                    helpers.makeTween(trainCard, 0.28, {Position = UDim2.fromOffset(10, 132)})
                     helpers.makeTween(sliderContainer, 0.25, {
                         Position = UDim2.fromOffset(12, 52),
                         Size = UDim2.new(1, -24, 0, 0)
@@ -3079,259 +2957,6 @@ function GameModule.Register(api)
         -- MAIN FARM LOOP
         --==================================================
 
-        --==================================================
-        -- PET INCOME FILTER / MANUAL SELL WAIT
-        --==================================================
-
-        local cachedDataController
-        local cachedMutations
-
-        helpers.getPetDataModules = function()
-            if cachedDataController and cachedMutations then
-                return cachedDataController, cachedMutations
-            end
-
-            local playerScripts = player:FindFirstChild("PlayerScripts")
-            local clientFolder = playerScripts and playerScripts:FindFirstChild("Client")
-            local controllers = clientFolder and clientFolder:FindFirstChild("Controllers")
-            local dataControllerModule = controllers and controllers:FindFirstChild("DataController")
-
-            local replicatedStorage = game:GetService("ReplicatedStorage")
-            local sharedFolder = replicatedStorage:FindFirstChild("Shared")
-            local mutationsModule = sharedFolder and sharedFolder:FindFirstChild("Mutations")
-
-            if not dataControllerModule or not mutationsModule then
-                return nil, nil, "DataController or Shared.Mutations module was not found."
-            end
-
-            local dataOk, dataResult = pcall(require, dataControllerModule)
-            if not dataOk then
-                return nil, nil, "DataController require failed: " .. tostring(dataResult)
-            end
-
-            local mutationsOk, mutationsResult = pcall(require, mutationsModule)
-            if not mutationsOk then
-                return nil, nil, "Mutations require failed: " .. tostring(mutationsResult)
-            end
-
-            cachedDataController = dataResult
-            cachedMutations = mutationsResult
-            return cachedDataController, cachedMutations
-        end
-
-        helpers.waitForDataControllerReady = function(dataController, currentId)
-            local function isReady()
-                local readyValue = dataController.IsReady
-
-                if type(readyValue) == "function" then
-                    local ok, result = pcall(function()
-                        return dataController:IsReady()
-                    end)
-                    return ok and result == true
-                end
-
-                return readyValue == true
-            end
-
-            if isReady() then
-                return true
-            end
-
-            -- DataController exposes WaitForReady; call it once, then verify its ready flag.
-            if type(dataController.WaitForReady) == "function" then
-                pcall(function()
-                    dataController:WaitForReady()
-                end)
-            end
-
-            while not isReady() do
-                if currentId and not helpers.stillRunning(currentId) then
-                    return false
-                end
-                task.wait(0.25)
-            end
-
-            return true
-        end
-
-        helpers.getLowIncomeAnimals = function(currentId)
-            if minimumCashPerSecond <= 0 then
-                return {}
-            end
-
-            local dataController, mutations, moduleError = helpers.getPetDataModules()
-            if not dataController or not mutations then
-                error(moduleError or "Pet data modules are unavailable.")
-            end
-
-            if not helpers.waitForDataControllerReady(dataController, currentId) then
-                return nil
-            end
-
-            local ok, animals = pcall(function()
-                return dataController:Get("Animals") or {}
-            end)
-            if not ok then
-                error("Could not read Animals inventory: " .. tostring(animals))
-            end
-
-            local bestIncome = player:GetAttribute("BestIncome") or 0
-            local lowIncomeAnimals = {}
-
-            for key, record in pairs(animals) do
-                local entry = record
-                local animalId = key
-
-                if type(record) == "table" then
-                    if record.Entry then
-                        entry = record.Entry
-                    end
-                    animalId = record.Id or key
-                end
-
-                if type(entry) == "table" and not entry.Placed then
-                    local incomeOk, income = pcall(function()
-                        return mutations.IncomeOf(entry, bestIncome)
-                    end)
-
-                    if not incomeOk then
-                        error("IncomeOf failed for animal " .. tostring(animalId) .. ": " .. tostring(income))
-                    end
-
-                    income = tonumber(income) or 0
-                    if income < minimumCashPerSecond then
-                        table.insert(lowIncomeAnimals, {
-                            Id = tostring(animalId),
-                            Income = income,
-                            ModelName = tostring(entry.ModelName or "Unknown")
-                        })
-                    end
-                end
-            end
-
-            return lowIncomeAnimals
-        end
-
-        helpers.getSellZonePosition = function()
-            local sellPlace = workspace:FindFirstChild("SellPlace")
-            local zonePad = sellPlace and sellPlace:FindFirstChild("ZonePad", true)
-            if not zonePad then
-                error("Workspace.SellPlace.ZonePad was not found.")
-            end
-
-            if zonePad:IsA("BasePart") then
-                return zonePad.Position
-            end
-
-            if zonePad:IsA("Model") then
-                return zonePad:GetPivot().Position
-            end
-
-            error("SellPlace.ZonePad is not a BasePart or Model.")
-        end
-
-        helpers.moveToSellPlace = function(currentId)
-            helpers.setStatus("sellMoving", nil)
-            helpers.debugLog("Finding path to Workspace.SellPlace.ZonePad...")
-
-            local character, humanoid, rootPart = helpers.getCharacterReferences()
-            if not character or not humanoid or not rootPart then
-                error("Character references not found before moving to SellPlace.")
-            end
-
-            local targetPosition = helpers.getSellZonePosition()
-
-            for attempt = 1, MAX_PATH_RETRIES do
-                if not helpers.stillRunning(currentId) then
-                    return false
-                end
-                if player.Character ~= character then
-                    return false
-                end
-
-                rootPart = character:FindFirstChild("HumanoidRootPart")
-                if not rootPart then
-                    return false
-                end
-
-                if (rootPart.Position - targetPosition).Magnitude <= WAYPOINT_REACH_DISTANCE then
-                    return true
-                end
-
-                local path = PathfindingService:CreatePath({
-                    AgentRadius = 2,
-                    AgentHeight = 5,
-                    AgentCanJump = true,
-                    AgentCanClimb = true,
-                    WaypointSpacing = 4
-                })
-
-                local computed, computeError = pcall(function()
-                    path:ComputeAsync(rootPart.Position, targetPosition)
-                end)
-
-                if computed and path.Status == Enum.PathStatus.Success then
-                    local followed = helpers.followPath(path, character, humanoid, currentId)
-                    if followed then
-                        rootPart = character:FindFirstChild("HumanoidRootPart")
-                        if rootPart and (rootPart.Position - targetPosition).Magnitude <= WAYPOINT_REACH_DISTANCE then
-                            helpers.debugLog("SellPlace.ZonePad reached.")
-                            return true
-                        end
-                    end
-                else
-                    helpers.debugLog("SellPlace path attempt " .. attempt .. " failed: " .. tostring(computeError or path.Status))
-                end
-
-                if not helpers.stillRunning(currentId) then
-                    return false
-                end
-                task.wait(0.5)
-            end
-
-            error("Could not reach Workspace.SellPlace.ZonePad after path retries.")
-        end
-
-        helpers.waitForManualLowIncomeSale = function(currentId)
-            -- This filter belongs to the normal Auto Throw toggle, not AFK FARM.
-            if autoFarmRunning or minimumCashPerSecond <= 0 then
-                return true
-            end
-
-            local lowAnimals = helpers.getLowIncomeAnimals(currentId)
-            if not lowAnimals then
-                return false
-            end
-            if #lowAnimals == 0 then
-                return true
-            end
-
-            helpers.debugLog("Found " .. #lowAnimals .. " pet(s) below the Cash/S threshold.")
-            if not helpers.moveToSellPlace(currentId) then
-                return false
-            end
-
-            while helpers.stillRunning(currentId) do
-                lowAnimals = helpers.getLowIncomeAnimals(currentId)
-                if not lowAnimals then
-                    return false
-                end
-                if #lowAnimals == 0 then
-                    helpers.debugLog("All low-income pets were removed from inventory. Resuming Auto Throw.")
-                    return true
-                end
-
-                helpers.setStatus(
-                    "sellWaiting",
-                    tostring(#lowAnimals) .. " low-income pet(s) remaining",
-                    0
-                )
-                task.wait(0.5)
-            end
-
-            return false
-        end
-
         helpers.startFarm = function()
             actionId += 1
 
@@ -3404,16 +3029,7 @@ function GameModule.Register(api)
                             break
                         end
 
-                        -- 8. CHECK PET CASH/S AFTER EVERY RESPAWN.
-                        -- The filter waits for DataController.IsReady before reading inventory.
-                        task.wait(0.25)
-                        -- Low-income pets are never sold automatically:
-                        -- walk to SellPlace.ZonePad and wait for manual sale.
-                        if not helpers.waitForManualLowIncomeSale(currentId) then
-                            break
-                        end
-
-                        -- 9. WAIT UNTIL THROW COOLDOWN IS ZERO
+                        -- 8. WAIT UNTIL THROW COOLDOWN IS ZERO
                         if not helpers.waitForThrowCooldown(currentId) then
                             break
                         end
@@ -3429,7 +3045,7 @@ function GameModule.Register(api)
                             end
                         end
 
-                        -- 10. LOOP RESTARTS AND WALKS TO STARTERAREA
+                        -- 9. LOOP RESTARTS AND WALKS TO STARTERAREA
                         helpers.debugLog("Cooldown finished. Moving to StarterArea...")
 
                         -- D�ng� ba�a d�ner:
