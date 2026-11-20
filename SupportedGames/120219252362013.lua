@@ -3331,7 +3331,7 @@ function GameModule.Register(api)
         sellAllButton.BackgroundColor3 = Color3.fromRGB(130, 0, 0)
         sellAllButton.BorderSizePixel = 0
         sellAllButton.Text = "SELL ALL ANIMALS"
-        sellAllButton.TextColor3 = Color3.fromRGB(255, 245, 245)
+        sellAllButton.TextColor3 = Color3.fromRGB(255, 255, 255)
         sellAllButton.TextSize = 13
         sellAllButton.Font = Enum.Font.GothamBold
         sellAllButton.AutoButtonColor = false
@@ -3345,16 +3345,16 @@ function GameModule.Register(api)
         local sellGradient = Instance.new("UIGradient")
         sellGradient.Rotation = 0
         sellGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255, 65, 65)),
-            ColorSequenceKeypoint.new(0.30, Color3.fromRGB(255, 65, 65)),
+            ColorSequenceKeypoint.new(0.00, Color3.fromRGB(235, 35, 35)),
+            ColorSequenceKeypoint.new(0.30, Color3.fromRGB(235, 35, 35)),
             ColorSequenceKeypoint.new(0.50, Color3.fromRGB(65, 0, 0)),
-            ColorSequenceKeypoint.new(0.70, Color3.fromRGB(255, 65, 65)),
-            ColorSequenceKeypoint.new(1.00, Color3.fromRGB(255, 65, 65))
+            ColorSequenceKeypoint.new(0.70, Color3.fromRGB(235, 35, 35)),
+            ColorSequenceKeypoint.new(1.00, Color3.fromRGB(235, 35, 35))
         })
         sellGradient.Parent = sellAllButton
 
         local sellStroke = Instance.new("UIStroke")
-        sellStroke.Color = Color3.fromRGB(255, 85, 85)
+        sellStroke.Color = Color3.fromRGB(255, 65, 65)
         sellStroke.Thickness = 1
         sellStroke.Transparency = 0.25
         sellStroke.Parent = sellAllButton
@@ -3365,7 +3365,7 @@ function GameModule.Register(api)
         local gradientTween = TweenService:Create(
             sellGradient,
             TweenInfo.new(
-                2.5,
+                6,
                 Enum.EasingStyle.Linear,
                 Enum.EasingDirection.InOut,
                 -1,
