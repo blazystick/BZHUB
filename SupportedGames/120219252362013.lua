@@ -2014,7 +2014,7 @@ function GameModule.Register(api)
 
         closeInfoButton.MouseButton1Click:Connect(helpers.closeInfo)
 
-        infoButton.:Connect(function()
+        infoButton.MouseEnter:Connect(function()
             helpers.makeTween(infoButton, 0.15, {
                 BackgroundColor3 = Color3.fromRGB(32, 62, 91)
             })
