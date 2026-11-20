@@ -3317,6 +3317,7 @@ function GameModule.Register(api)
             helpers.refreshLanguage()
         end)
     end)
+    
     api.AddCategory("Upgrades", "UPGRADES", function(page)
     
         --==================================================
@@ -3333,6 +3334,26 @@ function GameModule.Register(api)
         local RED = Color3.fromRGB(255, 48, 65)
         local RED_LIGHT = Color3.fromRGB(255, 85, 95)
         local RED_DARK = Color3.fromRGB(145, 20, 35)
+    
+        --==================================================
+        -- SELL SYSTEM
+        --==================================================
+    
+        local Players = game:GetService("Players")
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    
+        local player = Players.LocalPlayer
+        local controllers = player:WaitForChild("PlayerScripts")
+            :WaitForChild("Client")
+            :WaitForChild("Controllers")
+    
+        local DataController = require(controllers:WaitForChild("DataController"))
+        local EventSellConfirm = require(controllers:WaitForChild("EventSellConfirm"))
+        local Remotes = require(
+            ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes")
+        )
+    
+        local sellBusy = false
     
         --==================================================
         -- MAIN CARD
@@ -3401,16 +3422,13 @@ function GameModule.Register(api)
         -- PAW SHAPE
         --==================================================
     
-        -- Main paw pad
         createPawPart("MainPad", 17, 24, 22, 16, 0, RED, 5)
     
-        -- Four toes: moved closer to the main pad
         createPawPart("Toe1", 5, 12, 7, 10, -25, RED, 5)
         createPawPart("Toe2", 12, 7, 7, 10, -8, RED_LIGHT, 5)
         createPawPart("Toe3", 22, 7, 7, 10, 8, RED_LIGHT, 5)
         createPawPart("Toe4", 29, 12, 7, 10, 25, RED, 5)
     
-       
         --==================================================
         -- DIVIDER
         --==================================================
@@ -3433,7 +3451,7 @@ function GameModule.Register(api)
         sellTitle.Name = "Title"
         sellTitle.BackgroundTransparency = 1
         sellTitle.Position = UDim2.fromOffset(60, 0)
-        sellTitle.Size = UDim2.new(1, -120, 1, 0)
+        sellTitle.Size = UDim2.new(1, -150, 1, 0)
         sellTitle.Font = Enum.Font.GothamBold
         sellTitle.Text = "SELL ALL ANIMALS"
         sellTitle.TextColor3 = TEXT
@@ -3443,47 +3461,130 @@ function GameModule.Register(api)
         sellTitle.Parent = sellCard
     
         --==================================================
-        -- TOGGLE TRACK
+        -- SELL BUTTON
         --==================================================
     
-        local toggleTrack = Instance.new("Frame")
-        toggleTrack.Name = "ToggleTrack"
-        toggleTrack.AnchorPoint = Vector2.new(1, 0.5)
-        toggleTrack.Position = UDim2.new(1, -11, 0.5, 0)
-        toggleTrack.Size = UDim2.fromOffset(37, 20)
-        toggleTrack.BackgroundColor3 = Color3.fromRGB(35, 42, 56)
-        toggleTrack.BorderSizePixel = 0
-        toggleTrack.ZIndex = 4
-        toggleTrack.Parent = sellCard
+        local sellButton = Instance.new("TextButton")
+        sellButton.Name = "SellButton"
+        sellButton.AnchorPoint = Vector2.new(1, 0.5)
+        sellButton.Position = UDim2.new(1, -10, 0.5, 0)
+        sellButton.Size = UDim2.fromOffset(75, 27)
+        sellButton.BackgroundColor3 = RED_DARK
+        sellButton.BorderSizePixel = 0
+        sellButton.AutoButtonColor = false
+        sellButton.Font = Enum.Font.GothamBold
+        sellButton.Text = "SELL"
+        sellButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        sellButton.TextSize = 10
+        sellButton.ZIndex = 5
+        sellButton.Parent = sellCard
     
-        local toggleCorner = Instance.new("UICorner")
-        toggleCorner.CornerRadius = UDim.new(1, 0)
-        toggleCorner.Parent = toggleTrack
+        local buttonCorner = Instance.new("UICorner")
+        buttonCorner.CornerRadius = UDim.new(0, 6)
+        buttonCorner.Parent = sellButton
     
-        local toggleStroke = Instance.new("UIStroke")
-        toggleStroke.Color = MUTED
-        toggleStroke.Thickness = 1
-        toggleStroke.Transparency = 0.65
-        toggleStroke.Parent = toggleTrack
+        local buttonStroke = Instance.new("UIStroke")
+        buttonStroke.Color = RED_LIGHT
+        buttonStroke.Thickness = 1
+        buttonStroke.Transparency = 0.2
+        buttonStroke.Parent = sellButton
     
         --==================================================
-        -- TOGGLE KNOB
+        -- BUTTON HOVER
         --==================================================
     
-        local toggleKnob = Instance.new("Frame")
-        toggleKnob.Name = "ToggleKnob"
-        toggleKnob.Position = UDim2.fromOffset(3, 3)
-        toggleKnob.Size = UDim2.fromOffset(14, 14)
-        toggleKnob.BackgroundColor3 = Color3.fromRGB(220, 225, 235)
-        toggleKnob.BorderSizePixel = 0
-        toggleKnob.ZIndex = 5
-        toggleKnob.Parent = toggleTrack
+        sellButton.MouseEnter:Connect(function()
+            if not sellBusy then
+                sellButton.BackgroundColor3 = RED
+            end
+        end)
     
-        local knobCorner = Instance.new("UICorner")
-        knobCorner.CornerRadius = UDim.new(1, 0)
-        knobCorner.Parent = toggleKnob
+        sellButton.MouseLeave:Connect(function()
+            if not sellBusy then
+                sellButton.BackgroundColor3 = RED_DARK
+            end
+        end)
+    
+        --==================================================
+        -- SELL ALL FUNCTION
+        --==================================================
+    
+        sellButton.MouseButton1Click:Connect(function()
+    
+            if sellBusy then
+                return
+            end
+    
+            sellBusy = true
+            sellButton.Text = "..."
+            sellButton.BackgroundColor3 = Color3.fromRGB(65, 70, 85)
+    
+            task.spawn(function()
+    
+                local success, err = pcall(function()
+    
+                    local animals = DataController:Get("Animals") or {}
+                    local eligibleAnimals = {}
+    
+                    for id, entry in pairs(animals) do
+    
+                        if not entry.Placed and not entry.Bought then
+    
+                            table.insert(eligibleAnimals, {
+                                Id = id,
+                                Entry = entry
+                            })
+    
+                        end
+    
+                    end
+    
+                    if #eligibleAnimals == 0 then
+                        sellButton.Text = "NO ANIMALS"
+                        task.wait(1.5)
+                        return
+                    end
+    
+                    local choice = EventSellConfirm.AskAsync(
+                        eligibleAnimals,
+                        {
+                            IsBatch = true
+                        }
+                    )
+    
+                    if choice == "Keep" then
+                        return
+                    end
+    
+                    if choice == "SellOthers" then
+                        Remotes.Invoke("Plot_SellAll", {
+                            KeepEventOnly = true
+                        })
+                    else
+                        Remotes.Invoke("Plot_SellAll")
+                    end
+    
+                    sellButton.Text = "DONE"
+                    task.wait(1.5)
+    
+                end)
+    
+                if not success then
+                    warn("[BZHUB] Sell All Error:", err)
+                    sellButton.Text = "FAILED"
+                    task.wait(1.5)
+                end
+    
+                sellBusy = false
+                sellButton.Text = "SELL"
+                sellButton.BackgroundColor3 = RED_DARK
+    
+            end)
+    
+        end)
     
     end)
+
 end
 
 return GameModule
