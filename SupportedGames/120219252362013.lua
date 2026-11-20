@@ -362,11 +362,49 @@ function GameModule.Register(api)
         autoFarmButton.TextSize = 11
         autoFarmButton.Font = Enum.Font.GothamBold
         autoFarmButton.AutoButtonColor = false
+        autoFarmButton.ZIndex = 5
         autoFarmButton.Parent = farmHeader
 
         local autoFarmButtonCorner = Instance.new("UICorner")
         autoFarmButtonCorner.CornerRadius = UDim.new(0, 8)
         autoFarmButtonCorner.Parent = autoFarmButton
+
+        -- Layered strokes create a soft neon halo around the button itself.
+        helpers.autoFarmGlowOuter = Instance.new("Frame")
+        helpers.autoFarmGlowOuter.Name = "NeonGlowOuter"
+        helpers.autoFarmGlowOuter.AnchorPoint = Vector2.new(0.5, 0.5)
+        helpers.autoFarmGlowOuter.Position = UDim2.fromScale(0.5, 0.5)
+        helpers.autoFarmGlowOuter.Size = UDim2.new(1, 18, 1, 16)
+        helpers.autoFarmGlowOuter.BackgroundTransparency = 1
+        helpers.autoFarmGlowOuter.BorderSizePixel = 0
+        helpers.autoFarmGlowOuter.ZIndex = 2
+        helpers.autoFarmGlowOuter.Parent = autoFarmButton
+        helpers.autoFarmGlowOuterCorner = Instance.new("UICorner")
+        helpers.autoFarmGlowOuterCorner.CornerRadius = UDim.new(0, 13)
+        helpers.autoFarmGlowOuterCorner.Parent = helpers.autoFarmGlowOuter
+        helpers.autoFarmGlowOuterStroke = Instance.new("UIStroke")
+        helpers.autoFarmGlowOuterStroke.Color = Color3.fromRGB(0, 145, 255)
+        helpers.autoFarmGlowOuterStroke.Thickness = 8
+        helpers.autoFarmGlowOuterStroke.Transparency = 1
+        helpers.autoFarmGlowOuterStroke.Parent = helpers.autoFarmGlowOuter
+
+        helpers.autoFarmGlowInner = Instance.new("Frame")
+        helpers.autoFarmGlowInner.Name = "NeonGlowInner"
+        helpers.autoFarmGlowInner.AnchorPoint = Vector2.new(0.5, 0.5)
+        helpers.autoFarmGlowInner.Position = UDim2.fromScale(0.5, 0.5)
+        helpers.autoFarmGlowInner.Size = UDim2.new(1, 8, 1, 8)
+        helpers.autoFarmGlowInner.BackgroundTransparency = 1
+        helpers.autoFarmGlowInner.BorderSizePixel = 0
+        helpers.autoFarmGlowInner.ZIndex = 3
+        helpers.autoFarmGlowInner.Parent = autoFarmButton
+        helpers.autoFarmGlowInnerCorner = Instance.new("UICorner")
+        helpers.autoFarmGlowInnerCorner.CornerRadius = UDim.new(0, 11)
+        helpers.autoFarmGlowInnerCorner.Parent = helpers.autoFarmGlowInner
+        helpers.autoFarmGlowInnerStroke = Instance.new("UIStroke")
+        helpers.autoFarmGlowInnerStroke.Color = Color3.fromRGB(70, 190, 255)
+        helpers.autoFarmGlowInnerStroke.Thickness = 4
+        helpers.autoFarmGlowInnerStroke.Transparency = 1
+        helpers.autoFarmGlowInnerStroke.Parent = helpers.autoFarmGlowInner
 
         helpers.autoFarmButtonStroke = Instance.new("UIStroke")
         helpers.autoFarmButtonStroke.Color = Color3.fromRGB(45, 155, 255)
@@ -383,12 +421,20 @@ function GameModule.Register(api)
                 Scale = 1.09
             }):Play()
             TweenService:Create(helpers.autoFarmButtonStroke, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                Transparency = 0.05,
-                Thickness = 2.4
+                Transparency = 0.02,
+                Thickness = 2
             }):Play()
+            TweenService:Create(helpers.autoFarmGlowOuterStroke, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                Transparency = 0.28,
+                Thickness = 10
+            }):Play()
+            TweenService:Create(helpers.autoFarmGlowInnerStroke, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                Transparency = 0.12,
+                Thickness = 5
+            }):Play()
+            -- Keep the label unchanged; only the button body and its halo animate.
             TweenService:Create(autoFarmButton, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                BackgroundColor3 = Color3.fromRGB(220, 240, 255),
-                TextColor3 = Color3.fromRGB(15, 75, 125)
+                BackgroundColor3 = Color3.fromRGB(245, 250, 255)
             }):Play()
         end)
 
@@ -400,9 +446,16 @@ function GameModule.Register(api)
                 Transparency = 0.72,
                 Thickness = 1
             }):Play()
+            TweenService:Create(helpers.autoFarmGlowOuterStroke, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                Transparency = 1,
+                Thickness = 8
+            }):Play()
+            TweenService:Create(helpers.autoFarmGlowInnerStroke, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                Transparency = 1,
+                Thickness = 4
+            }):Play()
             TweenService:Create(autoFarmButton, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                BackgroundColor3 = Color3.fromRGB(245, 247, 250),
-                TextColor3 = Color3.fromRGB(18, 25, 35)
+                BackgroundColor3 = Color3.fromRGB(245, 247, 250)
             }):Play()
         end)
 
@@ -3174,5 +3227,5 @@ function GameModule.Register(api)
 
     end)
 end
-
-return GameModule
+--123123123123
+return GameModulesw
