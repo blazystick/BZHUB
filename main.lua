@@ -2151,6 +2151,9 @@ function BZHUB_API.AddCategory(name, text, callback)
     if name == "Automation" then
         button.Text = "    " .. string.upper(text)
     end
+    if name == "Upgrades" then
+        button.Text = "    " .. string.upper(text)
+    end
     pages[name] = page
 
     button.MouseButton1Click:Connect(function()
