@@ -1,7 +1,7 @@
 
 --==================================================
 -- BZHUB TOOLS
--- THROW FOOD FOR ANIMALS
+-- THROW FOOD FOR ANIMALS v5
 --==================================================
 
 local GameModule = {}
@@ -521,7 +521,40 @@ function GameModule.Register(api)
         local switchKnobCorner = Instance.new("UICorner")
         switchKnobCorner.CornerRadius = UDim.new(1, 0)
         switchKnobCorner.Parent = switchKnob
-
+        local function setSwitchState(enabled, instant)
+            local knobPosition = enabled
+                and UDim2.new(1, -26, 0, 3)
+                or UDim2.fromOffset(3, 3)
+        
+            local backgroundColor = enabled
+                and Color3.fromRGB(45, 155, 255)
+                or Color3.fromRGB(43, 53, 68)
+        
+            local strokeTransparency = enabled and 0.08 or 0.55
+        
+            if instant then
+                switchKnob.Position = knobPosition
+                switchButton.BackgroundColor3 = backgroundColor
+                switchStroke.Transparency = strokeTransparency
+            else
+                makeTween(switchKnob, 0.2, {
+                    Position = knobPosition
+                })
+        
+                makeTween(switchButton, 0.2, {
+                    BackgroundColor3 = backgroundColor
+                })
+        
+                makeTween(switchStroke, 0.2, {
+                    Transparency = strokeTransparency
+                })
+            end
+        
+            if stateLabel then
+                stateLabel.Text = enabled and tr("enabled") or tr("disabled")
+                stateLabel.TextColor3 = enabled and ACCENT_BRIGHT or MUTED
+            end
+        end
         local stateLabel = Instance.new("TextLabel")
         stateLabel.Name = "StateLabel"
         stateLabel.AnchorPoint = Vector2.new(1, 0)
