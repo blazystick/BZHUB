@@ -1,4 +1,4 @@
---
+--5623435
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -4734,7 +4734,7 @@ function GameModule.Register(api)
         foodStroke.Transparency = 0.08
         foodStroke.Parent = foodCard
         
-        local function refreshFoodCard()
+        local function refreshFoodCard() 
             local FOOD_ON_COLOR = Color3.fromRGB(35, 220, 125)
             local FOOD_ON_BG = Color3.fromRGB(8, 45, 27)
             
@@ -4759,23 +4759,13 @@ function GameModule.Register(api)
                 foodCard.BackgroundTransparency = 0.2
             end
             
-            foodCard.MouseEnter:Connect(function()
-                foodCard.BackgroundTransparency = 0.08
-            end)
-            
-            foodCard.MouseLeave:Connect(function()
-                foodCard.BackgroundTransparency = 0.2
-            end)
-        end
-        
         foodCard.MouseEnter:Connect(function()
-            foodCard.BackgroundTransparency = 0.12
+            foodCard.BackgroundTransparency = 0.08
         end)
-        
+            
         foodCard.MouseLeave:Connect(function()
-            foodCard.BackgroundTransparency = upgradeRunning.Food and 0.12 or 0.25
+            foodCard.BackgroundTransparency = 0.2
         end)
-        
         foodCard.Activated:Connect(function()
             if upgradeRunning.Food then
                 stopSmartUpgrade("Food")
