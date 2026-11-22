@@ -5084,10 +5084,49 @@ function GameModule.Register(api)
         --==================================================
         -- SCRIPT STATUS
         --==================================================
-    
+        
         labels.Script.Text = "● RUNNING"
         labels.Script.TextColor3 = GREEN
-    
+        --==================================================
+        -- STAT VALUE PARSER
+        --==================================================
+        
+        local statMultipliers = {
+            K=1e3, M=1e6, B=1e9, T=1e12,
+            QA=1e15, QI=1e18, SX=1e21, SP=1e24,
+            OC=1e27, NO=1e30, DC=1e33,
+            UD=1e36, DD=1e39, TD=1e42,
+            QAD=1e45, QID=1e48, SXD=1e51,
+            SPD=1e54, OCD=1e57, NOD=1e60,
+            VG=1e63, UVG=1e66, DVG=1e69,
+            TVG=1e72, QAVG=1e75, QIVG=1e78,
+            SXVG=1e81, SPVG=1e84, OCVG=1e87,
+            NOVG=1e90, TG=1e93, UTG=1e96,
+            DTG=1e99, TSTG=1e102, QATTG=1e105,
+            QNTG=1e108, SSTG=1e111, SETG=1e114,
+            OTRG=1e117, NVTG=1e120, QAG=1e123,
+            UQG=1e126, DQG=1e129, TQG=1e132,
+            QAQG=1e135, QNQG=1e138, SXQG=1e141,
+            SPQG=1e144, OQG=1e147, NQG=1e150,
+            QIG=1e153
+        }
+        
+        local function parseStatValue(valueObject)
+            if not valueObject then return nil end
+        
+            local raw = tostring(valueObject.Value):upper()
+            raw = raw:gsub("%$", "")
+                :gsub(",", "")
+                :gsub("%s", "")
+                :gsub("/S", "")
+        
+            local number, suffix = raw:match("^([%d%.]+)(%a*)$")
+            number = tonumber(number)
+        
+            if not number then return nil end
+        
+            return number * (statMultipliers[suffix or ""] or 1)
+        end
         --==================================================
         -- LIVE DATA UPDATE
         --==================================================
