@@ -1,4 +1,4 @@
-
+--123123123
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -3636,6 +3636,112 @@ function GameModule.Register(api)
         LocalizationService:GetPropertyChangedSignal("RobloxLocaleId"):Connect(function()
             helpers.refreshLanguage()
         end)
+
+        --==================================================
+        -- AUTOMATION CATEGORY BUTTON SOUNDS
+        --==================================================
+        -- This category has its own callback, so its buttons must be
+        -- connected here rather than relying on the Upgrades category.
+        local automationSoundService = game:GetService("SoundService")
+        local automationContentProvider = game:GetService("ContentProvider")
+        local automationDebris = game:GetService("Debris")
+        local AUTOMATION_SOUND_ID = "rbxassetid://12221967"
+        local AUTOMATION_SOUND_VOLUME = 1
+        local AUTOMATION_SOUND_SPEED = 1
+        local AUTOMATION_SOUND_DEBOUNCE = 0.08
+
+        local automationSoundTemplate = Instance.new("Sound")
+        automationSoundTemplate.Name = "BZHUB_AutomationButtonClickTemplate"
+        automationSoundTemplate.SoundId = AUTOMATION_SOUND_ID
+        automationSoundTemplate.Volume = AUTOMATION_SOUND_VOLUME
+        automationSoundTemplate.PlaybackSpeed = AUTOMATION_SOUND_SPEED
+        automationSoundTemplate.Parent = automationSoundService
+
+        task.spawn(function()
+            local ok, err = pcall(function()
+                automationContentProvider:PreloadAsync({automationSoundTemplate})
+            end)
+            if ok then
+                print("[BZHUB AUTOMATION SOUND] Template loaded:", automationSoundTemplate.IsLoaded)
+            else
+                warn("[BZHUB AUTOMATION SOUND] Template preload failed:", err)
+            end
+        end)
+
+        local automationConnectedButtons = setmetatable({}, {__mode = "k"})
+        local automationButtonCount = 0
+
+        local function playAutomationButtonSound(button)
+            local sound = automationSoundTemplate:Clone()
+            sound.Name = "BZHUB_AutomationButtonClick"
+            sound.Volume = AUTOMATION_SOUND_VOLUME
+            sound.PlaybackSpeed = AUTOMATION_SOUND_SPEED
+            sound.Parent = automationSoundService
+
+            task.spawn(function()
+                local loaded, loadErr = pcall(function()
+                    automationContentProvider:PreloadAsync({sound})
+                end)
+                if not loaded then
+                    warn("[BZHUB AUTOMATION SOUND] Click preload failed:", loadErr)
+                end
+
+                local played, playErr = pcall(function()
+                    sound:Play()
+                end)
+                if played then
+                    print("[BZHUB AUTOMATION SOUND] PLAYED:", button.Name)
+                    automationDebris:AddItem(sound, 4)
+                else
+                    warn("[BZHUB AUTOMATION SOUND] Playback failed:", button.Name, playErr)
+                    sound:Destroy()
+                end
+            end)
+        end
+
+        local function attachAutomationButtonSound(object)
+            if not object:IsA("GuiButton") or automationConnectedButtons[object] then
+                return
+            end
+
+            automationConnectedButtons[object] = true
+            automationButtonCount += 1
+            local lastPlayedAt = 0
+            print("[BZHUB AUTOMATION SOUND] CONNECTED:", object:GetFullName())
+
+            local function onPressed()
+                local now = os.clock()
+                if now - lastPlayedAt < AUTOMATION_SOUND_DEBOUNCE then
+                    return
+                end
+                lastPlayedAt = now
+                print("[BZHUB AUTOMATION SOUND] CLICK:", object.Name)
+                playAutomationButtonSound(object)
+            end
+
+            object.Activated:Connect(onPressed)
+            object.MouseButton1Click:Connect(onPressed)
+        end
+
+        for _, object in ipairs(page:GetDescendants()) do
+            attachAutomationButtonSound(object)
+        end
+        page.DescendantAdded:Connect(attachAutomationButtonSound)
+
+        if hudGui then
+            for _, object in ipairs(hudGui:GetDescendants()) do
+                attachAutomationButtonSound(object)
+            end
+            hudGui.DescendantAdded:Connect(attachAutomationButtonSound)
+        end
+        if afkHudGui then
+            for _, object in ipairs(afkHudGui:GetDescendants()) do
+                attachAutomationButtonSound(object)
+            end
+            afkHudGui.DescendantAdded:Connect(attachAutomationButtonSound)
+        end
+
+        print("[BZHUB AUTOMATION SOUND] READY. Connected buttons:", automationButtonCount)
     end)
     
     
