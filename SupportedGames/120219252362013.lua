@@ -5072,33 +5072,42 @@ function GameModule.Register(api)
         labels.Script.TextColor3 = GREEN
     
         --==================================================
-        -- LIVE UPDATE
+        -- LIVE DATA UPDATE
         --==================================================
-    
         
+        local currentCashPerSecond = nil
+        
+        local function refreshMoneyValues()
+        
+            local money = parseStatValue(moneyValue)
+            currentCashPerSecond = parseStatValue(cashPerSecondValue)
+        
+            labels.Money.Text = formatNumber(money)
+            labels.CashPerSecond.Text = formatNumber(currentCashPerSecond)
+        end
+        
+        -- Değerler değiştiğinde anında güncelle.
+        moneyValue.Changed:Connect(refreshMoneyValues)
+        cashPerSecondValue.Changed:Connect(refreshMoneyValues)
+        
+        -- İlk değerleri hemen yükle.
+        refreshMoneyValues()
+        
+        -- Sadece zaman ve hesaplanan değerleri saniyede bir güncelle.
         task.spawn(function()
             while page.Parent and content.Parent do
         
                 local elapsed = os.clock() - sessionStartedAt
         
-                local money = moneyValue.Value
-                local cashPerSecond = cashPerSecondValue.Value
-        
-                if type(money) ~= "number" then
-                    money = tonumber(money)
-                end
-        
-                if type(cashPerSecond) ~= "number" then
-                    cashPerSecond = tonumber(cashPerSecond)
-                end
-        
                 labels.Session.Text = formatTime(elapsed)
-                labels.Money.Text = formatNumber(money)
-                labels.CashPerSecond.Text = formatNumber(cashPerSecond)
         
-                labels.Earned.Text = formatNumber(
-                    (cashPerSecond or 0) * elapsed
-                )
+                if currentCashPerSecond ~= nil then
+                    labels.Earned.Text = formatNumber(
+                        currentCashPerSecond * elapsed
+                    )
+                else
+                    labels.Earned.Text = "N/A"
+                end
         
                 labels.Throws.Text = tostring(api.TotalThrows or 0)
         
