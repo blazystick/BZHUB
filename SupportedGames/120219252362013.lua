@@ -1,4 +1,4 @@
-
+--
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -4531,9 +4531,9 @@ function GameModule.Register(api)
         local upgradePlayers = game:GetService("Players")
         local upgradePlayer = upgradePlayers.LocalPlayer
         local upgradePlayerGui = upgradePlayer:WaitForChild("PlayerGui")
-        local upgradeRunning = { TrainBar = false, Food = false }
-        local upgradeWorkers = { TrainBar = 0, Food = 0 }
-        local upgradeStatus = { TrainBar = "OFF", Food = "OFF" }
+        local upgradeRunning = { Food = false }
+        local upgradeWorkers = { Food = 0 }
+        local upgradeStatus = { Food = "OFF" }
         local SMART_WAIT_SECONDS = 5
         local UPGRADE_SCAN_INTERVAL = 0.35
 
@@ -4676,204 +4676,7 @@ function GameModule.Register(api)
             return unique
         end
 
-        local function findTrainingPrompt()
-            local best, bestScore = nil, -math.huge
-            for _, object in ipairs(workspace:GetDescendants()) do
-                if object:IsA("ProximityPrompt") and object.Enabled then
-                    local parentText = object.ObjectText .. " " .. object.ActionText
-                    local ancestry = object:GetFullName():lower()
-                    local score = 0
-                    if ancestry:find("training", 1, true) then score += 10 end
-                    if ancestry:find("train", 1, true) then score += 5 end
-                    if parentText:lower():find("train", 1, true) then score += 5 end
-                    if parentText:lower():find("upgrade", 1, true) then score += 3 end
-                    if score > bestScore then best, bestScore = object, score end
-                end
-            end
-            if bestScore >= 5 then return best end
-            return nil
-        end
-
-        local function getTrainingPromptCost(prompt)
-            if not prompt then return nil end
-            local texts = { prompt.ObjectText, prompt.ActionText }
-            local parent = prompt.Parent
-            for _ = 1, 4 do
-                if not parent then break end
-                table.insert(texts, getTextFromTree(parent))
-                parent = parent.Parent
-            end
-            return extractCost(table.concat(texts, " "))
-        end
-
-        local function waitForSmartPurchase(cost, cash, cashPerSecond)
-            if not cost or not cash then return false end
-            if cash >= cost then return true end
-            if not cashPerSecond or cashPerSecond <= 0 then return false end
-            local seconds = (cost - cash) / cashPerSecond
-            return seconds <= SMART_WAIT_SECONDS, seconds
-        end
-
-        -- Food purchases use the game's own data/config/remotes instead of
-        -- scanning shop GUI buttons. Food is tracked by OwnedFoods, not inventory.
-        local foodApi = {}
-        do
-            local replicatedStorage = game:GetService("ReplicatedStorage")
-            local playerScripts = upgradePlayer:WaitForChild("PlayerScripts")
-            local client = playerScripts:WaitForChild("Client")
-            local controllers = client:WaitForChild("Controllers")
-
-            foodApi.FoodsConfig = require(replicatedStorage:WaitForChild("Config"):WaitForChild("FoodsConfig"))
-            foodApi.BalanceCurve = require(replicatedStorage:WaitForChild("Shared"):WaitForChild("BalanceCurve"))
-            foodApi.Remotes = require(replicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
-            foodApi.DataController = require(controllers:WaitForChild("DataController"))
-        end
-
-        local foodProgressFloor = tonumber(foodApi.DataController:Get("EquippedFood")) or 0
-        local foodPendingEquip = nil
-        local foodNextRemoteAt = 0
-
-        local function getFoodOwned(index)
-            return foodApi.DataController:GetPath("OwnedFoods." .. tostring(index)) == true
-        end
-
-        local function invokeFoodRemote(remoteName, index)
-            local callOk, response = pcall(foodApi.Remotes.Invoke, remoteName, index)
-            if not callOk then
-                return false, tostring(response)
-            end
-            return type(response) == "table" and response.Ok == true, response
-        end
-
-        local function tryFoodUpgrade()
-            local data = foodApi.DataController
-            local cash = tonumber(data:Get("Money"))
-            if not cash then return false, "Food: Money data not found" end
-
-            local equipped = tonumber(data:Get("EquippedFood")) or 0
-            foodProgressFloor = math.max(foodProgressFloor, equipped)
-
-            -- If a purchase succeeded but equip replication was delayed, retry
-            -- only that equip. This prevents selecting a lower Food in between.
-            if foodPendingEquip then
-                if os.clock() < foodNextRemoteAt then
-                    return false, "Waiting for Food equip response"
-                end
-                foodNextRemoteAt = os.clock() + 1.0
-                local equippedOk = invokeFoodRemote("Shop_Equip", foodPendingEquip)
-                if equippedOk then
-                    foodProgressFloor = math.max(foodProgressFloor, foodPendingEquip)
-                    local finishedIndex = foodPendingEquip
-                    foodPendingEquip = nil
-                    return true, "Equipped Food " .. tostring(finishedIndex)
-                end
-                return false, "Waiting for Food ownership/equip replication"
-            end
-
-            -- First equip the highest already-owned Food above the current
-            -- progression point, if one exists. Never downgrade to a lower tier.
-            local count = foodApi.FoodsConfig.CountAll()
-            local ownedTarget = nil
-            for index = count, foodProgressFloor + 1, -1 do
-                if not foodApi.FoodsConfig.IsLocked(index) and getFoodOwned(index) then
-                    ownedTarget = index
-                    break
-                end
-            end
-
-            if ownedTarget then
-                if os.clock() < foodNextRemoteAt then
-                    return false, "Waiting before Food equip"
-                end
-                foodNextRemoteAt = os.clock() + 1.0
-                local equipOk = invokeFoodRemote("Shop_Equip", ownedTarget)
-                if equipOk then
-                    foodProgressFloor = math.max(foodProgressFloor, ownedTarget)
-                    return true, "Equipped owned Food " .. tostring(ownedTarget)
-                end
-                return false, "Food equip failed; will retry"
-            end
-
-            -- Choose the HIGHEST unlocked, unowned Food that current Money
-            -- can afford. Earlier cheaper tiers are intentionally skipped.
-            local bestIndex = nil
-            for index = foodProgressFloor + 1, count do
-                if not foodApi.FoodsConfig.IsLocked(index) and not getFoodOwned(index) then
-                    local food = foodApi.FoodsConfig.GetAny(index)
-                    if food then
-                        local priceOk, price = pcall(foodApi.BalanceCurve.GetItemPrice, upgradePlayer, food)
-                        price = priceOk and tonumber(price) or nil
-                        if price and price <= cash then
-                            bestIndex = index
-                        end
-                    end
-                end
-            end
-
-            if not bestIndex then
-                return false, "Waiting for a higher affordable Food"
-            end
-            if os.clock() < foodNextRemoteAt then
-                return false, "Food purchase cooldown"
-            end
-
-            foodNextRemoteAt = os.clock() + 1.0
-            local boughtOk, buyResponse = invokeFoodRemote("Shop_Buy", bestIndex)
-            if not boughtOk then
-                local reason = type(buyResponse) == "table" and buyResponse.Reason or buyResponse
-                return false, "Food " .. tostring(bestIndex) .. " purchase failed: " .. tostring(reason or "Unknown")
-            end
-
-            -- The server purchase succeeded. Advance the local floor immediately
-            -- so a lower unowned tier is never selected while data replicates.
-            foodProgressFloor = math.max(foodProgressFloor, bestIndex)
-            foodPendingEquip = bestIndex
-            task.wait(0.15)
-
-            local equipOk = invokeFoodRemote("Shop_Equip", bestIndex)
-            if equipOk then
-                foodPendingEquip = nil
-                return true, "Bought and equipped highest affordable Food " .. tostring(bestIndex)
-            end
-            return true, "Bought Food " .. tostring(bestIndex) .. "; waiting to equip"
-        end
-
-        local function tryTrainBarUpgrade()
-            local prompt = findTrainingPrompt()
-            if not prompt then return false, "Training ProximityPrompt not found" end
-            local cost = getTrainingPromptCost(prompt)
-            local cash = getUpgradeCash()
-            local rate = getUpgradeCashPerSecond()
-            if not cost then return false, "Next Train Bar price not readable" end
-            if not cash then return false, "Cash value not found" end
-            if cash < cost then
-                local seconds = rate and rate > 0 and ((cost - cash) / rate) or nil
-                if seconds and seconds <= SMART_WAIT_SECONDS then
-                    return false, string.format("Waiting for next Train Bar level (%.1fs)", seconds)
-                end
-                return false, "Not enough cash for Train Bar upgrade"
-            end
-            local character = upgradePlayer.Character
-            local root = character and character:FindFirstChild("HumanoidRootPart")
-            local part = prompt.Parent
-            if part and part:IsA("Attachment") then part = part.Parent end
-            if part and part:IsA("Model") then part = part.PrimaryPart or part:FindFirstChildWhichIsA("BasePart", true) end
-            if part and part:IsA("BasePart") and root
-                and (root.Position - part.Position).Magnitude > prompt.MaxActivationDistance then
-                return false, "Move within Train Bar interaction range"
-            end
-            local hold = math.max(0, prompt.HoldDuration)
-            local ok = pcall(function()
-                prompt:InputHoldBegin()
-                if hold > 0 then task.wait(hold) end
-                prompt:InputHoldEnd()
-            end)
-            if not ok then
-                pcall(function() prompt:InputHoldEnd() end)
-                return false, "Train Bar interaction failed"
-            end
-            return true, "Train Bar interaction sent"
-        end
+        
 
         local function startSmartUpgrade(key, worker)
             upgradeWorkers[key] += 1
@@ -4961,7 +4764,6 @@ function GameModule.Register(api)
             return card
         end
 
-        createSmartUpgradeToggle("AUTO UPGRADE TRAIN BAR", 64, "TrainBar", tryTrainBarUpgrade)
         createSmartUpgradeToggle("AUTO UPGRADE FOOD", 120, "Food", tryFoodUpgrade)
         end -- closes smart auto-upgrade scope
 
