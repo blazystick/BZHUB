@@ -4329,7 +4329,7 @@ function GameModule.Register(api)
             return true
         end
 
-                --==================================================
+        --==================================================
         -- MAIN CARD
         --==================================================
     
@@ -4345,180 +4345,92 @@ function GameModule.Register(api)
         local cardCorner = Instance.new("UICorner")
         cardCorner.CornerRadius = UDim.new(0, 9)
         cardCorner.Parent = sellCard
-    
+        
+        
         --==================================================
-        -- CARD BORDER
+        -- FULL SIZE ACTION CARD STYLE
         --==================================================
-    
-        local cardStroke = Instance.new("UIStroke")
-        cardStroke.Color = RED
-        cardStroke.Thickness = 1.4
-        cardStroke.Transparency = 0.12
-        cardStroke.Parent = sellCard
-    
-        --==================================================
-        -- PAW CONTAINER
-        --==================================================
-    
-        local pawContainer = Instance.new("Frame")
-        pawContainer.Name = "PawLogo"
-        pawContainer.Size = UDim2.fromOffset(34, 34)
-        pawContainer.Position = UDim2.fromOffset(10, 7)
-        pawContainer.BackgroundTransparency = 1
-        pawContainer.ZIndex = 4
-        pawContainer.Parent = sellCard
-    
-        --==================================================
-        -- PAW SHAPE HELPER
-        --==================================================
-    
-        local function createPawPart(name, x, y, width, height, rotation, color, zIndex)
-    
-            local part = Instance.new("Frame")
-            part.Name = name
-            part.AnchorPoint = Vector2.new(0.5, 0.5)
-            part.Position = UDim2.fromOffset(x, y)
-            part.Size = UDim2.fromOffset(width, height)
-            part.Rotation = rotation or 0
-            part.BackgroundColor3 = color or RED
-            part.BorderSizePixel = 0
-            part.ZIndex = zIndex or 5
-            part.Parent = pawContainer
-    
+        
+        local GREEN = Color3.fromRGB(35, 220, 125)
+        local GREEN_BG = Color3.fromRGB(8, 45, 27)
+        
+        local function createLargeActionCard(name, text, position)
+            local card = Instance.new("TextButton")
+            card.Name = name
+            card.Position = position
+            card.Size = UDim2.new(1, 0, 0.5, -4)
+            card.BackgroundColor3 = GREEN_BG
+            card.BackgroundTransparency = 0.25
+            card.BorderSizePixel = 0
+            card.AutoButtonColor = false
+            card.Text = text
+            card.TextColor3 = Color3.fromRGB(255, 255, 255)
+            card.TextSize = 25
+            card.Font = Enum.Font.GothamBold
+            card.TextWrapped = true
+            card.ZIndex = 3
+            card.Parent = page
+        
             local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(1, 0)
-            corner.Parent = part
-    
-            return part
+            corner.CornerRadius = UDim.new(0, 12)
+            corner.Parent = card
+        
+            local stroke = Instance.new("UIStroke")
+            stroke.Color = GREEN
+            stroke.Thickness = 2
+            stroke.Transparency = 0.08
+            stroke.Parent = card
+        
+            card.MouseEnter:Connect(function()
+                card.BackgroundTransparency = 0.12
+            end)
+        
+            card.MouseLeave:Connect(function()
+                card.BackgroundTransparency = 0.25
+            end)
+        
+            return card
         end
-    
+        
         --==================================================
-        -- PAW SHAPE
+        -- SELL ALL ANIMALS
         --==================================================
-    
-        createPawPart("MainPad", 17, 24, 22, 16, 0, RED, 5)
-    
-        createPawPart("Toe1", 5, 12, 7, 10, -25, RED, 5)
-        createPawPart("Toe2", 12, 7, 7, 10, -8, RED_LIGHT, 5)
-        createPawPart("Toe3", 22, 7, 7, 10, 8, RED_LIGHT, 5)
-        createPawPart("Toe4", 29, 12, 7, 10, 25, RED, 5)
-    
-        --==================================================
-        -- DIVIDER
-        --==================================================
-    
-        local divider = Instance.new("Frame")
-        divider.Name = "LogoDivider"
-        divider.Position = UDim2.fromOffset(49, 10)
-        divider.Size = UDim2.new(0, 1, 1, -20)
-        divider.BackgroundColor3 = MUTED
-        divider.BackgroundTransparency = 0.75
-        divider.BorderSizePixel = 0
-        divider.ZIndex = 4
-        divider.Parent = sellCard
-    
-        --==================================================
-        -- TITLE
-        --==================================================
-    
-        local sellTitle = Instance.new("TextLabel")
-        sellTitle.Name = "Title"
-        sellTitle.BackgroundTransparency = 1
-        sellTitle.Position = UDim2.fromOffset(60, 0)
-        sellTitle.Size = UDim2.new(1, -150, 1, 0)
-        sellTitle.Font = Enum.Font.GothamBold
-        sellTitle.Text = "SELL ALL ANIMALS"
-        sellTitle.TextColor3 = TEXT
-        sellTitle.TextSize = 11
-        sellTitle.TextXAlignment = Enum.TextXAlignment.Left
-        sellTitle.ZIndex = 4
-        sellTitle.Parent = sellCard
-    
-        --==================================================
-        -- SELL BUTTON
-        --==================================================
-    
-        local sellButton = Instance.new("TextButton")
-        sellButton.Name = "SellButton"
-        sellButton.AnchorPoint = Vector2.new(1, 0.5)
-        sellButton.Position = UDim2.new(1, -10, 0.5, 0)
-        sellButton.Size = UDim2.fromOffset(75, 27)
-        sellButton.BackgroundColor3 = RED_DARK
-        sellButton.BorderSizePixel = 0
-        sellButton.AutoButtonColor = false
-        sellButton.Font = Enum.Font.GothamBold
-        sellButton.Text = "SELL"
-        sellButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-        sellButton.TextSize = 10
-        sellButton.ZIndex = 5
-        sellButton.Parent = sellCard
-    
-        local buttonCorner = Instance.new("UICorner")
-        buttonCorner.CornerRadius = UDim.new(0, 6)
-        buttonCorner.Parent = sellButton
-    
-        local buttonStroke = Instance.new("UIStroke")
-        buttonStroke.Color = RED_LIGHT
-        buttonStroke.Thickness = 1
-        buttonStroke.Transparency = 0.2
-        buttonStroke.Parent = sellButton
-    
-        --==================================================
-        -- BUTTON HOVER
-        --==================================================
-    
-        sellButton.MouseEnter:Connect(function()
-    
-            if not sellBusy then
-                sellButton.BackgroundColor3 = RED
-            end
-        end)
-    
-        sellButton.MouseLeave:Connect(function()
-    
-            if not sellBusy then
-                sellButton.BackgroundColor3 = RED_DARK
-            end
-        end)
-    
-        --==================================================
-        -- SELL BUTTON ACTION
-        --==================================================
-    
-        sellButton.MouseButton1Click:Connect(function()
-    
-            if sellBusy then
-                return
-            end
-    
+        
+        local sellCard = createLargeActionCard(
+            "SellAllAnimalsCard",
+            "SELL ALL ANIMALS",
+            UDim2.new(0, 2, 0, 2)
+        )
+        
+        sellCard.Size = UDim2.new(1, -4, 0.5, -5)
+        
+        sellCard.Activated:Connect(function()
+            if sellBusy then return end
+        
             sellBusy = true
-            sellButton.Text = "WORKING..."
-            sellButton.BackgroundColor3 = Color3.fromRGB(65, 70, 85)
-    
+            sellCard.Text = "SELLING..."
+        
             task.spawn(function()
-    
                 local success, err = pcall(function()
                     runSellAutomation(function()
-                        sellButton.Text = "RETURNING..."
-                        sellButton.BackgroundColor3 = Color3.fromRGB(35, 95, 120)
+                        sellCard.Text = "RETURNING..."
                     end)
                 end)
-    
+        
                 if success then
-                    sellButton.Text = "SOLD"
+                    sellCard.Text = "SOLD"
                 else
                     warn("[BZHUB SELL ERROR]:", err)
-                    sellButton.Text = "FAILED"
+                    sellCard.Text = "FAILED"
                 end
-    
-                task.wait(0.3)
-    
+        
+                task.wait(0.8)
+        
                 sellBusy = false
-                sellButton.Text = "SELL"
-                sellButton.BackgroundColor3 = RED_DARK
+                sellCard.Text = "SELL ALL ANIMALS"
             end)
         end)
-    
+
         --==================================================
         -- SMART AUTO UPGRADE: TRAIN BAR + FOOD (TOUCH / PC)
         --==================================================
@@ -4674,6 +4586,95 @@ function GameModule.Register(api)
         end
 
         
+        --==================================================
+        -- FOOD MODULES
+        --==================================================
+        
+        local Players = game:GetService("Players")
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        
+        local LocalPlayer = Players.LocalPlayer
+        
+        local DataController = require(
+            LocalPlayer.PlayerScripts.Client.Controllers.DataController
+        )
+        
+        local FoodsConfig = require(
+            ReplicatedStorage.Config.FoodsConfig
+        )
+        
+        local BalanceCurve = require(
+            ReplicatedStorage.Shared.BalanceCurve
+        )
+        
+        local Remotes = require(
+            ReplicatedStorage.Shared.Remotes
+        )
+        
+        --==================================================
+        -- TRY FOOD UPGRADE
+        --==================================================
+        
+        local function tryFoodUpgrade()
+        
+            local ownedFoods = DataController:Get("OwnedFoods") or {}
+            local money = tonumber(DataController:Get("Money")) or 0
+        
+            local selectedIndex = nil
+        
+            -- En yüksek indeksli satın alınabilir Food'u bul.
+            for index = 1, FoodsConfig.CountAll() do
+        
+                if not FoodsConfig.IsLocked(index) then
+        
+                    local food = FoodsConfig.GetAny(index)
+        
+                    local isOwned =
+                        ownedFoods[index] == true
+                        or ownedFoods[tostring(index)] == true
+        
+                    if food and not isOwned then
+        
+                        local price = BalanceCurve.GetItemPrice(
+                            LocalPlayer,
+                            food
+                        )
+        
+                        if price and price <= money then
+                            selectedIndex = index
+                        end
+                    end
+                end
+            end
+        
+            if not selectedIndex then
+                return false, "No affordable food available"
+            end
+        
+            -- Satın al.
+            local buySuccess, buyResult = pcall(function()
+                return Remotes.Invoke("Shop_Buy", selectedIndex)
+            end)
+        
+            if not buySuccess then
+                warn("[BZHUB FOOD] Buy error:", buyResult)
+                return false, "Purchase failed"
+            end
+        
+            task.wait(0.4)
+        
+            -- Satın alınan Food'u kuşan.
+            local equipSuccess, equipError = pcall(function()
+                return Remotes.Invoke("Shop_Equip", selectedIndex)
+            end)
+        
+            if not equipSuccess then
+                warn("[BZHUB FOOD] Equip error:", equipError)
+            end
+        
+            return true, "Food purchased: " .. tostring(selectedIndex)
+        end
+        
 
         local function startSmartUpgrade(key, worker)
             upgradeWorkers[key] += 1
@@ -4702,66 +4703,67 @@ function GameModule.Register(api)
             upgradeLog(key, "OFF")
         end
 
-        local function createSmartUpgradeToggle(name, y, key, worker)
-            local card = Instance.new("Frame")
-            card.Name = name .. "Card"
-            card.Size = UDim2.new(1, -16, 0, 48)
-            card.Position = UDim2.fromOffset(8, y)
-            card.BackgroundColor3 = CARD
-            card.BorderSizePixel = 0
-            card.ZIndex = 2
-            card.Parent = page
-            local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(0, 9)
-            corner.Parent = card
-            local stroke = Instance.new("UIStroke")
-            stroke.Color = ACCENT
-            stroke.Thickness = 1.3
-            stroke.Transparency = 0.25
-            stroke.Parent = card
-            local title = Instance.new("TextLabel")
-            title.Name = "Title"
-            title.BackgroundTransparency = 1
-            title.Position = UDim2.fromOffset(12, 0)
-            title.Size = UDim2.new(1, -112, 1, 0)
-            title.Font = Enum.Font.GothamBold
-            title.Text = name
-            title.TextColor3 = TEXT
-            title.TextSize = 10
-            title.TextXAlignment = Enum.TextXAlignment.Left
-            title.ZIndex = 4
-            title.Parent = card
-            local toggle = Instance.new("TextButton")
-            toggle.Name = "Toggle"
-            toggle.AnchorPoint = Vector2.new(1, 0.5)
-            toggle.Position = UDim2.new(1, -9, 0.5, 0)
-            toggle.Size = UDim2.fromOffset(72, 27)
-            toggle.BackgroundColor3 = RED_DARK
-            toggle.BorderSizePixel = 0
-            toggle.AutoButtonColor = false
-            toggle.Font = Enum.Font.GothamBold
-            toggle.Text = "OFF"
-            toggle.TextColor3 = Color3.new(1, 1, 1)
-            toggle.TextSize = 10
-            toggle.ZIndex = 5
-            toggle.Parent = card
-            local toggleCorner = Instance.new("UICorner")
-            toggleCorner.CornerRadius = UDim.new(0, 6)
-            toggleCorner.Parent = toggle
-            local function refresh()
-                local enabled = upgradeRunning[key]
-                toggle.Text = enabled and "ON" or "OFF"
-                toggle.BackgroundColor3 = enabled and Color3.fromRGB(35, 155, 85) or RED_DARK
-                stroke.Color = enabled and Color3.fromRGB(70, 220, 130) or ACCENT
-            end
-            toggle.Activated:Connect(function()
-                if upgradeRunning[key] then stopSmartUpgrade(key) else startSmartUpgrade(key, worker) end
-                refresh()
-            end)
-            return card
+       
+        --==================================================
+        -- FULL SIZE AUTO UPGRADE FOOD CARD
+        --==================================================
+        
+        local foodCard = Instance.new("TextButton")
+        foodCard.Name = "AutoUpgradeFoodCard"
+        foodCard.Position = UDim2.new(0, 2, 0.5, 3)
+        foodCard.Size = UDim2.new(1, -4, 0.5, -5)
+        foodCard.BackgroundColor3 = GREEN_BG
+        foodCard.BackgroundTransparency = 0.25
+        foodCard.BorderSizePixel = 0
+        foodCard.AutoButtonColor = false
+        foodCard.Text = "AUTO UPGRADE FOOD\nOFF"
+        foodCard.TextColor3 = Color3.fromRGB(255, 255, 255)
+        foodCard.TextSize = 25
+        foodCard.Font = Enum.Font.GothamBold
+        foodCard.TextWrapped = true
+        foodCard.ZIndex = 3
+        foodCard.Parent = page
+        
+        local foodCorner = Instance.new("UICorner")
+        foodCorner.CornerRadius = UDim.new(0, 12)
+        foodCorner.Parent = foodCard
+        
+        local foodStroke = Instance.new("UIStroke")
+        foodStroke.Color = GREEN
+        foodStroke.Thickness = 2
+        foodStroke.Transparency = 0.08
+        foodStroke.Parent = foodCard
+        
+        local function refreshFoodCard()
+            local enabled = upgradeRunning.Food
+        
+            foodCard.Text = enabled
+                and "AUTO UPGRADE FOOD\nON"
+                or "AUTO UPGRADE FOOD\nOFF"
+        
+            foodCard.BackgroundTransparency = enabled and 0.12 or 0.25
         end
+        
+        foodCard.MouseEnter:Connect(function()
+            foodCard.BackgroundTransparency = 0.12
+        end)
+        
+        foodCard.MouseLeave:Connect(function()
+            foodCard.BackgroundTransparency = upgradeRunning.Food and 0.12 or 0.25
+        end)
+        
+        foodCard.Activated:Connect(function()
+            if upgradeRunning.Food then
+                stopSmartUpgrade("Food")
+            else
+                startSmartUpgrade("Food", tryFoodUpgrade)
+            end
+        
+            refreshFoodCard()
+        end)
+        
+        refreshFoodCard()
 
-        createSmartUpgradeToggle("AUTO UPGRADE FOOD", 64, "Food", tryFoodUpgrade)
         end -- closes smart auto-upgrade scope
 
         --==================================================
