@@ -4685,7 +4685,7 @@ function GameModule.Register(api)
             upgradeLog(key, "ON")
             task.spawn(function()
                 while upgradeRunning[key] and upgradeWorkers[key] == workerId do
-                    local ok, success, message = pcall(worker)
+                    local ok, success, message = xpcall(worker, debug.traceback)
                     if not ok then
                         upgradeLog(key, "Error: " .. tostring(success))
                     elseif success then
@@ -4764,7 +4764,7 @@ function GameModule.Register(api)
             return card
         end
 
-        createSmartUpgradeToggle("AUTO UPGRADE FOOD", 120, "Food", tryFoodUpgrade)
+        createSmartUpgradeToggle("AUTO UPGRADE FOOD", 64, "Food", tryFoodUpgrade)
         end -- closes smart auto-upgrade scope
 
         --==================================================
