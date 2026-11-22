@@ -1,4 +1,4 @@
- 
+--123123123
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -4522,6 +4522,358 @@ function GameModule.Register(api)
             end)
         end)
     
+        --==================================================
+        -- SMART AUTO UPGRADE: TRAIN BAR + FOOD (TOUCH / PC)
+        --==================================================
+        do
+        -- Uses visible in-game prices and client ProximityPrompt input.
+        -- It deliberately does not spam output: only state changes/errors are logged.
+        local upgradePlayers = game:GetService("Players")
+        local upgradePlayer = upgradePlayers.LocalPlayer
+        local upgradePlayerGui = upgradePlayer:WaitForChild("PlayerGui")
+        local upgradeRunning = { TrainBar = false, Food = false }
+        local upgradeWorkers = { TrainBar = 0, Food = 0 }
+        local upgradeStatus = { TrainBar = "OFF", Food = "OFF" }
+        local SMART_WAIT_SECONDS = 5
+        local UPGRADE_SCAN_INTERVAL = 0.35
+
+        local function upgradeLog(key, message)
+            if upgradeStatus[key] ~= message then
+                upgradeStatus[key] = message
+                print("[BZHUB SMART UPGRADE] " .. key .. ": " .. message)
+            end
+        end
+
+        local function parseUpgradeNumber(raw)
+            if type(raw) ~= "string" then return nil end
+            local value = raw:upper():gsub(",", ""):gsub("%s", "")
+            local number, suffix = value:match("([%d%.]+)([KMBTQ][A-Z]*)")
+            if not number then
+                number = value:match("([%d%.]+)")
+                suffix = ""
+            end
+            number = tonumber(number)
+            if not number then return nil end
+            local multipliers = {
+                [""] = 1, K = 1e3, M = 1e6, B = 1e9, T = 1e12,
+                QA = 1e15, QI = 1e18, Q = 1e15, SX = 1e21,
+                SP = 1e24, OC = 1e27, NO = 1e30, DC = 1e33,
+                UD = 1e36, DD = 1e39, TD = 1e42
+            }
+            return number * (multipliers[suffix or ""] or 1)
+        end
+
+        local function getUpgradeCash()
+            local leaderstats = upgradePlayer:FindFirstChild("leaderstats")
+            if leaderstats then
+                for _, value in ipairs(leaderstats:GetChildren()) do
+                    if (value:IsA("NumberValue") or value:IsA("IntValue"))
+                        and value.Name:lower():find("cash", 1, true)
+                            or value.Name:lower():find("money", 1, true)
+                            or value.Name:lower():find("coin", 1, true) then
+                        if value:IsA("NumberValue") or value:IsA("IntValue") then
+                            return value.Value
+                        end
+                    end
+                end
+            end
+            -- Fallback: visible currency text in PlayerGui.
+            for _, object in ipairs(upgradePlayerGui:GetDescendants()) do
+                if object:IsA("TextLabel") or object:IsA("TextButton") then
+                    local name = (object.Name .. " " .. object.Text):lower()
+                    if name:find("cash", 1, true) or name:find("money", 1, true) then
+                        local amount = parseUpgradeNumber(object.Text)
+                        if amount then return amount end
+                    end
+                end
+            end
+            return nil
+        end
+
+        local function getUpgradeCashPerSecond()
+            for _, object in ipairs(upgradePlayerGui:GetDescendants()) do
+                if object:IsA("TextLabel") or object:IsA("TextButton") then
+                    local text = object.Text
+                    if text and text:find("/s", 1, true) then
+                        local amount = parseUpgradeNumber(text)
+                        if amount and amount > 0 then return amount end
+                    end
+                end
+            end
+            return nil
+        end
+
+        local function getTextFromTree(root)
+            local parts = {}
+            if root:IsA("TextLabel") or root:IsA("TextButton") then
+                table.insert(parts, root.Text)
+            end
+            for _, child in ipairs(root:GetDescendants()) do
+                if child:IsA("TextLabel") or child:IsA("TextButton") then
+                    table.insert(parts, child.Text)
+                end
+            end
+            return table.concat(parts, " ")
+        end
+
+        local function extractCost(text)
+            if type(text) ~= "string" then return nil end
+            local upper = text:upper():gsub(",", "")
+            local candidates = {}
+            for token in upper:gmatch("[%d%.]+%s*[KMBTQ][A-Z]*") do
+                local amount = parseUpgradeNumber(token)
+                if amount then table.insert(candidates, amount) end
+            end
+            if #candidates == 0 then
+                for token in upper:gmatch("%d[%d%.]*") do
+                    local amount = tonumber(token)
+                    if amount and amount >= 100 then table.insert(candidates, amount) end
+                end
+            end
+            table.sort(candidates)
+            return candidates[1]
+        end
+
+        local function isObjectVisible(object)
+            local current = object
+            while current and current ~= upgradePlayerGui do
+                if current:IsA("GuiObject") and not current.Visible then return false end
+                if current:IsA("ScreenGui") and not current.Enabled then return false end
+                current = current.Parent
+            end
+            return true
+        end
+
+        local function getFoodPurchaseButtons()
+            local results = {}
+            for _, object in ipairs(upgradePlayerGui:GetDescendants()) do
+                if object:IsA("GuiButton") and object.Visible and object.Active then
+                    local screen = object:FindFirstAncestorWhichIsA("ScreenGui")
+                    local screenName = screen and screen.Name:lower() or ""
+                    local context = getTextFromTree(object.Parent or object)
+                    local contextLower = context:lower()
+                    if (screenName:find("food", 1, true)
+                        or contextLower:find("food shop", 1, true)
+                        or contextLower:find("foodshop", 1, true)) then
+                        local cost = extractCost(context)
+                        local buttonText = object:IsA("TextButton") and object.Text:upper() or ""
+                        if cost and (buttonText == "BUY" or buttonText == "PURCHASE"
+                            or buttonText == "EQUIP" or buttonText == "") then
+                            table.insert(results, { Button = object, Cost = cost, X = object.AbsolutePosition.X })
+                        end
+                    end
+                end
+            end
+            table.sort(results, function(a, b) return a.X < b.X end)
+            -- Remove duplicate buttons/cards with the same physical button instance.
+            local unique, seen = {}, {}
+            for _, item in ipairs(results) do
+                if not seen[item.Button] then
+                    seen[item.Button] = true
+                    table.insert(unique, item)
+                end
+            end
+            return unique
+        end
+
+        local function findTrainingPrompt()
+            local best, bestScore = nil, -math.huge
+            for _, object in ipairs(workspace:GetDescendants()) do
+                if object:IsA("ProximityPrompt") and object.Enabled then
+                    local parentText = object.ObjectText .. " " .. object.ActionText
+                    local ancestry = object:GetFullName():lower()
+                    local score = 0
+                    if ancestry:find("training", 1, true) then score += 10 end
+                    if ancestry:find("train", 1, true) then score += 5 end
+                    if parentText:lower():find("train", 1, true) then score += 5 end
+                    if parentText:lower():find("upgrade", 1, true) then score += 3 end
+                    if score > bestScore then best, bestScore = object, score end
+                end
+            end
+            if bestScore >= 5 then return best end
+            return nil
+        end
+
+        local function getTrainingPromptCost(prompt)
+            if not prompt then return nil end
+            local texts = { prompt.ObjectText, prompt.ActionText }
+            local parent = prompt.Parent
+            for _ = 1, 4 do
+                if not parent then break end
+                table.insert(texts, getTextFromTree(parent))
+                parent = parent.Parent
+            end
+            return extractCost(table.concat(texts, " "))
+        end
+
+        local function waitForSmartPurchase(cost, cash, cashPerSecond)
+            if not cost or not cash then return false end
+            if cash >= cost then return true end
+            if not cashPerSecond or cashPerSecond <= 0 then return false end
+            local seconds = (cost - cash) / cashPerSecond
+            return seconds <= SMART_WAIT_SECONDS, seconds
+        end
+
+        local function tryFoodUpgrade()
+            local cash = getUpgradeCash()
+            local rate = getUpgradeCashPerSecond()
+            local buttons = getFoodPurchaseButtons()
+            if #buttons == 0 then return false, "Food shop price/button not found" end
+            if not cash then return false, "Cash value not found" end
+
+            local current = buttons[1]
+            local nextItem = buttons[2]
+            local target = current
+            if nextItem and nextItem.Cost then
+                if cash >= nextItem.Cost then
+                    -- If the next tier is already affordable, buy it directly.
+                    target = nextItem
+                else
+                    local waitNext, seconds = waitForSmartPurchase(nextItem.Cost, cash, rate)
+                    if waitNext and seconds and seconds > 0 then
+                        return false, string.format("Waiting for next Food tier (%.1fs)", seconds)
+                    end
+                end
+            end
+            if cash < target.Cost then
+                local waitCurrent, seconds = waitForSmartPurchase(target.Cost, cash, rate)
+                if waitCurrent then
+                    return false, string.format("Waiting for Food price (%.1fs)", seconds or 0)
+                end
+                return false, "Not enough cash for Food upgrade"
+            end
+            local ok = pcall(function() target.Button:Activate() end)
+            if not ok then return false, "Food button activation failed" end
+            return true, "Food purchase requested"
+        end
+
+        local function tryTrainBarUpgrade()
+            local prompt = findTrainingPrompt()
+            if not prompt then return false, "Training ProximityPrompt not found" end
+            local cost = getTrainingPromptCost(prompt)
+            local cash = getUpgradeCash()
+            local rate = getUpgradeCashPerSecond()
+            if not cost then return false, "Next Train Bar price not readable" end
+            if not cash then return false, "Cash value not found" end
+            if cash < cost then
+                local seconds = rate and rate > 0 and ((cost - cash) / rate) or nil
+                if seconds and seconds <= SMART_WAIT_SECONDS then
+                    return false, string.format("Waiting for next Train Bar level (%.1fs)", seconds)
+                end
+                return false, "Not enough cash for Train Bar upgrade"
+            end
+            local character = upgradePlayer.Character
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+            local part = prompt.Parent
+            if part and part:IsA("Attachment") then part = part.Parent end
+            if part and part:IsA("Model") then part = part.PrimaryPart or part:FindFirstChildWhichIsA("BasePart", true) end
+            if part and part:IsA("BasePart") and root
+                and (root.Position - part.Position).Magnitude > prompt.MaxActivationDistance then
+                return false, "Move within Train Bar interaction range"
+            end
+            local hold = math.max(0, prompt.HoldDuration)
+            local ok = pcall(function()
+                prompt:InputHoldBegin()
+                if hold > 0 then task.wait(hold) end
+                prompt:InputHoldEnd()
+            end)
+            if not ok then
+                pcall(function() prompt:InputHoldEnd() end)
+                return false, "Train Bar interaction failed"
+            end
+            return true, "Train Bar interaction sent"
+        end
+
+        local function startSmartUpgrade(key, worker)
+            upgradeWorkers[key] += 1
+            local workerId = upgradeWorkers[key]
+            upgradeRunning[key] = true
+            upgradeLog(key, "ON")
+            task.spawn(function()
+                while upgradeRunning[key] and upgradeWorkers[key] == workerId do
+                    local ok, success, message = pcall(worker)
+                    if not ok then
+                        upgradeLog(key, "Error: " .. tostring(success))
+                    elseif success then
+                        upgradeLog(key, message or "Upgrade requested")
+                        task.wait(0.65)
+                    elseif message then
+                        upgradeLog(key, message)
+                    end
+                    task.wait(UPGRADE_SCAN_INTERVAL)
+                end
+            end)
+        end
+
+        local function stopSmartUpgrade(key)
+            upgradeRunning[key] = false
+            upgradeWorkers[key] += 1
+            upgradeLog(key, "OFF")
+        end
+
+        local function createSmartUpgradeToggle(name, y, key, worker)
+            local card = Instance.new("Frame")
+            card.Name = name .. "Card"
+            card.Size = UDim2.new(1, -16, 0, 48)
+            card.Position = UDim2.fromOffset(8, y)
+            card.BackgroundColor3 = CARD
+            card.BorderSizePixel = 0
+            card.ZIndex = 2
+            card.Parent = page
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 9)
+            corner.Parent = card
+            local stroke = Instance.new("UIStroke")
+            stroke.Color = ACCENT
+            stroke.Thickness = 1.3
+            stroke.Transparency = 0.25
+            stroke.Parent = card
+            local title = Instance.new("TextLabel")
+            title.Name = "Title"
+            title.BackgroundTransparency = 1
+            title.Position = UDim2.fromOffset(12, 0)
+            title.Size = UDim2.new(1, -112, 1, 0)
+            title.Font = Enum.Font.GothamBold
+            title.Text = name
+            title.TextColor3 = TEXT
+            title.TextSize = 10
+            title.TextXAlignment = Enum.TextXAlignment.Left
+            title.ZIndex = 4
+            title.Parent = card
+            local toggle = Instance.new("TextButton")
+            toggle.Name = "Toggle"
+            toggle.AnchorPoint = Vector2.new(1, 0.5)
+            toggle.Position = UDim2.new(1, -9, 0.5, 0)
+            toggle.Size = UDim2.fromOffset(72, 27)
+            toggle.BackgroundColor3 = RED_DARK
+            toggle.BorderSizePixel = 0
+            toggle.AutoButtonColor = false
+            toggle.Font = Enum.Font.GothamBold
+            toggle.Text = "OFF"
+            toggle.TextColor3 = Color3.new(1, 1, 1)
+            toggle.TextSize = 10
+            toggle.ZIndex = 5
+            toggle.Parent = card
+            local toggleCorner = Instance.new("UICorner")
+            toggleCorner.CornerRadius = UDim.new(0, 6)
+            toggleCorner.Parent = toggle
+            local function refresh()
+                local enabled = upgradeRunning[key]
+                toggle.Text = enabled and "ON" or "OFF"
+                toggle.BackgroundColor3 = enabled and Color3.fromRGB(35, 155, 85) or RED_DARK
+                stroke.Color = enabled and Color3.fromRGB(70, 220, 130) or ACCENT
+            end
+            toggle.Activated:Connect(function()
+                if upgradeRunning[key] then stopSmartUpgrade(key) else startSmartUpgrade(key, worker) end
+                refresh()
+            end)
+            return card
+        end
+
+        createSmartUpgradeToggle("AUTO UPGRADE TRAIN BAR", 64, "TrainBar", tryTrainBarUpgrade)
+        createSmartUpgradeToggle("AUTO UPGRADE FOOD", 120, "Food", tryFoodUpgrade)
+
+
         --==================================================
         -- GLOBAL UI BUTTON SOUNDS + DEBUG
         --==================================================
