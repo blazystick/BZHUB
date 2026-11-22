@@ -4886,8 +4886,7 @@ function GameModule.Register(api)
     -- BZHUB DASHBOARD
     --==================================================
     
-    api.AddCategory("Dashboard", "DASHBOARD", function(page)
-    
+    api.AddCategory("Dashboard", "DASHBOARD", function(page)    
         local Players = game:GetService("Players")
         local player = Players.LocalPlayer
         local leaderstats = player:WaitForChild("leaderstats")
@@ -5076,24 +5075,33 @@ function GameModule.Register(api)
         -- LIVE UPDATE
         --==================================================
     
+        
         task.spawn(function()
             while page.Parent and content.Parent do
-    
+        
                 local elapsed = os.clock() - sessionStartedAt
-    
+        
                 local money = moneyValue.Value
                 local cashPerSecond = cashPerSecondValue.Value
-    
+        
+                if type(money) ~= "number" then
+                    money = tonumber(money)
+                end
+        
+                if type(cashPerSecond) ~= "number" then
+                    cashPerSecond = tonumber(cashPerSecond)
+                end
+        
                 labels.Session.Text = formatTime(elapsed)
                 labels.Money.Text = formatNumber(money)
                 labels.CashPerSecond.Text = formatNumber(cashPerSecond)
-    
-                labels.Earned.Text =
-                    formatNumber(cashPerSecond * elapsed)
-    
-                labels.Throws.Text =
-                    tostring(api.TotalThrows)
-    
+        
+                labels.Earned.Text = formatNumber(
+                    (cashPerSecond or 0) * elapsed
+                )
+        
+                labels.Throws.Text = tostring(api.TotalThrows or 0)
+        
                 task.wait(1)
             end
         end)
