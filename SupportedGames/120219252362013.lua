@@ -5203,6 +5203,8 @@ function GameModule.Register(api)
     api.AddCategory("EVENT", "EVENT", function(page)
     
         local TweenService = game:GetService("TweenService")
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local Thanksgiving = require(ReplicatedStorage.Shared.Thanksgiving)
     
         local card = Instance.new("TextButton")
         card.Name = "StartEventFarm"
@@ -5232,6 +5234,89 @@ function GameModule.Register(api)
     
         local enabled = false
         local busy = false
+        local function formatEventTime(seconds)
+            seconds = math.max(0, math.floor(seconds))
+        
+            local minutes = math.floor(seconds / 60)
+            local remainingSeconds = seconds % 60
+        
+            return string.format("%02d:%02d", minutes, remainingSeconds)
+        end
+        
+        task.spawn(function()
+            while page.Parent do
+                local success, state = pcall(function()
+                    return Thanksgiving.State(workspace:GetServerTimeNow())
+                end)
+        
+                if success and state then
+                    local now = workspace:GetServerTimeNow()
+                    local status
+                    local timer
+        
+                    if state.Active then
+                        status = "ACTIVE"
+                        timer = "FEAST ENDS IN " ..
+                            formatEventTime(state.RunEnd - now)
+        
+                    elseif state.NextStart then
+                        status = enabled and "WAITING" or "DISABLED"
+                        timer = "NEXT FEAST IN " ..
+                            formatEventTime(state.NextStart - now)
+        
+                    else
+                        status = "ENDED"
+                        timer = "NO UPCOMING EVENT"
+                    end
+        
+                    infoText.Text =
+                        "EVENT INFORMATION\n" ..
+                        "STATUS: " .. status .. "\n" ..
+                        "AUTO THROW: NOT CONNECTED\n" ..
+                        timer
+                else
+                    infoText.Text =
+                        "EVENT INFORMATION\n" ..
+                        "STATUS: LOADING\n" ..
+                        "AUTO THROW: NOT CONNECTED\n" ..
+                        "TIMER: UNAVAILABLE"
+                end
+        
+                task.wait(0.5)
+            end
+        end)
+        --==================================================
+        -- EVENT INFO BOX
+        --==================================================
+        
+        local infoBox = Instance.new("Frame")
+        infoBox.Name = "EventInfo"
+        infoBox.Size = UDim2.new(1, -20, 0, 115)
+        infoBox.Position = UDim2.new(0, 10, 1, -125)
+        infoBox.BackgroundColor3 = Color3.fromRGB(22, 25, 32)
+        infoBox.BorderSizePixel = 0
+        infoBox.Parent = page
+        
+        local infoCorner = Instance.new("UICorner")
+        infoCorner.CornerRadius = UDim.new(0, 12)
+        infoCorner.Parent = infoBox
+        
+        local infoStroke = Instance.new("UIStroke")
+        infoStroke.Color = Color3.fromRGB(65, 75, 95)
+        infoStroke.Thickness = 1
+        infoStroke.Parent = infoBox
+        
+        local infoText = Instance.new("TextLabel")
+        infoText.Size = UDim2.new(1, -20, 1, -16)
+        infoText.Position = UDim2.new(0, 10, 0, 8)
+        infoText.BackgroundTransparency = 1
+        infoText.TextColor3 = Color3.fromRGB(220, 225, 235)
+        infoText.TextSize = 13
+        infoText.Font = Enum.Font.GothamMedium
+        infoText.TextXAlignment = Enum.TextXAlignment.Left
+        infoText.TextYAlignment = Enum.TextYAlignment.Top
+        infoText.Text = "EVENT INFORMATION\nSTATUS: Waiting\nAUTO THROW: OFF\nNEXT EVENT: Loading..."
+        infoText.Parent = infoBox
     
         local function tween(object, duration, properties)
             local animation = TweenService:Create(
