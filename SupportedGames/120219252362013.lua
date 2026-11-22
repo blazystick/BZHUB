@@ -1,4 +1,4 @@
---56234
+
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -3633,7 +3633,58 @@ function GameModule.Register(api)
         end)
 
         helpers.debugLog("Farm module loaded.")
-
+        --==================================================
+        -- EVENT FARM / AUTO THROW BRIDGE
+        --==================================================
+        
+        api.EventFarmControl = function(command)
+            if command == "START" then
+                if autoFarmRunning then
+                    return false, "AFK Farm is running"
+                end
+        
+                if trainEnabled then
+                    return false, "Auto Train is running"
+                end
+        
+                selectedSpeed = 20
+                helpers.updateSlider(selectedSpeed)
+                sliderLabel.Text = string.format(
+                    "%s: %d",
+                    helpers.tr("power"),
+                    selectedSpeed
+                )
+        
+                if not isEnabled then
+                    isEnabled = true
+                    activeHudMode = "throw"
+                    helpers.setSwitchVisual(true, true)
+                    helpers.setStatus("starting")
+                    helpers.startFarm()
+                end
+        
+                return true
+        
+            elseif command == "STOP" then
+                if isEnabled then
+                    isEnabled = false
+                    actionId += 1
+                end
+        
+                helpers.setSwitchVisual(false, true)
+        
+                if not trainEnabled then
+                    helpers.setStatus("stopped")
+                    if hudGui then
+                        hudGui.Enabled = false
+                    end
+                end
+        
+                return true
+            end
+        
+            return false, "Unknown command"
+        end
         -- Keep labels synchronized if the Roblox client language changes.
         LocalizationService:GetPropertyChangedSignal("RobloxLocaleId"):Connect(function()
             helpers.refreshLanguage()
@@ -5196,15 +5247,37 @@ function GameModule.Register(api)
     end)
     
     
+    
+    
     --==================================================
-    -- EVENT CATEGORY
+    -- EVENT CATEGORY + AUTO THROW + STATUS HUD
     --==================================================
     
     api.AddCategory("EVENT", "EVENT", function(page)
     
+        local Players = game:GetService("Players")
         local TweenService = game:GetService("TweenService")
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local Thanksgiving = require(ReplicatedStorage.Shared.Thanksgiving)
+    
+        local player = Players.LocalPlayer
+        local playerGui = player:WaitForChild("PlayerGui")
+    
+        local Thanksgiving = require(
+            ReplicatedStorage.Shared.Thanksgiving
+        )
+    
+        local enabled = false
+        local busy = false
+        local workerId = 0
+    
+        local eventAutoThrow = false
+        local waitingAnimation = false
+        local progressTween
+        local lastStartAttempt = 0
+    
+        --==================================================
+        -- EVENT BUTTON
+        --==================================================
     
         local card = Instance.new("TextButton")
         card.Name = "StartEventFarm"
@@ -5229,155 +5302,511 @@ function GameModule.Register(api)
         stroke.Parent = card
     
         local scale = Instance.new("UIScale")
-        scale.Scale = 1
         scale.Parent = card
     
-        local enabled = false
-        local busy = false
-        local function formatEventTime(seconds)
-            seconds = math.max(0, math.floor(seconds))
-        
-            local minutes = math.floor(seconds / 60)
-            local remainingSeconds = seconds % 60
-        
-            return string.format("%02d:%02d", minutes, remainingSeconds)
-        end
-        
-        task.spawn(function()
-            while page.Parent do
-                local success, state = pcall(function()
-                    return Thanksgiving.State(workspace:GetServerTimeNow())
-                end)
-        
-                if success and state then
-                    local now = workspace:GetServerTimeNow()
-                    local status
-                    local timer
-        
-                    if state.Active then
-                        status = "ACTIVE"
-                        timer = "FEAST ENDS IN " ..
-                            formatEventTime(state.RunEnd - now)
-        
-                    elseif state.NextStart then
-                        status = enabled and "WAITING" or "DISABLED"
-                        timer = "NEXT FEAST IN " ..
-                            formatEventTime(state.NextStart - now)
-        
-                    else
-                        status = "ENDED"
-                        timer = "NO UPCOMING EVENT"
-                    end
-        
-                    infoText.Text =
-                        "EVENT INFORMATION\n" ..
-                        "STATUS: " .. status .. "\n" ..
-                        "AUTO THROW: NOT CONNECTED\n" ..
-                        timer
-                else
-                    infoText.Text =
-                        "EVENT INFORMATION\n" ..
-                        "STATUS: LOADING\n" ..
-                        "AUTO THROW: NOT CONNECTED\n" ..
-                        "TIMER: UNAVAILABLE"
-                end
-        
-                task.wait(0.5)
-            end
-        end)
         --==================================================
-        -- EVENT INFO BOX
+        -- EVENT HUD
         --==================================================
-        
-        local infoBox = Instance.new("Frame")
-        infoBox.Name = "EventInfo"
-        infoBox.Size = UDim2.new(1, -20, 0, 115)
-        infoBox.Position = UDim2.new(0, 10, 1, -125)
-        infoBox.BackgroundColor3 = Color3.fromRGB(22, 25, 32)
-        infoBox.BorderSizePixel = 0
-        infoBox.Parent = page
-        
-        local infoCorner = Instance.new("UICorner")
-        infoCorner.CornerRadius = UDim.new(0, 12)
-        infoCorner.Parent = infoBox
-        
-        local infoStroke = Instance.new("UIStroke")
-        infoStroke.Color = Color3.fromRGB(65, 75, 95)
-        infoStroke.Thickness = 1
-        infoStroke.Parent = infoBox
-        
-        local infoText = Instance.new("TextLabel")
-        infoText.Size = UDim2.new(1, -20, 1, -16)
-        infoText.Position = UDim2.new(0, 10, 0, 8)
-        infoText.BackgroundTransparency = 1
-        infoText.TextColor3 = Color3.fromRGB(220, 225, 235)
-        infoText.TextSize = 13
-        infoText.Font = Enum.Font.GothamMedium
-        infoText.TextXAlignment = Enum.TextXAlignment.Left
-        infoText.TextYAlignment = Enum.TextYAlignment.Top
-        infoText.Text = "EVENT INFORMATION\nSTATUS: Waiting\nAUTO THROW: OFF\nNEXT EVENT: Loading..."
-        infoText.Parent = infoBox
     
-        local function tween(object, duration, properties)
-            local animation = TweenService:Create(
-                object,
+        local oldHud = playerGui:FindFirstChild("BZHUB_Event_StatusHUD")
+    
+        if oldHud then
+            oldHud:Destroy()
+        end
+    
+        local hudGui = Instance.new("ScreenGui")
+        hudGui.Name = "BZHUB_Event_StatusHUD"
+        hudGui.ResetOnSpawn = false
+        hudGui.IgnoreGuiInset = true
+        hudGui.DisplayOrder = 100002
+        hudGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        hudGui.Enabled = false
+        hudGui.Parent = playerGui
+    
+        local container = Instance.new("Frame")
+        container.Name = "StatusContainer"
+        container.AnchorPoint = Vector2.new(0.5, 0)
+        container.Position = UDim2.new(0.5, 0, 0, 48)
+        container.Size = UDim2.fromOffset(390, 78)
+        container.BackgroundColor3 = Color3.fromRGB(8, 13, 22)
+        container.BackgroundTransparency = 1
+        container.BorderSizePixel = 0
+        container.Parent = hudGui
+    
+        local containerCorner = Instance.new("UICorner")
+        containerCorner.CornerRadius = UDim.new(0, 12)
+        containerCorner.Parent = container
+    
+        local containerStroke = Instance.new("UIStroke")
+        containerStroke.Color = Color3.fromRGB(48, 151, 245)
+        containerStroke.Thickness = 1.15
+        containerStroke.Transparency = 1
+        containerStroke.Parent = container
+    
+        local containerGradient = Instance.new("UIGradient")
+        containerGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 29, 47)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(7, 12, 20))
+        })
+        containerGradient.Rotation = 90
+        containerGradient.Parent = container
+    
+        local accent = Instance.new("Frame")
+        accent.Position = UDim2.fromOffset(12, 10)
+        accent.Size = UDim2.fromOffset(3, 18)
+        accent.BackgroundColor3 = Color3.fromRGB(85, 190, 255)
+        accent.BorderSizePixel = 0
+        accent.Parent = container
+    
+        local accentCorner = Instance.new("UICorner")
+        accentCorner.CornerRadius = UDim.new(1, 0)
+        accentCorner.Parent = accent
+    
+        local stateText = Instance.new("TextLabel")
+        stateText.Position = UDim2.fromOffset(23, 7)
+        stateText.Size = UDim2.new(1, -46, 0, 24)
+        stateText.BackgroundTransparency = 1
+        stateText.Text = "EVENT FARM / ON"
+        stateText.TextColor3 = Color3.fromRGB(239, 246, 255)
+        stateText.TextSize = 12
+        stateText.Font = Enum.Font.GothamBold
+        stateText.TextXAlignment = Enum.TextXAlignment.Left
+        stateText.Parent = container
+    
+        local divider = Instance.new("Frame")
+        divider.Position = UDim2.fromOffset(12, 34)
+        divider.Size = UDim2.new(1, -24, 0, 1)
+        divider.BackgroundColor3 = Color3.fromRGB(66, 126, 184)
+        divider.BackgroundTransparency = 0.45
+        divider.BorderSizePixel = 0
+        divider.Parent = container
+    
+        local bar = Instance.new("Frame")
+        bar.Position = UDim2.fromOffset(12, 43)
+        bar.Size = UDim2.new(1, -24, 0, 24)
+        bar.BackgroundColor3 = Color3.fromRGB(5, 12, 22)
+        bar.BorderSizePixel = 0
+        bar.ClipsDescendants = true
+        bar.Parent = container
+    
+        local barCorner = Instance.new("UICorner")
+        barCorner.CornerRadius = UDim.new(0, 7)
+        barCorner.Parent = bar
+    
+        local fill = Instance.new("Frame")
+        fill.Name = "ProgressFill"
+        fill.Size = UDim2.new(0, 0, 1, 0)
+        fill.BackgroundColor3 = Color3.fromRGB(45, 155, 255)
+        fill.BorderSizePixel = 0
+        fill.Parent = bar
+    
+        local fillCorner = Instance.new("UICorner")
+        fillCorner.CornerRadius = UDim.new(0, 7)
+        fillCorner.Parent = fill
+    
+        local fillGradient = Instance.new("UIGradient")
+        fillGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(27, 112, 218)),
+            ColorSequenceKeypoint.new(0.55, Color3.fromRGB(42, 157, 255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(104, 205, 255))
+        })
+        fillGradient.Parent = fill
+    
+        local infoText = Instance.new("TextLabel")
+        infoText.Position = UDim2.fromOffset(10, 0)
+        infoText.Size = UDim2.new(1, -20, 1, 0)
+        infoText.BackgroundTransparency = 1
+        infoText.Text = "Waiting for event..."
+        infoText.TextColor3 = Color3.fromRGB(255, 255, 255)
+        infoText.TextSize = 10
+        infoText.Font = Enum.Font.GothamSemibold
+        infoText.TextXAlignment = Enum.TextXAlignment.Center
+        infoText.ZIndex = 3
+        infoText.Parent = bar
+    
+        --==================================================
+        -- HUD ANIMATIONS
+        --==================================================
+    
+        local function showHud()
+            hudGui.Enabled = true
+    
+            container.Position = UDim2.new(0.5, 0, 0, 48)
+            container.BackgroundTransparency = 1
+            containerStroke.Transparency = 1
+    
+            TweenService:Create(
+                container,
                 TweenInfo.new(
-                    duration,
+                    0.4,
                     Enum.EasingStyle.Quint,
                     Enum.EasingDirection.Out
                 ),
-                properties
-            )
-            animation:Play()
-            return animation
+                {
+                    Position = UDim2.new(0.5, 0, 0, 68),
+                    BackgroundTransparency = 0.12
+                }
+            ):Play()
+    
+            TweenService:Create(
+                containerStroke,
+                TweenInfo.new(0.4),
+                {Transparency = 0.22}
+            ):Play()
         end
     
-        card.Activated:Connect(function()
-            if busy then return end
-            busy = true
-    
-            enabled = not enabled
-    
-            tween(scale, 0.12, {
-                Scale = 0.96
-            })
-    
-            if enabled then
-                card.Text = "EVENT FARM ON"
-    
-                tween(card, 0.35, {
-                    BackgroundColor3 = Color3.fromRGB(12, 65, 35)
-                })
-    
-                tween(stroke, 0.35, {
-                    Color = Color3.fromRGB(45, 255, 125),
-                    Thickness = 3
-                })
-            else
-                card.Text = "START EVENT FARM"
-    
-                tween(card, 0.35, {
-                    BackgroundColor3 = Color3.fromRGB(65, 15, 20)
-                })
-    
-                tween(stroke, 0.35, {
-                    Color = Color3.fromRGB(255, 55, 65),
-                    Thickness = 2
-                })
+        local function hideHud()
+            if progressTween then
+                progressTween:Cancel()
+                progressTween = nil
             end
     
-            task.wait(0.12)
+            waitingAnimation = false
     
-            tween(scale, 0.25, {
-                Scale = 1
-            })
+            local animation = TweenService:Create(
+                container,
+                TweenInfo.new(
+                    0.3,
+                    Enum.EasingStyle.Quint,
+                    Enum.EasingDirection.In
+                ),
+                {
+                    Position = UDim2.new(0.5, 0, 0, 48),
+                    BackgroundTransparency = 1
+                }
+            )
     
-            task.wait(0.25)
-            busy = false
+            TweenService:Create(
+                containerStroke,
+                TweenInfo.new(0.25),
+                {Transparency = 1}
+            ):Play()
+    
+            animation:Play()
+    
+            animation.Completed:Connect(function()
+                if not enabled and hudGui.Parent then
+                    hudGui.Enabled = false
+                end
+            end)
+        end
+    
+        local function setProgress(value, duration)
+            waitingAnimation = false
+    
+            if progressTween then
+                progressTween:Cancel()
+                progressTween = nil
+            end
+    
+            progressTween = TweenService:Create(
+                fill,
+                TweenInfo.new(
+                    duration or 0.4,
+                    Enum.EasingStyle.Linear
+                ),
+                {
+                    Size = UDim2.new(
+                        math.clamp(value, 0, 1),
+                        0,
+                        1,
+                        0
+                    )
+                }
+            )
+    
+            progressTween:Play()
+        end
+    
+        local function startWaitingAnimation()
+            if waitingAnimation then
+                return
+            end
+    
+            waitingAnimation = true
+    
+            if progressTween then
+                progressTween:Cancel()
+            end
+    
+            fill.Size = UDim2.new(0.08, 0, 1, 0)
+    
+            progressTween = TweenService:Create(
+                fill,
+                TweenInfo.new(
+                    1.5,
+                    Enum.EasingStyle.Sine,
+                    Enum.EasingDirection.InOut,
+                    -1,
+                    true
+                ),
+                {
+                    Size = UDim2.new(0.92, 0, 1, 0)
+                }
+            )
+    
+            progressTween:Play()
+        end
+    
+        --==================================================
+        -- TIME FORMAT
+        --==================================================
+    
+        local function formatTime(seconds)
+            seconds = math.max(0, math.floor(seconds))
+    
+            local minutes = math.floor(seconds / 60)
+            local remaining = seconds % 60
+    
+            return string.format(
+                "%02d:%02d",
+                minutes,
+                remaining
+            )
+        end
+    
+        --==================================================
+        -- AUTO THROW CONTROL
+        --==================================================
+    
+        local function startEventThrow()
+            if not api.EventFarmControl then
+                return false, "Auto Throw bridge missing"
+            end
+    
+            local success, result, reason = pcall(function()
+                return api.EventFarmControl("START")
+            end)
+    
+            if not success then
+                warn("[BZHUB EVENT] Auto Throw start error:", result)
+                return false, tostring(result)
+            end
+    
+            if not result then
+                return false, tostring(reason or "Auto Throw could not start")
+            end
+    
+            eventAutoThrow = true
+            return true
+        end
+    
+        local function stopEventThrow()
+            if not eventAutoThrow then
+                return
+            end
+    
+            eventAutoThrow = false
+    
+            if api.EventFarmControl then
+                local success, result = pcall(function()
+                    return api.EventFarmControl("STOP")
+                end)
+    
+                if not success then
+                    warn("[BZHUB EVENT] Auto Throw stop error:", result)
+                end
+            end
+        end
+    
+        --==================================================
+        -- EVENT HUD UPDATE
+        --==================================================
+    
+        local function updateEventHud(state)
+            local now = workspace:GetServerTimeNow()
+    
+            if state.Active and state.RunStart and state.RunEnd then
+                stateText.Text = eventAutoThrow
+                    and "EVENT FARM / ACTIVE / AUTO THROW 20"
+                    or "EVENT FARM / STARTING AUTO THROW"
+    
+                local duration = math.max(
+                    1,
+                    state.RunEnd - state.RunStart
+                )
+    
+                local elapsed = math.clamp(
+                    now - state.RunStart,
+                    0,
+                    duration
+                )
+    
+                infoText.Text = "FEAST ENDS IN " ..
+                    formatTime(state.RunEnd - now)
+    
+                setProgress(elapsed / duration, 0.45)
+    
+            elseif state.NextStart then
+                stateText.Text = "EVENT FARM / WAITING"
+    
+                infoText.Text = "NEXT FEAST IN " ..
+                    formatTime(state.NextStart - now)
+    
+                startWaitingAnimation()
+    
+            else
+                stateText.Text = "EVENT FARM / FINISHED"
+                infoText.Text = "NO UPCOMING EVENT"
+                setProgress(1, 0.3)
+            end
+        end
+    
+        --==================================================
+        -- CARD UPDATE
+        --==================================================
+    
+        local function updateCard()
+            card.Text = enabled
+                and "EVENT FARM ON"
+                or "START EVENT FARM"
+    
+            TweenService:Create(
+                card,
+                TweenInfo.new(
+                    0.35,
+                    Enum.EasingStyle.Quint,
+                    Enum.EasingDirection.Out
+                ),
+                {
+                    BackgroundColor3 = enabled
+                        and Color3.fromRGB(12, 65, 35)
+                        or Color3.fromRGB(65, 15, 20)
+                }
+            ):Play()
+    
+            TweenService:Create(
+                stroke,
+                TweenInfo.new(0.35),
+                {
+                    Color = enabled
+                        and Color3.fromRGB(45, 255, 125)
+                        or Color3.fromRGB(255, 55, 65),
+    
+                    Thickness = enabled and 3 or 2
+                }
+            ):Play()
+        end
+    
+        --==================================================
+        -- EVENT WORKER
+        --==================================================
+    
+        local function startEventWorker(currentWorker)
+            task.spawn(function()
+                while enabled
+                    and currentWorker == workerId
+                    and page.Parent do
+    
+                    local success, state = pcall(function()
+                        return Thanksgiving.State(
+                            workspace:GetServerTimeNow()
+                        )
+                    end)
+    
+                    if success and state then
+    
+                        if state.Active then
+                            if not eventAutoThrow
+                                and os.clock() - lastStartAttempt >= 1 then
+    
+                                lastStartAttempt = os.clock()
+    
+                                local started, reason = startEventThrow()
+    
+                                if not started then
+                                    stateText.Text = "EVENT FARM / AUTO THROW BLOCKED"
+                                    infoText.Text = tostring(reason)
+                                end
+                            end
+    
+                        else
+                            stopEventThrow()
+                        end
+    
+                        updateEventHud(state)
+    
+                    else
+                        stateText.Text = "EVENT FARM / ERROR"
+                        infoText.Text = "Unable to read event timer"
+                    end
+    
+                    task.wait(0.5)
+                end
+            end)
+        end
+    
+        --==================================================
+        -- BUTTON ACTION
+        --==================================================
+    
+        card.Activated:Connect(function()
+            if busy then
+                return
+            end
+    
+            busy = true
+            enabled = not enabled
+            workerId += 1
+    
+            local currentWorker = workerId
+    
+            TweenService:Create(
+                scale,
+                TweenInfo.new(0.12),
+                {Scale = 0.96}
+            ):Play()
+    
+            updateCard()
+    
+            task.delay(0.12, function()
+                if scale.Parent then
+                    TweenService:Create(
+                        scale,
+                        TweenInfo.new(
+                            0.25,
+                            Enum.EasingStyle.Back,
+                            Enum.EasingDirection.Out
+                        ),
+                        {Scale = 1}
+                    ):Play()
+                end
+            end)
+    
+            if enabled then
+                lastStartAttempt = 0
+                showHud()
+                startEventWorker(currentWorker)
+            else
+                stopEventThrow()
+                hideHud()
+            end
+    
+            task.delay(0.3, function()
+                busy = false
+            end)
+        end)
+    
+        --==================================================
+        -- CLEANUP
+        --==================================================
+    
+        page.Destroying:Connect(function()
+            enabled = false
+            workerId += 1
+    
+            stopEventThrow()
+    
+            if progressTween then
+                progressTween:Cancel()
+            end
+    
+            if hudGui then
+                hudGui:Destroy()
+            end
         end)
     
     end)
-
 
 end
 return GameModule
