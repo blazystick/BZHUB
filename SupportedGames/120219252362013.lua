@@ -5,7 +5,7 @@
 
 -- THROW A FOOD FOR ANIMALS V0.7
 
---11
+
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -4425,6 +4425,50 @@ function GameModule.Register(api)
             end)
         end)
     
+        --==================================================
+        -- GLOBAL UI BUTTON SOUNDS
+        --==================================================
+        -- Attach one subtle click sound to every button in this BZHUB page.
+        -- Buttons added later are covered by DescendantAdded as well.
+        local SoundService = game:GetService("SoundService")
+        local ContentProvider = game:GetService("ContentProvider")
+
+        local buttonClickSound = Instance.new("Sound")
+        buttonClickSound.Name = "BZHUB_ButtonClickSound"
+        buttonClickSound.SoundId = "rbxassetid://6895079853"
+        buttonClickSound.Volume = 0.35
+        buttonClickSound.PlaybackSpeed = 1
+        buttonClickSound.Parent = SoundService
+
+        task.spawn(function()
+            pcall(function()
+                ContentProvider:PreloadAsync({buttonClickSound})
+            end)
+        end)
+
+        local connectedSoundButtons = setmetatable({}, {__mode = "k"})
+        local function attachButtonSound(object)
+            if not object:IsA("GuiButton") or connectedSoundButtons[object] then
+                return
+            end
+
+            connectedSoundButtons[object] = true
+            object.Activated:Connect(function()
+                if not buttonClickSound or not buttonClickSound.Parent then
+                    return
+                end
+                pcall(function()
+                    SoundService:PlayLocalSound(buttonClickSound)
+                end)
+            end)
+        end
+
+        for _, object in ipairs(page:GetDescendants()) do
+            attachButtonSound(object)
+        end
+
+        page.DescendantAdded:Connect(attachButtonSound)
+
     end)
 end
 return GameModule
