@@ -2,6 +2,8 @@
 local GameModule = {}
 
 function GameModule.Register(api)
+    local sessionStartedAt = os.clock()
+    api.TotalThrows = 0
     api.AddCategory("Automation", "AUTOMATION", function(page)
         -- Store helper functions on one table to stay below Luau's 200-local register limit.
         local helpers = {}
@@ -3324,6 +3326,7 @@ function GameModule.Register(api)
                         if not helpers.performClick(currentId) then
                             break
                         end
+                        api.TotalThrows += 1
 
                         -- 6. WAIT BEFORE RESET
                         helpers.debugLog("Waiting 1 second before reset...")
@@ -4878,6 +4881,7 @@ function GameModule.Register(api)
 
         print("[BZHUB SOUND] READY. Connected BZHUB buttons:", attachedButtonCount)
     end)
+    
     --==================================================
     -- BZHUB DASHBOARD
     --==================================================
@@ -4886,67 +4890,30 @@ function GameModule.Register(api)
     
         local Players = game:GetService("Players")
         local player = Players.LocalPlayer
+        local leaderstats = player:WaitForChild("leaderstats")
+    
+        local moneyValue = leaderstats:WaitForChild("Money")
+        local cashPerSecondValue = leaderstats:WaitForChild("Money/s")
     
         local ACCENT = Color3.fromRGB(45, 155, 255)
         local CARD = Color3.fromRGB(17, 23, 33)
         local TEXT = Color3.fromRGB(225, 233, 245)
         local MUTED = Color3.fromRGB(145, 160, 180)
-    
-        -- REAL GAME DATA
-        local DataController
-    
-        local success, result = pcall(function()
-            local controllers = player
-                :WaitForChild("PlayerScripts")
-                :WaitForChild("Client")
-                :WaitForChild("Controllers")
-    
-            return require(controllers:WaitForChild("DataController"))
-        end)
-    
-        if success then
-            DataController = result
-        else
-            warn("[BZHUB DASHBOARD] DataController error:", result)
-        end
-    
-        local startedAt = os.clock()
-        local previousMoney = nil
-        local earnedMoney = 0
-    
-        local moneySamples = {}
-        local SAMPLE_DURATION = 10
-    
-        local function readData(key)
-            if not DataController then return nil end
-    
-            local ok, value = pcall(function()
-                return DataController:Get(key)
-            end)
-    
-            if ok then
-                return value
-            end
-    
-            return nil
-        end
+        local GREEN = Color3.fromRGB(55, 220, 130)
     
         local function formatNumber(number)
             if type(number) ~= "number" then
                 return "N/A"
             end
     
-            local suffixes = {
-                {1e12, "T"},
-                {1e9, "B"},
-                {1e6, "M"},
-                {1e3, "K"}
-            }
-    
-            for _, item in ipairs(suffixes) do
-                if number >= item[1] then
-                    return string.format("%.2f%s", number / item[1], item[2])
-                end
+            if number >= 1e12 then
+                return string.format("%.2fT", number / 1e12)
+            elseif number >= 1e9 then
+                return string.format("%.2fB", number / 1e9)
+            elseif number >= 1e6 then
+                return string.format("%.2fM", number / 1e6)
+            elseif number >= 1e3 then
+                return string.format("%.2fK", number / 1e3)
             end
     
             return tostring(math.floor(number))
@@ -4962,44 +4929,8 @@ function GameModule.Register(api)
             return string.format("%02d:%02d:%02d", hours, minutes, secs)
         end
     
-        local function countOwnedFoods(foods)
-            if type(foods) ~= "table" then
-                return 0
-            end
-    
-            local count = 0
-    
-            for _, owned in pairs(foods) do
-                if owned then
-                    count += 1
-                end
-            end
-    
-            return count
-        end
-    
-        local function getMoneyPerSecond(now)
-            local total = 0
-            local oldestTime = now
-    
-            for i = #moneySamples, 1, -1 do
-                local sample = moneySamples[i]
-    
-                if now - sample.time > SAMPLE_DURATION then
-                    table.remove(moneySamples, i)
-                else
-                    total += sample.amount
-                    oldestTime = math.min(oldestTime, sample.time)
-                end
-            end
-    
-            local duration = math.max(1, now - oldestTime)
-    
-            return total / duration
-        end
-    
         --==================================================
-        -- GUI
+        -- SCROLL
         --==================================================
     
         local scroll = Instance.new("ScrollingFrame")
@@ -5025,7 +4956,12 @@ function GameModule.Register(api)
         list.SortOrder = Enum.SortOrder.LayoutOrder
         list.Parent = content
     
+        --==================================================
+        -- HEADER
+        --==================================================
+    
         local header = Instance.new("Frame")
+        header.Name = "DashboardHeader"
         header.Size = UDim2.new(1, 0, 0, 48)
         header.BackgroundTransparency = 1
         header.LayoutOrder = 1
@@ -5053,7 +4989,7 @@ function GameModule.Register(api)
         subtitle.Parent = header
     
         --==================================================
-        -- STATISTICS CARDS
+        -- STATISTICS GRID
         --==================================================
     
         local grid = Instance.new("Frame")
@@ -5108,6 +5044,7 @@ function GameModule.Register(api)
             headingLabel.Parent = card
     
             local valueLabel = Instance.new("TextLabel")
+            valueLabel.Name = "Value"
             valueLabel.Position = UDim2.fromOffset(12, 34)
             valueLabel.Size = UDim2.new(1, -20, 0, 30)
             valueLabel.BackgroundTransparency = 1
@@ -5123,61 +5060,39 @@ function GameModule.Register(api)
     
         createCard("Session", "SESSION TIME", 1)
         createCard("Money", "CURRENT MONEY", 2)
-        createCard("Earned", "MONEY EARNED", 3)
-        createCard("PerSecond", "MONEY / SEC", 4)
-        createCard("FoodOwned", "FOODS OWNED", 5)
-        createCard("EquippedFood", "EQUIPPED FOOD", 6)
+        createCard("CashPerSecond", "CASH / S", 3)
+        createCard("Earned", "MONEY EARNED", 4)
+        createCard("Throws", "TOTAL THROWS", 5)
+        createCard("Script", "SCRIPT:", 6)
     
         --==================================================
-        -- LIVE DATA UPDATE
+        -- SCRIPT STATUS
+        --==================================================
+    
+        labels.Script.Text = "● RUNNING"
+        labels.Script.TextColor3 = GREEN
+    
+        --==================================================
+        -- LIVE UPDATE
         --==================================================
     
         task.spawn(function()
             while page.Parent and content.Parent do
-                local now = os.clock()
     
-                local money = readData("Money")
-                local ownedFoods = readData("OwnedFoods")
-                local equippedFood = readData("EquippedFood")
+                local elapsed = os.clock() - sessionStartedAt
     
-                if type(money) == "number" then
-                    if previousMoney ~= nil then
-                        local difference = money - previousMoney
+                local money = moneyValue.Value
+                local cashPerSecond = cashPerSecondValue.Value
     
-                        if difference > 0 then
-                            earnedMoney += difference
-    
-                            table.insert(moneySamples, {
-                                time = now,
-                                amount = difference
-                            })
-                        end
-                    end
-    
-                    previousMoney = money
-                end
-    
-                labels.Session.Text =
-                    formatTime(now - startedAt)
-    
-                labels.Money.Text =
-                    formatNumber(money)
+                labels.Session.Text = formatTime(elapsed)
+                labels.Money.Text = formatNumber(money)
+                labels.CashPerSecond.Text = formatNumber(cashPerSecond)
     
                 labels.Earned.Text =
-                    formatNumber(earnedMoney)
+                    formatNumber(cashPerSecond * elapsed)
     
-                labels.PerSecond.Text =
-                    formatNumber(getMoneyPerSecond(now))
-    
-                labels.FoodOwned.Text =
-                    tostring(countOwnedFoods(ownedFoods))
-    
-                if equippedFood ~= nil then
-                    labels.EquippedFood.Text =
-                        "#" .. tostring(equippedFood)
-                else
-                    labels.EquippedFood.Text = "N/A"
-                end
+                labels.Throws.Text =
+                    tostring(api.TotalThrows)
     
                 task.wait(1)
             end
