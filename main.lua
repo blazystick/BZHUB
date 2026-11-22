@@ -2121,6 +2121,9 @@ end)
 currentCategory = "Home"
 pages.Home.Visible = true
 -- GAME MODULE SYSTEM
+local gameModuleLoadFinished = not (
+    gameSupported and game.PlaceId == 120219252362013
+)
 local BZHUB_API = {}
 
 local gameCategoryCount = 0
@@ -2200,6 +2203,8 @@ if gameSupported and game.PlaceId == 120219252362013 then
         if not success then
             warn("[BZHUB] Game module error:", err)
         end
+
+        gameModuleLoadFinished = true
     end)
 end
 
@@ -3043,14 +3048,30 @@ task.spawn(function()
             translate("Loading") .. math.floor(value) .. "%"
     end)
 
+    -- Loading sırasında oyun Lua'sını bekle.
     local progressTween = TweenService:Create(
         progress,
-        TweenInfo.new(2.35, Enum.EasingStyle.Quad),
-        {Value = 100}
+        TweenInfo.new(1.75, Enum.EasingStyle.Quad),
+        {Value = 95}
     )
-
+    
     progressTween:Play()
     progressTween.Completed:Wait()
+    
+    -- Modül indirilip GUI'ye eklenene kadar %95'te bekle.
+    while not gameModuleLoadFinished do
+        task.wait(0.05)
+    end
+    
+    -- Modül tamamlandı, yüklemeyi bitir.
+    local finishTween = TweenService:Create(
+        progress,
+        TweenInfo.new(0.3, Enum.EasingStyle.Quad),
+        {Value = 100}
+    )
+    
+    finishTween:Play()
+    finishTween.Completed:Wait()
 
     connection:Disconnect()
     progress:Destroy()
