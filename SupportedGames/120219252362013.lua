@@ -1,4 +1,9 @@
---123123123
+--====================
+--    BLAZY TOOLS
+--  made by yavuzxxd
+--====================
+
+
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -53,8 +58,8 @@ function GameModule.Register(api)
         local startTrain
         local stopTrain
 
-        -- �lk ba�lang��ta 6 saniye bekle.
-        -- Sonraki d�ng�lerde ThrowReadyAt beklenecek.
+        --  lk ba lang  ta 6 saniye bekle.
+        -- Sonraki d ng lerde ThrowReadyAt beklenecek.
         local firstCycle = true
 
         -- AFK FARM orchestration
@@ -94,7 +99,7 @@ function GameModule.Register(api)
                 power = "Power Level",
                 info = "i",
                 infoTitle = "AUTO THROW - IMPORTANT NOTES",
-                infoHint = "� The 6-second starting wait is normal.\n� Do not move or click while the automation is waiting.\n� Cooldown delays are part of the game.\n� Keep the game open until the throw is complete.",
+                infoHint = "  The 6-second starting wait is normal.\n  Do not move or click while the automation is waiting.\n  Cooldown delays are part of the game.\n  Keep the game open until the throw is complete.",
                 idle = "Auto Throw is currently disabled.",
                 starting = "Starting the automation...",
                 moving = "Moving to the throw area. Please do not interfere.",
@@ -111,21 +116,21 @@ function GameModule.Register(api)
             },
             Turkish = {
                 title = "AUTO FARM",
-                power = "G�� Seviyesi",
+                power = "G   Seviyesi",
                 info = "i",
                 infoTitle = "AUTO THROW - IMPORTANT NOTES",
-                infoHint = "� The 6-second starting wait is normal.\n� Do not move or click while the automation is waiting.\n� Cooldown delays are part of the game.\n� Keep the game open until the throw is complete.",
-                idle = "Auto Throw �u anda kapal�.",
-                starting = "Otomasyon ba�lat�l�yor...",
-                moving = "At�� alan�na y�r�n�yor. L�tfen m�dahale etmeyin.",
-                initialWait = "Ba�lang�� alan�nda 6 saniye bekleniyor. L�tfen dokunmay�n.",
-                cooldown = "At�� bekleme s�resi / koruma bitene kadar bekleniyor. Hi�bir �eye dokunmay�n; s�re bitince hareket ba�layacak.",
-                marker = "At�� g�stergesinde se�ilen g�� seviyesi bekleniyor.",
-                throwing = "Se�ilen g�� yakaland�. At�� girdisi g�nderiliyor...",
-                resetting = "At�� tamamland�. Karakter s�f�rlan�yor...",
+                infoHint = "  The 6-second starting wait is normal.\n  Do not move or click while the automation is waiting.\n  Cooldown delays are part of the game.\n  Keep the game open until the throw is complete.",
+                idle = "Auto Throw  u anda kapal .",
+                starting = "Otomasyon ba lat l yor...",
+                moving = "At   alan na y r n yor. L tfen m dahale etmeyin.",
+                initialWait = "Ba lang   alan nda 6 saniye bekleniyor. L tfen dokunmay n.",
+                cooldown = "At   bekleme s resi / koruma bitene kadar bekleniyor. Hi bir  eye dokunmay n; s re bitince hareket ba layacak.",
+                marker = "At   g stergesinde se ilen g   seviyesi bekleniyor.",
+                throwing = "Se ilen g   yakaland . At   girdisi g nderiliyor...",
+                resetting = "At   tamamland . Karakter s f rlan yor...",
                 stopped = "Auto Throw durduruldu.",
-                error = "Bir hata olu�tu: ",
-                enabled = "A�IK",
+                error = "Bir hata olu tu: ",
+                enabled = "A IK",
                 disabled = "KAPALI",
                 close = "KAPAT"
             },
@@ -134,7 +139,7 @@ function GameModule.Register(api)
                 power = "??????? ????",
                 info = "i",
                 infoTitle = "AUTO THROW - IMPORTANT NOTES",
-                infoHint = "� The 6-second starting wait is normal.\n� Do not move or click while the automation is waiting.\n� Cooldown delays are part of the game.\n� Keep the game open until the throw is complete.",
+                infoHint = "  The 6-second starting wait is normal.\n  Do not move or click while the automation is waiting.\n  Cooldown delays are part of the game.\n  Keep the game open until the throw is complete.",
                 idle = "?????????? ?????? ????????.",
                 starting = "?????? ?????????????...",
                 moving = "???????? ???? ? ???? ??????. ??????????, ?? ????????????.",
@@ -1018,7 +1023,7 @@ function GameModule.Register(api)
         local equipBestLabel = Instance.new("TextLabel")
         equipBestLabel.Name = "AutoEquipBestPetLabel"
         equipBestLabel.Position = UDim2.fromOffset(12, 8)
-        equipBestLabel.Size = UDim2.fromOffset(165, 29)
+        equipBestLabel.Size = UDim2.fromOffset(135, 29)
         equipBestLabel.BackgroundColor3 = Color3.fromRGB(31, 76, 54)
         equipBestLabel.BackgroundTransparency = 0.05
         equipBestLabel.Text = "Auto Equip Best Pet"
@@ -1058,6 +1063,40 @@ function GameModule.Register(api)
         equipBestSwitch.Text = ""
         equipBestSwitch.AutoButtonColor = false
         equipBestSwitch.Parent = equipBestCard
+
+        local equipAllButton = Instance.new("TextButton")
+        equipAllButton.Name = "EquipAllButton"
+        equipAllButton.AnchorPoint = Vector2.new(1, 0)
+        equipAllButton.Position = UDim2.new(1, -82, 0, 10)
+        equipAllButton.Size = UDim2.fromOffset(66, 29)
+        equipAllButton.BackgroundColor3 = Color3.fromRGB(28, 78, 55)
+        equipAllButton.BorderSizePixel = 0
+        equipAllButton.Text = "EQUIP ALL"
+        equipAllButton.TextColor3 = Color3.fromRGB(190, 255, 218)
+        equipAllButton.TextSize = 9
+        equipAllButton.Font = Enum.Font.GothamBold
+        equipAllButton.AutoButtonColor = false
+        equipAllButton.Parent = equipBestCard
+
+        local equipAllCorner = Instance.new("UICorner")
+        equipAllCorner.CornerRadius = UDim.new(0, 7)
+        equipAllCorner.Parent = equipAllButton
+
+        local equipAllStroke = Instance.new("UIStroke")
+        equipAllStroke.Color = EQUIP_GREEN
+        equipAllStroke.Transparency = 0.35
+        equipAllStroke.Thickness = 1
+        equipAllStroke.Parent = equipAllButton
+
+        local equipAllDivider = Instance.new("Frame")
+        equipAllDivider.Name = "EquipAllDivider"
+        equipAllDivider.AnchorPoint = Vector2.new(1, 0)
+        equipAllDivider.Position = UDim2.new(1, -77, 0, 9)
+        equipAllDivider.Size = UDim2.fromOffset(1, 31)
+        equipAllDivider.BackgroundColor3 = Color3.fromRGB(78, 112, 94)
+        equipAllDivider.BackgroundTransparency = 0.25
+        equipAllDivider.BorderSizePixel = 0
+        equipAllDivider.Parent = equipBestCard
 
         local equipStateLabel = Instance.new("TextLabel")
         equipStateLabel.Name = "EquipState"
@@ -1133,28 +1172,213 @@ function GameModule.Register(api)
             return false
         end
 
+        local equipChangeQueued = false
+        local equipChangeConnections = {}
+        local equipCharacterConnections = {}
+        local equipLastInventorySignature = nil
+        local equipLastEquippedSignature = nil
+
+        helpers.getPetStateSignatures = function()
+            local inventoryIds = {}
+            local equippedIds = {}
+            local seen = {}
+
+            local backpack = player:FindFirstChildOfClass("Backpack")
+            local character = player.Character
+
+            local function scan(container, isEquipped)
+                if not container then return end
+                for _, child in ipairs(container:GetChildren()) do
+                    if child:IsA("Tool") then
+                        local animalId = child:GetAttribute("AnimalId")
+                        if animalId ~= nil then
+                            local id = tostring(animalId)
+                            if not seen[id] then
+                                seen[id] = true
+                                table.insert(inventoryIds, id)
+                            end
+                            if isEquipped then
+                                table.insert(equippedIds, id)
+                            end
+                        end
+                    end
+                end
+            end
+
+            scan(backpack, false)
+            scan(character, true)
+            table.sort(inventoryIds)
+            table.sort(equippedIds)
+            return table.concat(inventoryIds, "|"), table.concat(equippedIds, "|")
+        end
+
+        helpers.invokeEquipAll = function()
+            local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+            local remote
+            if remotes then
+                for _, candidate in ipairs(remotes:GetChildren()) do
+                    local lowerName = string.lower(candidate.Name)
+                    if string.find(lowerName, "equip", 1, true)
+                        and string.find(lowerName, "all", 1, true) then
+                        remote = candidate
+                        break
+                    end
+                end
+            end
+            if not remote then
+                helpers.debugLog("Equip All unavailable: no Equip-All remote was found in ReplicatedStorage.Remotes.")
+                return false
+            end
+
+            local ok, err = pcall(function()
+                if remote:IsA("RemoteFunction") then
+                    remote:InvokeServer()
+                elseif remote:IsA("RemoteEvent") then
+                    remote:FireServer()
+                else
+                    error("Equip-All remote is not a RemoteFunction or RemoteEvent.")
+                end
+            end)
+            if not ok then
+                warn("[BZHUB EQUIP ALL ERROR] " .. tostring(err))
+                return false
+            end
+            return true
+        end
+
+        helpers.queueEquipBest = function(workerId)
+            if equipChangeQueued then return end
+            equipChangeQueued = true
+            task.delay(0.55, function()
+                equipChangeQueued = false
+                if not autoEquipBestEnabled or workerId ~= autoEquipBestWorkerId then return end
+
+                local inventorySignature, equippedSignature = helpers.getPetStateSignatures()
+                if inventorySignature ~= equipLastInventorySignature
+                    or equippedSignature ~= equipLastEquippedSignature then
+                    helpers.invokeEquipBest()
+                    equipLastInventorySignature, equipLastEquippedSignature =
+                        helpers.getPetStateSignatures()
+                end
+            end)
+        end
+
         helpers.AutoEquipBest = function()
             autoEquipBestWorkerId += 1
             local workerId = autoEquipBestWorkerId
 
             task.spawn(function()
+                if not autoEquipBestEnabled or workerId ~= autoEquipBestWorkerId then return end
+
+                helpers.invokeEquipBest()
+                equipLastInventorySignature, equipLastEquippedSignature =
+                    helpers.getPetStateSignatures()
+
+                local function connectPetChanges(container, connectionBucket)
+                    if not container then return end
+                    table.insert(connectionBucket, container.ChildAdded:Connect(function()
+                        helpers.queueEquipBest(workerId)
+                    end))
+                    table.insert(connectionBucket, container.ChildRemoved:Connect(function()
+                        helpers.queueEquipBest(workerId)
+                    end))
+                end
+
+                local backpack = player:FindFirstChildOfClass("Backpack")
+                    or player:WaitForChild("Backpack", 5)
+                connectPetChanges(backpack, equipChangeConnections)
+
+                local function watchCharacter(character)
+                    for _, connection in ipairs(equipCharacterConnections) do
+                        pcall(function() connection:Disconnect() end)
+                    end
+                    table.clear(equipCharacterConnections)
+                    connectPetChanges(character, equipCharacterConnections)
+                end
+
+                watchCharacter(player.Character)
+
+                -- Rebind to respawned characters without retaining old character connections.
+                table.insert(equipChangeConnections, player.CharacterAdded:Connect(function(character)
+                    task.wait(0.5)
+                    if not autoEquipBestEnabled or workerId ~= autoEquipBestWorkerId then return end
+                    watchCharacter(character)
+                    helpers.queueEquipBest(workerId)
+                end))
+
+                -- A quiet safety check catches missed replication events without polling the remote.
                 while autoEquipBestEnabled and workerId == autoEquipBestWorkerId do
-                    helpers.invokeEquipBest()
-                    for _ = 1, 10 do
-                        if not autoEquipBestEnabled or workerId ~= autoEquipBestWorkerId then
-                            break
-                        end
-                        task.wait(0.5)
+                    task.wait(15)
+                    if autoEquipBestEnabled and workerId == autoEquipBestWorkerId then
+                        helpers.queueEquipBest(workerId)
                     end
                 end
             end)
         end
+
+        helpers.stopAutoEquipBest = function()
+            autoEquipBestWorkerId += 1
+            for _, connection in ipairs(equipChangeConnections) do
+                pcall(function() connection:Disconnect() end)
+            end
+            table.clear(equipChangeConnections)
+            for _, connection in ipairs(equipCharacterConnections) do
+                pcall(function() connection:Disconnect() end)
+            end
+            table.clear(equipCharacterConnections)
+            equipChangeQueued = false
+            equipLastInventorySignature = nil
+            equipLastEquippedSignature = nil
+        end
+
+        local equipAllScale = Instance.new("UIScale")
+        equipAllScale.Scale = 1
+        equipAllScale.Parent = equipAllButton
+
+        local equipAllAnimating = false
+        local function animateEquipAllUnavailable()
+            if equipAllAnimating then return end
+            equipAllAnimating = true
+            local grow = TweenService:Create(equipAllScale, TweenInfo.new(0.12, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1.14})
+            grow:Play()
+            grow.Completed:Wait()
+            for _, x in ipairs({-5, 5, -4, 4, -2, 2, 0}) do
+                equipAllButton.Position = UDim2.new(1, -82 + x, 0, 10)
+                task.wait(0.025)
+            end
+            local shrink = TweenService:Create(equipAllScale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1})
+            shrink:Play()
+            shrink.Completed:Wait()
+            equipAllButton.Position = UDim2.new(1, -82, 0, 10)
+            equipAllAnimating = false
+        end
+
+        equipAllButton.MouseButton1Click:Connect(function()
+            if autoFarmRunning then return end
+            if autoEquipBestEnabled then
+                task.spawn(animateEquipAllUnavailable)
+                return
+            end
+            equipAllButton.Text = "..."
+            local ok = helpers.invokeEquipAll()
+            equipAllButton.Text = ok and "DONE" or "N/A"
+            task.delay(0.8, function()
+                if equipAllButton and equipAllButton.Parent then
+                    equipAllButton.Text = autoEquipBestEnabled and "X" or "EQUIP ALL"
+                end
+            end)
+        end)
 
         equipBestSwitch.MouseButton1Click:Connect(function()
             if autoFarmRunning then return end
             autoEquipBestEnabled = not autoEquipBestEnabled
             equipStateLabel.Text = autoEquipBestEnabled and "ON" or "OFF"
             equipStateLabel.TextColor3 = autoEquipBestEnabled and EQUIP_GREEN_BRIGHT or MUTED
+            equipAllButton.Text = autoEquipBestEnabled and "X" or "EQUIP ALL"
+            equipAllButton.BackgroundColor3 = autoEquipBestEnabled
+                and Color3.fromRGB(70, 35, 42) or Color3.fromRGB(28, 78, 55)
+            equipAllStroke.Color = autoEquipBestEnabled
+                and Color3.fromRGB(255, 95, 105) or EQUIP_GREEN
             helpers.setEquipSwitchVisual(autoEquipBestEnabled, false)
             helpers.makeTween(equipBestStroke, 0.2, {
                 Transparency = autoEquipBestEnabled and 0.08 or 0.3,
@@ -1163,13 +1387,12 @@ function GameModule.Register(api)
 
             if autoEquipBestEnabled then
                 helpers.debugLog("Auto Equip Best Pet enabled.")
-                helpers.startAutoEquipBest()
+                helpers.AutoEquipBest()
             else
-                autoEquipBestWorkerId += 1
+                helpers.stopAutoEquipBest()
                 helpers.debugLog("Auto Equip Best Pet disabled.")
             end
         end)
-
 
         -- Auto 2x: use a non-mouse touch event first, then an event-connection
         -- activation if the executor exposes it. Mouse input is the last fallback.
@@ -1530,7 +1753,7 @@ function GameModule.Register(api)
         closeInfoButton.Size = UDim2.fromOffset(25, 25)
         closeInfoButton.BackgroundColor3 = Color3.fromRGB(32, 43, 58)
         closeInfoButton.BorderSizePixel = 0
-        closeInfoButton.Text = "�"
+        closeInfoButton.Text = " "
         closeInfoButton.TextColor3 = TEXT
         closeInfoButton.TextSize = 18
         closeInfoButton.Font = Enum.Font.GothamMedium
@@ -1639,7 +1862,7 @@ function GameModule.Register(api)
             return label, fill
         end
 
-        local afkThrowsText, afkThrowsFill = helpers.makeAfkRow("Throws", 42, "ATI�LAR: 3")
+        local afkThrowsText, afkThrowsFill = helpers.makeAfkRow("Throws", 42, "ATI LAR: 3")
         local afkTrainingText, afkTrainingFill = helpers.makeAfkRow("Training", 78, "TRAINING: 60s")
         local afkPetsText = Instance.new("TextLabel")
         afkPetsText.Name = "EquipPetsText"
@@ -1660,7 +1883,7 @@ function GameModule.Register(api)
         end
 
         helpers.setAfkThrowCount = function(remaining)
-            afkThrowsText.Text = "ATI�LAR: " .. tostring(math.max(0, remaining))
+            afkThrowsText.Text = "ATI LAR: " .. tostring(math.max(0, remaining))
             helpers.setAfkBar(afkThrowsFill, (autoFarmThrowTarget - math.max(0, remaining)) / autoFarmThrowTarget)
         end
 
@@ -1674,7 +1897,7 @@ function GameModule.Register(api)
             if type(names) ~= "table" then
                 afkPetsText.Text = "EQUIP PETS: Bekleniyor..."
             elseif #names == 0 then
-                afkPetsText.Text = "EQUIP PETS: �sim bulunamad�"
+                afkPetsText.Text = "EQUIP PETS:  sim bulunamad "
             else
                 afkPetsText.Text = "EQUIP PETS: " .. table.concat(names, ", ")
             end
@@ -2571,6 +2794,48 @@ function GameModule.Register(api)
             return true
         end
 
+        helpers.getWorldPosition = function(object)
+            if not object then return nil end
+            if object:IsA("BasePart") then return object.Position end
+            if object:IsA("Model") then return object:GetPivot().Position end
+            if object:IsA("Attachment") then return object.WorldPosition end
+            local part = object:FindFirstChildWhichIsA("BasePart", true)
+            return part and part.Position or nil
+        end
+
+        helpers.tryTeleportToPosition = function(targetPosition, isStillActive)
+            local character, humanoid, rootPart = helpers.getCharacterReferences()
+            if not character or not humanoid or not rootPart or humanoid.Health <= 0 then
+                return false
+            end
+
+            local originalRotation = rootPart.CFrame - rootPart.Position
+            local ok = pcall(function()
+                rootPart.CFrame = CFrame.new(targetPosition) * originalRotation
+                rootPart.AssemblyLinearVelocity = Vector3.zero
+                rootPart.AssemblyAngularVelocity = Vector3.zero
+            end)
+            if not ok then return false end
+
+            task.wait(0.25)
+            if isStillActive and not isStillActive() then return false end
+            if player.Character ~= character then return false end
+
+            local currentRoot = character:FindFirstChild("HumanoidRootPart")
+            if not currentRoot or (currentRoot.Position - targetPosition).Magnitude > 8 then
+                return false
+            end
+
+            task.wait(0.35)
+            if isStillActive and not isStillActive() then return false end
+            currentRoot = character:FindFirstChild("HumanoidRootPart")
+            if not currentRoot or (currentRoot.Position - targetPosition).Magnitude > 8 then
+                helpers.debugLog("Teleport was rejected or rolled back; walking fallback will be used.")
+                return false
+            end
+            return true
+        end
+
         --==================================================
         -- PATHFINDING MOVEMENT
         --==================================================
@@ -2591,6 +2856,47 @@ function GameModule.Register(api)
             if not helpers.stillRunning(currentId) then
                 return false
             end
+
+            -- Auto Throw: teleport 4 studs from CrossLine toward Lobby.Grass,
+            -- then teleport to StarterArea. Pathfinding is the fallback.
+            local starterArea = workspace:FindFirstChild("StarterArea")
+            local crossLine = starterArea and starterArea:FindFirstChild("CrossLine")
+            local lobby = workspace:FindFirstChild("Lobby")
+            local grass = lobby and lobby:FindFirstChild("Grass")
+            local crossPosition = helpers.getWorldPosition(crossLine)
+            local grassPosition = helpers.getWorldPosition(grass)
+            local teleported = false
+
+            if crossPosition and grassPosition then
+                local direction = grassPosition - crossPosition
+                if direction.Magnitude > 0.001 then
+                    local fourStudPoint = crossPosition + direction.Unit * 4
+                    helpers.debugLog("Attempting CrossLine teleport 4 studs toward Lobby.Grass.")
+                    local firstTeleport = helpers.tryTeleportToPosition(
+                        fourStudPoint,
+                        function() return helpers.stillRunning(currentId) end
+                    )
+                    if firstTeleport and helpers.stillRunning(currentId) then
+                        teleported = helpers.tryTeleportToPosition(
+                            targetPosition,
+                            function() return helpers.stillRunning(currentId) end
+                        )
+                    end
+                end
+            else
+                helpers.debugLog("CrossLine or Lobby.Grass missing; attempting direct StarterArea teleport.")
+                teleported = helpers.tryTeleportToPosition(
+                    targetPosition,
+                    function() return helpers.stillRunning(currentId) end
+                )
+            end
+
+            if teleported then
+                helpers.debugLog("StarterArea teleport confirmed.")
+                return true
+            end
+
+            helpers.debugLog("Teleport sequence failed; switching to pathfinding fallback.")
 
             for attempt = 1, MAX_PATH_RETRIES do
                 if not helpers.stillRunning(currentId) then
@@ -2808,16 +3114,11 @@ function GameModule.Register(api)
             return nil
         end
 
-        helpers.pressTrainingStopWithoutMouse = function()
-            local stopButton = helpers.findTrainingStopButton()
-            if not stopButton then
-                warn("[BZHUB AUTO TRAIN] STOP control was not found at PlayerGui.TrainingSequence.Button.")
-                return false, "STOP button not found"
-            end
+        helpers.isTrainingSequenceActive = function()
+            return playerGui:FindFirstChild("TrainingSequence") ~= nil
+        end
 
-            -- User requested SPACE instead of clicking the game's STOP button.
-            -- This intentionally sends SPACE directly through keyboard input,
-            -- without using mouse input or GUI event injection.
+        helpers.pressTrainingStopWithoutMouse = function()
             local keyCode = Enum.KeyCode.Space
 
             if type(keypress) == "function" and type(keyrelease) == "function" then
@@ -2827,10 +3128,10 @@ function GameModule.Register(api)
                     keyrelease(0x20)
                 end)
                 if ok then
-                    helpers.debugLog("Training stop requested with SPACE via Solara keyboard input.")
+                    helpers.debugLog("SPACE sent through executor keyboard input.")
                     return true
                 end
-                warn("[BZHUB AUTO TRAIN] Solara SPACE input failed: " .. tostring(err))
+                warn("[BZHUB AUTO TRAIN] Executor SPACE input failed: " .. tostring(err))
             end
 
             local virtualOk, virtualErr = pcall(function()
@@ -2839,12 +3140,45 @@ function GameModule.Register(api)
                 VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
             end)
             if virtualOk then
-                helpers.debugLog("Training stop requested with SPACE via VirtualInputManager.")
+                helpers.debugLog("SPACE sent through VirtualInputManager.")
                 return true
             end
 
             warn("[BZHUB AUTO TRAIN] Could not send SPACE: " .. tostring(virtualErr))
             return false, "SPACE input is unavailable: " .. tostring(virtualErr)
+        end
+
+        helpers.exitTrainingSequence = function(maxAttempts)
+            maxAttempts = maxAttempts or 20
+
+            for attempt = 1, maxAttempts do
+                if not helpers.isTrainingSequenceActive() then
+                    helpers.debugLog("TrainingSequence disappeared; training exit confirmed.")
+                    return true
+                end
+
+                local sent, sendError = helpers.pressTrainingStopWithoutMouse()
+                if not sent then
+                    helpers.debugLog("SPACE attempt " .. attempt .. " failed: " .. tostring(sendError))
+                end
+
+                task.wait(0.4)
+                if not helpers.isTrainingSequenceActive() then
+                    helpers.debugLog("Training exit confirmed after SPACE attempt " .. attempt .. ".")
+                    return true
+                end
+            end
+
+            warn("[BZHUB AUTO TRAIN] TrainingSequence still exists after controlled SPACE retries.")
+            return false
+        end
+
+        helpers.waitForTrainingExit = function(timeout)
+            local started = os.clock()
+            while helpers.isTrainingSequenceActive() and os.clock() - started < (timeout or 12) do
+                task.wait(0.1)
+            end
+            return not helpers.isTrainingSequenceActive()
         end
 
         startTrain = function()
@@ -2866,19 +3200,25 @@ function GameModule.Register(api)
                         error("Character references are unavailable.")
                     end
 
-                    local path = PathfindingService:CreatePath({
-                        AgentRadius = 2,
-                        AgentHeight = 5,
-                        AgentCanJump = true,
-                        AgentCanClimb = true,
-                        WaypointSpacing = 4
-                    })
-                    path:ComputeAsync(rootPart.Position, targetPosition)
-                    if path.Status ~= Enum.PathStatus.Success then
-                        error("Pathfinding failed: " .. tostring(path.Status))
-                    end
+                    local trainTeleported = helpers.tryTeleportToPosition(targetPosition, function()
+                        return trainEnabled and trainActionId == thisTrainId
+                    end)
 
-                    local waypoints = path:GetWaypoints()
+                    if not trainTeleported then
+                        helpers.debugLog("TrainingSpot teleport failed; walking fallback started.")
+                        local path = PathfindingService:CreatePath({
+                            AgentRadius = 2,
+                            AgentHeight = 5,
+                            AgentCanJump = true,
+                            AgentCanClimb = true,
+                            WaypointSpacing = 4
+                        })
+                        path:ComputeAsync(rootPart.Position, targetPosition)
+                        if path.Status ~= Enum.PathStatus.Success then
+                            error("Pathfinding failed: " .. tostring(path.Status))
+                        end
+
+                        local waypoints = path:GetWaypoints()
                     local totalPathDistance = 0
                     local previousPosition = rootPart.Position
                     for _, waypoint in ipairs(waypoints) do
@@ -2916,6 +3256,7 @@ function GameModule.Register(api)
                         end
                         completedPathDistance += segmentStartDistance
                     end
+                    end -- teleport-fallback pathfinding block
 
                     if not trainEnabled or trainActionId ~= thisTrainId then return end
                     helpers.setStatus("training", "TrainingSpot reached. Training is active.", 1)
@@ -2938,17 +3279,19 @@ function GameModule.Register(api)
             if trainEnabled then return end
 
             if hudGui then hudGui.Enabled = false end
-            helpers.setStatus("trainStopping", "Activating the game's STOP control...", 0)
+            helpers.setStatus("trainStopping", "Sending SPACE and checking TrainingSequence...", 0)
             task.spawn(function()
-                local stopped, stopError = helpers.pressTrainingStopWithoutMouse()
-                if not stopped then
-                    helpers.debugLog("Could not activate STOP control: " .. tostring(stopError))
+                local exited = helpers.exitTrainingSequence(20)
+                if not exited then
+                    helpers.debugLog("Training exit was not confirmed; TrainingSequence remains present.")
                 end
+
                 if isEnabled then
                     activeHudMode = "throw"
                     helpers.setStatus(currentStatus, currentStatusDetail)
                 else
-                    helpers.setStatus("trainStopped")
+                    helpers.setStatus(exited and "trainStopped" or "trainError",
+                        exited and "Training exited." or "Could not confirm training exit.")
                 end
             end)
         end
@@ -3048,9 +3391,9 @@ function GameModule.Register(api)
                         -- 9. LOOP RESTARTS AND WALKS TO STARTERAREA
                         helpers.debugLog("Cooldown finished. Moving to StarterArea...")
 
-                        -- D�ng� ba�a d�ner:
-                        -- StarterArea'ya y�r�r, animasyon ba�lar,
-                        -- g�� yakalan�r, f�rlat�l�r ve tekrar reset at�l�r.
+                        -- D ng  ba a d ner:
+                        -- StarterArea'ya y r r, animasyon ba lar,
+                        -- g   yakalan r, f rlat l r ve tekrar reset at l r.
                     end
 
                 end)
@@ -3106,7 +3449,10 @@ function GameModule.Register(api)
 
             -- Stop Auto Equip Best Pet worker.
             autoEquipBestEnabled = false
-            autoEquipBestWorkerId += 1
+            if helpers.stopAutoEquipBest then helpers.stopAutoEquipBest() else autoEquipBestWorkerId += 1 end
+            equipAllButton.Text = "EQUIP ALL"
+            equipAllButton.BackgroundColor3 = Color3.fromRGB(28, 78, 55)
+            equipAllStroke.Color = EQUIP_GREEN
             equipStateLabel.Text = "OFF"
             equipStateLabel.TextColor3 = MUTED
             helpers.setEquipSwitchVisual(false, true)
@@ -3188,6 +3534,9 @@ function GameModule.Register(api)
                     while autoFarmRunning and autoFarmWorkerId == thisWorkerId do
                         -- Phase 1: three throws at 20 power.
                         helpers.stopAutomationToggles()
+                        if not helpers.waitForTrainingExit(12) then
+                            error("TrainingSequence is still present; AFK Farm cannot start Auto Throw.")
+                        end
                         selectedSpeed = 20
                         helpers.updateSlider(selectedSpeed)
                         sliderLabel.Text = string.format("%s: %d", helpers.tr("power"), selectedSpeed)
@@ -3216,12 +3565,12 @@ function GameModule.Register(api)
                                 error("Auto Train: " .. tostring(currentStatusDetail))
                             end
                             if os.clock() - trainingStarted > 120 then
-                                error("TrainingSpot'a 120 saniye i�inde ula��lamad�.")
+                                error("TrainingSpot'a 120 saniye i inde ula  lamad .")
                             end
                             task.wait(0.1)
                         end
                         if not autoFarmRunning or autoFarmWorkerId ~= thisWorkerId then break end
-                        if not trainingReady then error("Training ba�lat�lamad�.") end
+                        if not trainingReady then error("Training ba lat lamad .") end
 
                         for remaining = autoFarmTrainingSeconds, 0, -1 do
                             if not autoFarmRunning or autoFarmWorkerId ~= thisWorkerId then break end
@@ -3232,7 +3581,10 @@ function GameModule.Register(api)
 
                         -- Phase 3: stop training, then equip best pets and list names.
                         helpers.setTrainForAutoFarm(false)
-                        task.wait(1)
+                        local trainingExited = helpers.waitForTrainingExit(12)
+                        if not trainingExited then
+                            error("TrainingSequence remained visible after Auto Train was stopped.")
+                        end
                         local equipped = helpers.invokeEquipBest()
                         task.wait(1)
                         local petNames = helpers.readEquippedPetNames()
@@ -3550,23 +3902,28 @@ function GameModule.Register(api)
         --==================================================
     
         local function teleportBack(oldCFrame)
-    
+
             if not oldCFrame then return false end
-    
+
             local character = player.Character
             local root = character and character:FindFirstChild("HumanoidRootPart")
-    
             if not root then return false end
-    
+
             local success = pcall(function()
                 root.CFrame = oldCFrame
+                root.AssemblyLinearVelocity = Vector3.zero
+                root.AssemblyAngularVelocity = Vector3.zero
             end)
-    
-            task.wait(0.2)
-    
-            return success
+            if not success then return false end
+
+            task.wait(0.3)
+            local currentCharacter = player.Character
+            local currentRoot = currentCharacter and currentCharacter:FindFirstChild("HumanoidRootPart")
+            if not currentRoot then return false end
+            return (currentRoot.Position - oldCFrame.Position).Magnitude <= 8
         end
-    
+
+
         --==================================================
         -- WALK TO POSITION
         --==================================================
@@ -3659,7 +4016,7 @@ function GameModule.Register(api)
         -- SELL ALL
         --==================================================
     
-        local function performSale()
+        local function performSale(onConfirmed)
     
             local objects = getSellObjects()
     
@@ -3755,7 +4112,7 @@ function GameModule.Register(api)
                     return sell
                 end
     
-            end, 10)
+            end, 1.25)
     
             if eventSellButton then
     
@@ -3814,81 +4171,96 @@ function GameModule.Register(api)
                 end
             end
     
-            task.wait(0.2)
+            if onConfirmed then
+                pcall(onConfirmed)
+            end
+            task.wait(0.05)
         end
     
         --==================================================
         -- MAIN AUTOMATION
         --==================================================
     
-        local function runSellAutomation()
-    
+        local function runSellAutomation(onSaleConfirmed)
             local character, humanoid, root = getCharacter()
             local originalCFrame = root.CFrame
-    
-            -- GUI already open: sell immediately.
-    
-            if isSellGuiOpen() then
-                performSale()
-                return
-            end
-    
-            -- First try teleporting.
-    
-            local teleportSuccess = false
-    
-            local success, savedCFrame = pcall(function()
-    
-                local result, oldCFrame = teleportToSellPlace()
-                teleportSuccess = result
-    
-                return oldCFrame
-            end)
-    
-            if success and teleportSuccess then
-    
-                originalCFrame = savedCFrame or originalCFrame
-    
-                local opened = waitUntil(function()
-                    return isSellGuiOpen()
-                end, 5)
-    
-                if opened then
-    
-                    performSale()
-                    teleportBack(originalCFrame)
-    
+            local movedFromOriginal = false
+            local returnByTeleport = false
+
+            local ok, err = xpcall(function()
+                -- If the sale window is already open, no travel is necessary.
+                if isSellGuiOpen() then
+                    performSale(onSaleConfirmed)
                     return
                 end
-    
-                teleportBack(originalCFrame)
-            end
-    
-            -- Fallback: walk normally.
-    
-            walkToSellPlace()
-    
-            local openedByWalking = waitUntil(function()
-                return isSellGuiOpen()
-            end, 8)
-    
-            if not openedByWalking then
-    
-                if not walkToPosition(originalCFrame.Position) then
-                    error("GUI did not open and return path failed")
+
+                -- First try teleporting. Confirm the movement before using the GUI.
+                local teleportCallOk, teleportResult, savedCFrame = pcall(teleportToSellPlace)
+                if teleportCallOk and teleportResult then
+                    originalCFrame = savedCFrame or originalCFrame
+                    movedFromOriginal = true
+                    returnByTeleport = true
+
+                    local opened = waitUntil(function()
+                        return isSellGuiOpen()
+                    end, 5)
+
+                    if not opened then
+                        local restored = teleportBack(originalCFrame)
+                        if not restored then
+                            restored = walkToPosition(originalCFrame.Position)
+                        end
+                        if not restored then
+                            error("Sell GUI did not open and the original position could not be restored.")
+                        end
+                        movedFromOriginal = false
+                        returnByTeleport = false
+                    end
                 end
-    
-                error("Sell GUI did not open")
+
+                -- If teleport failed or did not open the shop, use normal pathfinding.
+                if not movedFromOriginal then
+                    movedFromOriginal = true
+                    returnByTeleport = false
+                    walkToSellPlace()
+
+                    local openedByWalking = waitUntil(function()
+                        return isSellGuiOpen()
+                    end, 8)
+
+                    if not openedByWalking then
+                        error("Sell GUI did not open")
+                    end
+                end
+
+                performSale(onSaleConfirmed)
+            end, debug.traceback)
+
+            -- Always return after sale confirmation, even if a later step errors.
+            if movedFromOriginal then
+                local returned = false
+                if returnByTeleport then
+                    returned = teleportBack(originalCFrame)
+                end
+                if not returned then
+                    returned = walkToPosition(originalCFrame.Position)
+                end
+                if not returned then
+                    warn("[BZHUB SELL] Could not restore the original position.")
+                    if ok then
+                        ok = false
+                        err = "Sale completed, but returning to the original position failed."
+                    end
+                end
             end
-    
-            performSale()
-    
-            if not walkToPosition(originalCFrame.Position) then
-                error("Sale completed, but return path failed")
+
+            if not ok then
+                error(err)
             end
+            return true
         end
-    
-        --==================================================
+
+                --==================================================
         -- MAIN CARD
         --==================================================
     
@@ -4056,7 +4428,12 @@ function GameModule.Register(api)
     
             task.spawn(function()
     
-                local success, err = pcall(runSellAutomation)
+                local success, err = pcall(function()
+                    runSellAutomation(function()
+                        sellButton.Text = "RETURNING..."
+                        sellButton.BackgroundColor3 = Color3.fromRGB(35, 95, 120)
+                    end)
+                end)
     
                 if success then
                     sellButton.Text = "SOLD"
