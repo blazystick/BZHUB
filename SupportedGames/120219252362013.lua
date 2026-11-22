@@ -4900,22 +4900,39 @@ function GameModule.Register(api)
         local MUTED = Color3.fromRGB(145, 160, 180)
         local GREEN = Color3.fromRGB(55, 220, 130)
     
-        local function formatNumber(number)
-            if type(number) ~= "number" then
+        local suffixes = {
+            "", "K", "M", "B", "T",
+            "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc",
+            "Ud", "Dd", "Td", "Qad", "Qid", "Sxd", "Spd",
+            "Ocd", "Nod", "Vg", "Uvg", "Dvg", "Tvg",
+            "Qavg", "Qivg", "Sxvg", "Spvg", "Ocvg", "Novg",
+            "Tg", "Utg", "Dtg", "Tstg", "Qattg", "Qntg",
+            "Sstg", "Setg", "Otrg", "Nvtg", "Qag", "Uqg",
+            "Dqg", "Tqg", "Qaqg", "Qnqg", "Sxqg", "Spqg",
+            "Oqg", "Nqg", "Qig"
+        }
+        
+        local function formatNumber(value)
+            if not value or value ~= value then
                 return "N/A"
             end
-    
-            if number >= 1e12 then
-                return string.format("%.2fT", number / 1e12)
-            elseif number >= 1e9 then
-                return string.format("%.2fB", number / 1e9)
-            elseif number >= 1e6 then
-                return string.format("%.2fM", number / 1e6)
-            elseif number >= 1e3 then
-                return string.format("%.2fK", number / 1e3)
+        
+            if value == 0 then
+                return "0"
             end
-    
-            return tostring(math.floor(number))
+        
+            local exponent = math.floor(math.log10(math.abs(value)) / 3)
+            exponent = math.max(0, exponent)
+        
+            if exponent >= #suffixes then
+                return string.format("%.2e", value)
+            end
+        
+            local scaled = value / (10 ^ (exponent * 3))
+            local formatted = string.format("%.2f", scaled)
+            formatted = formatted:gsub("%.?0+$", "")
+        
+            return formatted .. suffixes[exponent + 1]
         end
     
         local function formatTime(seconds)
@@ -5060,7 +5077,7 @@ function GameModule.Register(api)
         createCard("Session", "SESSION TIME", 1)
         createCard("Money", "CURRENT MONEY", 2)
         createCard("CashPerSecond", "CASH / S", 3)
-        createCard("Earned", "MONEY EARNED", 4)
+        createCard("Earned", "MONEY EARNED (10S UPDATE)", 4)
         createCard("Throws", "TOTAL THROWS", 5)
         createCard("Script", "SCRIPT:", 6)
     
@@ -5075,26 +5092,49 @@ function GameModule.Register(api)
         -- LIVE DATA UPDATE
         --==================================================
         
-        local function refreshMoneyValues()
-            labels.Money.Text = tostring(moneyValue.Value)
-            labels.CashPerSecond.Text = tostring(cashPerSecondValue.Value)
+        local function refreshDashboard()
+        
+            local currentMoney = parseStatValue(moneyValue)
+            local currentCashPerSecond = parseStatValue(cashPerSecondValue)
+        
+            -- Money
+            labels.Money.Text = currentMoney
+                and "$" .. formatNumber(currentMoney)
+                or "N/A"
+        
+            -- Cash / S
+            labels.CashPerSecond.Text = currentCashPerSecond
+                and "$" .. formatNumber(currentCashPerSecond) .. "/s"
+                or "N/A"
+        
+            -- Session Time
+            local elapsed = os.clock() - sessionStartedAt
+            labels.Session.Text = formatTime(elapsed)
+        
+            -- Money Earned
+            if currentCashPerSecond then
+                labels.Earned.Text = "$" .. formatNumber(currentCashPerSecond * elapsed)
+            else
+                labels.Earned.Text = "N/A"
+            end
+        
+            -- Total Throws
+            labels.Throws.Text = tostring(api.TotalThrows or 0)
         end
         
-        -- Değişiklikleri anında algıla
-        moneyValue:GetPropertyChangedSignal("Value"):Connect(refreshMoneyValues)
-        cashPerSecondValue:GetPropertyChangedSignal("Value"):Connect(refreshMoneyValues)
+        -- İlk açılışta hemen güncelle
+        refreshDashboard()
         
-        -- İlk değerleri yükle
-        refreshMoneyValues()
-        
+        -- Sonrasında her 10 saniyede bir güncelle
         task.spawn(function()
             while page.Parent and content.Parent do
-                local elapsed = os.clock() - sessionStartedAt
+                task.wait(10)
         
-                labels.Session.Text = formatTime(elapsed)
-                labels.Throws.Text = tostring(api.TotalThrows or 0)
+                if not page.Parent or not content.Parent then
+                    break
+                end
         
-                task.wait(1)
+                refreshDashboard()
             end
         end)
     
