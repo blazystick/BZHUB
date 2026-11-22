@@ -1,4 +1,4 @@
---5623435
+--56234
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -4734,50 +4734,49 @@ function GameModule.Register(api)
         foodStroke.Transparency = 0.08
         foodStroke.Parent = foodCard
         
-        local function refreshFoodCard() 
+        
+        local function refreshFoodCard()
             local FOOD_ON_COLOR = Color3.fromRGB(35, 220, 125)
             local FOOD_ON_BG = Color3.fromRGB(8, 45, 27)
-            
             local FOOD_OFF_COLOR = Color3.fromRGB(245, 55, 65)
             local FOOD_OFF_BG = Color3.fromRGB(55, 12, 18)
-            
-            local function refreshFoodCard()
-                local enabled = upgradeRunning.Food
-            
-                foodCard.Text = enabled
-                    and "AUTO UPGRADE FOOD\nON"
-                    or "AUTO UPGRADE FOOD\nOFF"
-            
-                foodCard.BackgroundColor3 = enabled
-                    and FOOD_ON_BG
-                    or FOOD_OFF_BG
-            
-                foodStroke.Color = enabled
-                    and FOOD_ON_COLOR
-                    or FOOD_OFF_COLOR
-            
-                foodCard.BackgroundTransparency = 0.2
-            end
-            
+
+            local enabled = upgradeRunning.Food
+
+            foodCard.Text = enabled
+                and "AUTO UPGRADE FOOD\nON"
+                or "AUTO UPGRADE FOOD\nOFF"
+
+            foodCard.BackgroundColor3 = enabled
+                and FOOD_ON_BG
+                or FOOD_OFF_BG
+
+            foodStroke.Color = enabled
+                and FOOD_ON_COLOR
+                or FOOD_OFF_COLOR
+
+            foodCard.BackgroundTransparency = 0.2
+        end
+
         foodCard.MouseEnter:Connect(function()
             foodCard.BackgroundTransparency = 0.08
         end)
-            
+
         foodCard.MouseLeave:Connect(function()
             foodCard.BackgroundTransparency = 0.2
         end)
+
         foodCard.Activated:Connect(function()
             if upgradeRunning.Food then
                 stopSmartUpgrade("Food")
             else
                 startSmartUpgrade("Food", tryFoodUpgrade)
             end
-        
+
             refreshFoodCard()
         end)
-        
-        refreshFoodCard()
 
+        refreshFoodCard()
         end -- closes smart auto-upgrade scope
 
         --==================================================
