@@ -4872,7 +4872,7 @@ function GameModule.Register(api)
 
         createSmartUpgradeToggle("AUTO UPGRADE TRAIN BAR", 64, "TrainBar", tryTrainBarUpgrade)
         createSmartUpgradeToggle("AUTO UPGRADE FOOD", 120, "Food", tryFoodUpgrade)
-
+        end -- closes smart auto-upgrade scope
 
         --==================================================
         -- GLOBAL UI BUTTON SOUNDS + DEBUG
