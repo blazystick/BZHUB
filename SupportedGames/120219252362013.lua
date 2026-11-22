@@ -5,6 +5,7 @@
 
 -- THROW A FOOD FOR ANIMALS V0.7
 
+--11
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -1072,7 +1073,7 @@ function GameModule.Register(api)
         equipAllButton.Size = UDim2.fromOffset(66, 29)
         equipAllButton.BackgroundColor3 = Color3.fromRGB(28, 78, 55)
         equipAllButton.BorderSizePixel = 0
-        equipAllButton.Text = "EQUIP ALL"
+        equipAllButton.Text = "EQUIP BEST"
         equipAllButton.TextColor3 = Color3.fromRGB(190, 255, 218)
         equipAllButton.TextSize = 9
         equipAllButton.Font = Enum.Font.GothamBold
@@ -1214,37 +1215,10 @@ function GameModule.Register(api)
         end
 
         helpers.invokeEquipAll = function()
-            local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-            local remote
-            if remotes then
-                for _, candidate in ipairs(remotes:GetChildren()) do
-                    local lowerName = string.lower(candidate.Name)
-                    if string.find(lowerName, "equip", 1, true)
-                        and string.find(lowerName, "all", 1, true) then
-                        remote = candidate
-                        break
-                    end
-                end
-            end
-            if not remote then
-                helpers.debugLog("Equip All unavailable: no Equip-All remote was found in ReplicatedStorage.Remotes.")
-                return false
-            end
-
-            local ok, err = pcall(function()
-                if remote:IsA("RemoteFunction") then
-                    remote:InvokeServer()
-                elseif remote:IsA("RemoteEvent") then
-                    remote:FireServer()
-                else
-                    error("Equip-All remote is not a RemoteFunction or RemoteEvent.")
-                end
-            end)
-            if not ok then
-                warn("[BZHUB EQUIP ALL ERROR] " .. tostring(err))
-                return false
-            end
-            return true
+            -- Use the game's original Equip Best remote so it compares owned pets
+            -- against the pets already placed on the plot, exactly like the
+            -- game's normal Equip Best action.
+            return helpers.invokeEquipBest()
         end
 
         helpers.queueEquipBest = function(workerId)
@@ -1365,7 +1339,7 @@ function GameModule.Register(api)
             equipAllButton.Text = ok and "DONE" or "N/A"
             task.delay(0.8, function()
                 if equipAllButton and equipAllButton.Parent then
-                    equipAllButton.Text = autoEquipBestEnabled and "X" or "EQUIP ALL"
+                    equipAllButton.Text = autoEquipBestEnabled and "X" or "EQUIP BEST"
                 end
             end)
         end)
@@ -1375,7 +1349,7 @@ function GameModule.Register(api)
             autoEquipBestEnabled = not autoEquipBestEnabled
             equipStateLabel.Text = autoEquipBestEnabled and "ON" or "OFF"
             equipStateLabel.TextColor3 = autoEquipBestEnabled and EQUIP_GREEN_BRIGHT or MUTED
-            equipAllButton.Text = autoEquipBestEnabled and "X" or "EQUIP ALL"
+            equipAllButton.Text = autoEquipBestEnabled and "X" or "EQUIP BEST"
             equipAllButton.BackgroundColor3 = autoEquipBestEnabled
                 and Color3.fromRGB(70, 35, 42) or Color3.fromRGB(28, 78, 55)
             equipAllStroke.Color = autoEquipBestEnabled
@@ -3451,7 +3425,7 @@ function GameModule.Register(api)
             -- Stop Auto Equip Best Pet worker.
             autoEquipBestEnabled = false
             if helpers.stopAutoEquipBest then helpers.stopAutoEquipBest() else autoEquipBestWorkerId += 1 end
-            equipAllButton.Text = "EQUIP ALL"
+            equipAllButton.Text = "EQUIP BEST"
             equipAllButton.BackgroundColor3 = Color3.fromRGB(28, 78, 55)
             equipAllStroke.Color = EQUIP_GREEN
             equipStateLabel.Text = "OFF"
