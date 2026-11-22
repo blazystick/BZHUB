@@ -1,11 +1,4 @@
---====================
---    BLAZY TOOLS
---  made by yavuzxxd
---====================
-
--- THROW A FOOD FOR ANIMALS V0.7
-
-
+--123123123
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -4426,40 +4419,73 @@ function GameModule.Register(api)
         end)
     
         --==================================================
-        -- GLOBAL UI BUTTON SOUNDS
+        -- GLOBAL UI BUTTON SOUNDS + DEBUG
         --==================================================
-        -- Attach one subtle click sound to every button in this BZHUB page.
-        -- Buttons added later are covered by DescendantAdded as well.
+        -- Every GuiButton in this page gets a louder click sound.
+        -- Buttons created later are connected through DescendantAdded.
         local SoundService = game:GetService("SoundService")
         local ContentProvider = game:GetService("ContentProvider")
+        local Debris = game:GetService("Debris")
 
-        local buttonClickSound = Instance.new("Sound")
-        buttonClickSound.Name = "BZHUB_ButtonClickSound"
-        buttonClickSound.SoundId = "rbxassetid://6895079853"
-        buttonClickSound.Volume = 0.35
-        buttonClickSound.PlaybackSpeed = 1
-        buttonClickSound.Parent = SoundService
+        local BUTTON_SOUND_ID = "rbxassetid://12221967"
+        local BUTTON_SOUND_VOLUME = 1
+        local BUTTON_SOUND_SPEED = 1
+
+        local buttonSoundTemplate = Instance.new("Sound")
+        buttonSoundTemplate.Name = "BZHUB_ButtonClickTemplate"
+        buttonSoundTemplate.SoundId = BUTTON_SOUND_ID
+        buttonSoundTemplate.Volume = BUTTON_SOUND_VOLUME
+        buttonSoundTemplate.PlaybackSpeed = BUTTON_SOUND_SPEED
+        buttonSoundTemplate.Parent = SoundService
+
+        print("[BZHUB SOUND] Initializing button sounds...")
+        print("[BZHUB SOUND] SoundId:", BUTTON_SOUND_ID, "Volume:", BUTTON_SOUND_VOLUME)
 
         task.spawn(function()
-            pcall(function()
-                ContentProvider:PreloadAsync({buttonClickSound})
+            local preloadOk, preloadErr = pcall(function()
+                ContentProvider:PreloadAsync({buttonSoundTemplate})
             end)
+
+            if preloadOk then
+                print("[BZHUB SOUND] Preload finished. IsLoaded:", buttonSoundTemplate.IsLoaded)
+            else
+                warn("[BZHUB SOUND] Preload failed:", preloadErr)
+            end
         end)
 
         local connectedSoundButtons = setmetatable({}, {__mode = "k"})
+        local attachedButtonCount = 0
+
         local function attachButtonSound(object)
             if not object:IsA("GuiButton") or connectedSoundButtons[object] then
                 return
             end
 
             connectedSoundButtons[object] = true
+            attachedButtonCount += 1
+
+            print("[BZHUB SOUND] Connected:", object:GetFullName())
+
             object.Activated:Connect(function()
-                if not buttonClickSound or not buttonClickSound.Parent then
-                    return
-                end
-                pcall(function()
-                    SoundService:PlayLocalSound(buttonClickSound)
+                print("[BZHUB SOUND] Clicked:", object.Name)
+
+                local clickSound = buttonSoundTemplate:Clone()
+                clickSound.Name = "BZHUB_ButtonClick_OneShot"
+                clickSound.Volume = BUTTON_SOUND_VOLUME
+                clickSound.PlaybackSpeed = BUTTON_SOUND_SPEED
+                clickSound.Parent = SoundService
+
+                local playOk, playErr = pcall(function()
+                    SoundService:PlayLocalSound(clickSound)
                 end)
+
+                if playOk then
+                    print("[BZHUB SOUND] PlayLocalSound called. IsLoaded:", clickSound.IsLoaded)
+                    Debris:AddItem(clickSound, 5)
+                else
+                    warn("[BZHUB SOUND] Playback failed:", playErr)
+                    clickSound:Destroy()
+                end
             end)
         end
 
@@ -4468,6 +4494,7 @@ function GameModule.Register(api)
         end
 
         page.DescendantAdded:Connect(attachButtonSound)
+        print("[BZHUB SOUND] Ready. Buttons connected:", attachedButtonCount)
 
     end)
 end
