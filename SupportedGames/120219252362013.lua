@@ -5194,5 +5194,51 @@ function GameModule.Register(api)
     
         print("[BZHUB DASHBOARD] Initialized")
     end)
+    
+    --==================================================
+    -- EVENT CATEGORY
+    --==================================================
+    
+    api.AddCategory("EVENT", "EVENT", function(page)
+    
+        local card = Instance.new("TextButton")
+        card.Name = "StartEventFarm"
+        card.Size = UDim2.new(1, -20, 1, -20)
+        card.Position = UDim2.new(0, 10, 0, 10)
+        card.BackgroundColor3 = Color3.fromRGB(65, 15, 20)
+        card.BorderSizePixel = 0
+        card.Text = "START EVENT FARM"
+        card.TextColor3 = Color3.fromRGB(255, 255, 255)
+        card.TextSize = 24
+        card.Font = Enum.Font.GothamBold
+        card.Parent = page
+    
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 14)
+        corner.Parent = card
+    
+        local stroke = Instance.new("UIStroke")
+        stroke.Thickness = 2
+        stroke.Color = Color3.fromRGB(255, 55, 65)
+        stroke.Parent = card
+    
+        local enabled = false
+    
+        card.Activated:Connect(function()
+            enabled = not enabled
+    
+            if enabled then
+                card.Text = "EVENT FARM ON"
+                card.BackgroundColor3 = Color3.fromRGB(12, 65, 35)
+                stroke.Color = Color3.fromRGB(45, 255, 125)
+            else
+                card.Text = "START EVENT FARM"
+                card.BackgroundColor3 = Color3.fromRGB(65, 15, 20)
+                stroke.Color = Color3.fromRGB(255, 55, 65)
+            end
+        end)
+    
+    end)
+
 end
 return GameModule
