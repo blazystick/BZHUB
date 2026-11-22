@@ -1,4 +1,4 @@
---123123123
+
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -4714,37 +4714,128 @@ function GameModule.Register(api)
             return seconds <= SMART_WAIT_SECONDS, seconds
         end
 
-        local function tryFoodUpgrade()
-            local cash = getUpgradeCash()
-            local rate = getUpgradeCashPerSecond()
-            local buttons = getFoodPurchaseButtons()
-            if #buttons == 0 then return false, "Food shop price/button not found" end
-            if not cash then return false, "Cash value not found" end
+        -- Food purchases use the game's own data/config/remotes instead of
+        -- scanning shop GUI buttons. Food is tracked by OwnedFoods, not inventory.
+        local foodApi = {}
+        do
+            local replicatedStorage = game:GetService("ReplicatedStorage")
+            local playerScripts = upgradePlayer:WaitForChild("PlayerScripts")
+            local client = playerScripts:WaitForChild("Client")
+            local controllers = client:WaitForChild("Controllers")
 
-            local current = buttons[1]
-            local nextItem = buttons[2]
-            local target = current
-            if nextItem and nextItem.Cost then
-                if cash >= nextItem.Cost then
-                    -- If the next tier is already affordable, buy it directly.
-                    target = nextItem
-                else
-                    local waitNext, seconds = waitForSmartPurchase(nextItem.Cost, cash, rate)
-                    if waitNext and seconds and seconds > 0 then
-                        return false, string.format("Waiting for next Food tier (%.1fs)", seconds)
+            foodApi.FoodsConfig = require(replicatedStorage:WaitForChild("Config"):WaitForChild("FoodsConfig"))
+            foodApi.BalanceCurve = require(replicatedStorage:WaitForChild("Shared"):WaitForChild("BalanceCurve"))
+            foodApi.Remotes = require(replicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
+            foodApi.DataController = require(controllers:WaitForChild("DataController"))
+        end
+
+        local foodProgressFloor = tonumber(foodApi.DataController:Get("EquippedFood")) or 0
+        local foodPendingEquip = nil
+        local foodNextRemoteAt = 0
+
+        local function getFoodOwned(index)
+            return foodApi.DataController:GetPath("OwnedFoods." .. tostring(index)) == true
+        end
+
+        local function invokeFoodRemote(remoteName, index)
+            local callOk, response = pcall(foodApi.Remotes.Invoke, remoteName, index)
+            if not callOk then
+                return false, tostring(response)
+            end
+            return type(response) == "table" and response.Ok == true, response
+        end
+
+        local function tryFoodUpgrade()
+            local data = foodApi.DataController
+            local cash = tonumber(data:Get("Money"))
+            if not cash then return false, "Food: Money data not found" end
+
+            local equipped = tonumber(data:Get("EquippedFood")) or 0
+            foodProgressFloor = math.max(foodProgressFloor, equipped)
+
+            -- If a purchase succeeded but equip replication was delayed, retry
+            -- only that equip. This prevents selecting a lower Food in between.
+            if foodPendingEquip then
+                if os.clock() < foodNextRemoteAt then
+                    return false, "Waiting for Food equip response"
+                end
+                foodNextRemoteAt = os.clock() + 1.0
+                local equippedOk = invokeFoodRemote("Shop_Equip", foodPendingEquip)
+                if equippedOk then
+                    foodProgressFloor = math.max(foodProgressFloor, foodPendingEquip)
+                    local finishedIndex = foodPendingEquip
+                    foodPendingEquip = nil
+                    return true, "Equipped Food " .. tostring(finishedIndex)
+                end
+                return false, "Waiting for Food ownership/equip replication"
+            end
+
+            -- First equip the highest already-owned Food above the current
+            -- progression point, if one exists. Never downgrade to a lower tier.
+            local count = foodApi.FoodsConfig.CountAll()
+            local ownedTarget = nil
+            for index = count, foodProgressFloor + 1, -1 do
+                if not foodApi.FoodsConfig.IsLocked(index) and getFoodOwned(index) then
+                    ownedTarget = index
+                    break
+                end
+            end
+
+            if ownedTarget then
+                if os.clock() < foodNextRemoteAt then
+                    return false, "Waiting before Food equip"
+                end
+                foodNextRemoteAt = os.clock() + 1.0
+                local equipOk = invokeFoodRemote("Shop_Equip", ownedTarget)
+                if equipOk then
+                    foodProgressFloor = math.max(foodProgressFloor, ownedTarget)
+                    return true, "Equipped owned Food " .. tostring(ownedTarget)
+                end
+                return false, "Food equip failed; will retry"
+            end
+
+            -- Choose the HIGHEST unlocked, unowned Food that current Money
+            -- can afford. Earlier cheaper tiers are intentionally skipped.
+            local bestIndex = nil
+            for index = foodProgressFloor + 1, count do
+                if not foodApi.FoodsConfig.IsLocked(index) and not getFoodOwned(index) then
+                    local food = foodApi.FoodsConfig.GetAny(index)
+                    if food then
+                        local priceOk, price = pcall(foodApi.BalanceCurve.GetItemPrice, upgradePlayer, food)
+                        price = priceOk and tonumber(price) or nil
+                        if price and price <= cash then
+                            bestIndex = index
+                        end
                     end
                 end
             end
-            if cash < target.Cost then
-                local waitCurrent, seconds = waitForSmartPurchase(target.Cost, cash, rate)
-                if waitCurrent then
-                    return false, string.format("Waiting for Food price (%.1fs)", seconds or 0)
-                end
-                return false, "Not enough cash for Food upgrade"
+
+            if not bestIndex then
+                return false, "Waiting for a higher affordable Food"
             end
-            local ok = pcall(function() target.Button:Activate() end)
-            if not ok then return false, "Food button activation failed" end
-            return true, "Food purchase requested"
+            if os.clock() < foodNextRemoteAt then
+                return false, "Food purchase cooldown"
+            end
+
+            foodNextRemoteAt = os.clock() + 1.0
+            local boughtOk, buyResponse = invokeFoodRemote("Shop_Buy", bestIndex)
+            if not boughtOk then
+                local reason = type(buyResponse) == "table" and buyResponse.Reason or buyResponse
+                return false, "Food " .. tostring(bestIndex) .. " purchase failed: " .. tostring(reason or "Unknown")
+            end
+
+            -- The server purchase succeeded. Advance the local floor immediately
+            -- so a lower unowned tier is never selected while data replicates.
+            foodProgressFloor = math.max(foodProgressFloor, bestIndex)
+            foodPendingEquip = bestIndex
+            task.wait(0.15)
+
+            local equipOk = invokeFoodRemote("Shop_Equip", bestIndex)
+            if equipOk then
+                foodPendingEquip = nil
+                return true, "Bought and equipped highest affordable Food " .. tostring(bestIndex)
+            end
+            return true, "Bought Food " .. tostring(bestIndex) .. "; waiting to equip"
         end
 
         local function tryTrainBarUpgrade()
@@ -4820,22 +4911,19 @@ function GameModule.Register(api)
             card.BorderSizePixel = 0
             card.ZIndex = 2
             card.Parent = page
-        
             local corner = Instance.new("UICorner")
             corner.CornerRadius = UDim.new(0, 9)
             corner.Parent = card
-        
             local stroke = Instance.new("UIStroke")
             stroke.Color = ACCENT
             stroke.Thickness = 1.3
             stroke.Transparency = 0.25
             stroke.Parent = card
-        
             local title = Instance.new("TextLabel")
             title.Name = "Title"
             title.BackgroundTransparency = 1
             title.Position = UDim2.fromOffset(12, 0)
-            title.Size = UDim2.new(1, -75, 1, 0)
+            title.Size = UDim2.new(1, -112, 1, 0)
             title.Font = Enum.Font.GothamBold
             title.Text = name
             title.TextColor3 = TEXT
@@ -4843,114 +4931,33 @@ function GameModule.Register(api)
             title.TextXAlignment = Enum.TextXAlignment.Left
             title.ZIndex = 4
             title.Parent = card
-        
-            -- SWITCH TRACK
-            local track = Instance.new("Frame")
-            track.Name = "SwitchTrack"
-            track.AnchorPoint = Vector2.new(1, 0.5)
-            track.Position = UDim2.new(1, -12, 0.5, 0)
-            track.Size = UDim2.fromOffset(40, 22)
-            track.BackgroundColor3 = Color3.fromRGB(90, 90, 90)
-            track.BorderSizePixel = 0
-            track.ZIndex = 5
-            track.Parent = card
-        
-            local trackCorner = Instance.new("UICorner")
-            trackCorner.CornerRadius = UDim.new(1, 0)
-            trackCorner.Parent = track
-        
-            -- SWITCH KNOB
-            local knob = Instance.new("Frame")
-            knob.Name = "SwitchKnob"
-            knob.Size = UDim2.fromOffset(18, 18)
-            knob.Position = UDim2.new(0, 2, 0.5, -9)
-            knob.BackgroundColor3 = Color3.new(1, 1, 1)
-            knob.BorderSizePixel = 0
-            knob.ZIndex = 6
-            knob.Parent = track
-        
-            local knobCorner = Instance.new("UICorner")
-            knobCorner.CornerRadius = UDim.new(1, 0)
-            knobCorner.Parent = knob
-        
-            -- INVISIBLE INPUT
             local toggle = Instance.new("TextButton")
             toggle.Name = "Toggle"
-            toggle.Size = UDim2.fromScale(1, 1)
-            toggle.BackgroundTransparency = 1
-            toggle.Text = ""
+            toggle.AnchorPoint = Vector2.new(1, 0.5)
+            toggle.Position = UDim2.new(1, -9, 0.5, 0)
+            toggle.Size = UDim2.fromOffset(72, 27)
+            toggle.BackgroundColor3 = RED_DARK
+            toggle.BorderSizePixel = 0
             toggle.AutoButtonColor = false
-            toggle.ZIndex = 7
-            toggle.Parent = track
-        
-            -- OPTIMIZED TWEEN SETTINGS
-            local tweenInfo = TweenInfo.new(
-                0.16,
-                Enum.EasingStyle.Quad,
-                Enum.EasingDirection.Out
-            )
-        
-            local knobTween
-            local trackTween
-            local strokeTween
-            local lastState = nil
-        
+            toggle.Font = Enum.Font.GothamBold
+            toggle.Text = "OFF"
+            toggle.TextColor3 = Color3.new(1, 1, 1)
+            toggle.TextSize = 10
+            toggle.ZIndex = 5
+            toggle.Parent = card
+            local toggleCorner = Instance.new("UICorner")
+            toggleCorner.CornerRadius = UDim.new(0, 6)
+            toggleCorner.Parent = toggle
             local function refresh()
                 local enabled = upgradeRunning[key]
-        
-                -- Durum değişmediyse hiçbir işlem yapma.
-                if lastState == enabled then
-                    return
-                end
-        
-                lastState = enabled
-        
-                -- Önceki animasyonları durdur.
-                if knobTween then knobTween:Cancel() end
-                if trackTween then trackTween:Cancel() end
-                if strokeTween then strokeTween:Cancel() end
-        
-                local targetPosition = enabled
-                    and UDim2.new(1, -20, 0.5, -9)
-                    or UDim2.new(0, 2, 0.5, -9)
-        
-                local targetColor = enabled
-                    and Color3.fromRGB(35, 190, 90)
-                    or Color3.fromRGB(90, 90, 90)
-        
-                local targetStroke = enabled
-                    and Color3.fromRGB(70, 220, 130)
-                    or ACCENT
-        
-                knobTween = TweenService:Create(knob, tweenInfo, {
-                    Position = targetPosition
-                })
-        
-                trackTween = TweenService:Create(track, tweenInfo, {
-                    BackgroundColor3 = targetColor
-                })
-        
-                strokeTween = TweenService:Create(stroke, tweenInfo, {
-                    Color = targetStroke
-                })
-        
-                knobTween:Play()
-                trackTween:Play()
-                strokeTween:Play()
+                toggle.Text = enabled and "ON" or "OFF"
+                toggle.BackgroundColor3 = enabled and Color3.fromRGB(35, 155, 85) or RED_DARK
+                stroke.Color = enabled and Color3.fromRGB(70, 220, 130) or ACCENT
             end
-        
             toggle.Activated:Connect(function()
-                if upgradeRunning[key] then
-                    stopSmartUpgrade(key)
-                else
-                    startSmartUpgrade(key, worker)
-                end
-        
+                if upgradeRunning[key] then stopSmartUpgrade(key) else startSmartUpgrade(key, worker) end
                 refresh()
             end)
-        
-            refresh()
-        
             return card
         end
 
