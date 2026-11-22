@@ -5075,40 +5075,23 @@ function GameModule.Register(api)
         -- LIVE DATA UPDATE
         --==================================================
         
-        local currentCashPerSecond = nil
-        
         local function refreshMoneyValues()
-        
-            local money = parseStatValue(moneyValue)
-            currentCashPerSecond = parseStatValue(cashPerSecondValue)
-        
-            labels.Money.Text = formatNumber(money)
-            labels.CashPerSecond.Text = formatNumber(currentCashPerSecond)
+            labels.Money.Text = tostring(moneyValue.Value)
+            labels.CashPerSecond.Text = tostring(cashPerSecondValue.Value)
         end
         
-        -- Değerler değiştiğinde anında güncelle.
-        moneyValue.Changed:Connect(refreshMoneyValues)
-        cashPerSecondValue.Changed:Connect(refreshMoneyValues)
+        -- Değişiklikleri anında algıla
+        moneyValue:GetPropertyChangedSignal("Value"):Connect(refreshMoneyValues)
+        cashPerSecondValue:GetPropertyChangedSignal("Value"):Connect(refreshMoneyValues)
         
-        -- İlk değerleri hemen yükle.
+        -- İlk değerleri yükle
         refreshMoneyValues()
         
-        -- Sadece zaman ve hesaplanan değerleri saniyede bir güncelle.
         task.spawn(function()
             while page.Parent and content.Parent do
-        
                 local elapsed = os.clock() - sessionStartedAt
         
                 labels.Session.Text = formatTime(elapsed)
-        
-                if currentCashPerSecond ~= nil then
-                    labels.Earned.Text = formatNumber(
-                        currentCashPerSecond * elapsed
-                    )
-                else
-                    labels.Earned.Text = "N/A"
-                end
-        
                 labels.Throws.Text = tostring(api.TotalThrows or 0)
         
                 task.wait(1)
