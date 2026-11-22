@@ -4878,64 +4878,75 @@ function GameModule.Register(api)
 
         print("[BZHUB SOUND] READY. Connected BZHUB buttons:", attachedButtonCount)
     end)
-    
     --==================================================
-    -- DASHBOARD
+    -- BZHUB DASHBOARD
     --==================================================
     
     api.AddCategory("Dashboard", "DASHBOARD", function(page)
     
         local Players = game:GetService("Players")
         local player = Players.LocalPlayer
-        local playerGui = player:WaitForChild("PlayerGui")
     
         local ACCENT = Color3.fromRGB(45, 155, 255)
         local CARD = Color3.fromRGB(17, 23, 33)
         local TEXT = Color3.fromRGB(225, 233, 245)
         local MUTED = Color3.fromRGB(145, 160, 180)
     
+        -- REAL GAME DATA
+        local DataController
+    
+        local success, result = pcall(function()
+            local controllers = player
+                :WaitForChild("PlayerScripts")
+                :WaitForChild("Client")
+                :WaitForChild("Controllers")
+    
+            return require(controllers:WaitForChild("DataController"))
+        end)
+    
+        if success then
+            DataController = result
+        else
+            warn("[BZHUB DASHBOARD] DataController error:", result)
+        end
+    
         local startedAt = os.clock()
         local previousMoney = nil
         local earnedMoney = 0
     
-        local function parseNumber(value)
-            if type(value) ~= "string" then return nil end
+        local moneySamples = {}
+        local SAMPLE_DURATION = 10
     
-            value = value:upper():gsub(",", ""):gsub("%s", "")
+        local function readData(key)
+            if not DataController then return nil end
     
-            local number, suffix = value:match("([%d%.]+)([A-Z]+)")
+            local ok, value = pcall(function()
+                return DataController:Get(key)
+            end)
     
-            if not number then
-                number = value:match("([%d%.]+)")
-                suffix = ""
+            if ok then
+                return value
             end
     
-            number = tonumber(number)
-            if not number then return nil end
-    
-            local multipliers = {
-                K = 1e3,
-                M = 1e6,
-                B = 1e9,
-                T = 1e12,
-                QA = 1e15,
-                QI = 1e18
-            }
-    
-            return number * (multipliers[suffix or ""] or 1)
+            return nil
         end
     
         local function formatNumber(number)
-            if number == nil then return "N/A" end
+            if type(number) ~= "number" then
+                return "N/A"
+            end
     
-            if number >= 1e12 then
-                return string.format("%.2fT", number / 1e12)
-            elseif number >= 1e9 then
-                return string.format("%.2fB", number / 1e9)
-            elseif number >= 1e6 then
-                return string.format("%.2fM", number / 1e6)
-            elseif number >= 1e3 then
-                return string.format("%.2fK", number / 1e3)
+            local suffixes = {
+                {1e12, "T"},
+                {1e9, "B"},
+                {1e6, "M"},
+                {1e3, "K"}
+            }
+    
+            for _, item in ipairs(suffixes) do
+                if number >= item[1] then
+                    return string.format("%.2f%s", number / item[1], item[2])
+                end
             end
     
             return tostring(math.floor(number))
@@ -4951,56 +4962,46 @@ function GameModule.Register(api)
             return string.format("%02d:%02d:%02d", hours, minutes, secs)
         end
     
-        local function getMoney()
-            local leaderstats = player:FindFirstChild("leaderstats")
+        local function countOwnedFoods(foods)
+            if type(foods) ~= "table" then
+                return 0
+            end
     
-            if leaderstats then
-                for _, value in ipairs(leaderstats:GetChildren()) do
-                    local name = value.Name:lower()
+            local count = 0
     
-                    if (value:IsA("NumberValue") or value:IsA("IntValue"))
-                        and (
-                            name:find("cash", 1, true)
-                            or name:find("money", 1, true)
-                            or name:find("coin", 1, true)
-                        ) then
-                        return value.Value
-                    end
+            for _, owned in pairs(foods) do
+                if owned then
+                    count += 1
                 end
             end
     
-            for _, object in ipairs(playerGui:GetDescendants()) do
-                if object:IsA("TextLabel") or object:IsA("TextButton") then
-                    local name = (object.Name .. " " .. object.Text):lower()
-    
-                    if name:find("cash", 1, true)
-                        or name:find("money", 1, true) then
-    
-                        local amount = parseNumber(object.Text)
-                        if amount then return amount end
-                    end
-                end
-            end
-    
-            return nil
+            return count
         end
     
-        local function getMoneyPerSecond()
-            for _, object in ipairs(playerGui:GetDescendants()) do
-                if object:IsA("TextLabel") or object:IsA("TextButton") then
-                    local value = object.Text
+        local function getMoneyPerSecond(now)
+            local total = 0
+            local oldestTime = now
     
-                    if value and value:find("/s", 1, true) then
-                        local amount = parseNumber(value)
-                        if amount then return amount end
-                    end
+            for i = #moneySamples, 1, -1 do
+                local sample = moneySamples[i]
+    
+                if now - sample.time > SAMPLE_DURATION then
+                    table.remove(moneySamples, i)
+                else
+                    total += sample.amount
+                    oldestTime = math.min(oldestTime, sample.time)
                 end
             end
     
-            return nil
+            local duration = math.max(1, now - oldestTime)
+    
+            return total / duration
         end
     
-        -- Main scrolling area
+        --==================================================
+        -- GUI
+        --==================================================
+    
         local scroll = Instance.new("ScrollingFrame")
         scroll.Name = "DashboardScroll"
         scroll.Size = UDim2.fromScale(1, 1)
@@ -5019,13 +5020,12 @@ function GameModule.Register(api)
         content.BackgroundTransparency = 1
         content.Parent = scroll
     
-        local contentLayout = Instance.new("UIListLayout")
-        contentLayout.Padding = UDim.new(0, 10)
-        contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        contentLayout.Parent = content
+        local list = Instance.new("UIListLayout")
+        list.Padding = UDim.new(0, 10)
+        list.SortOrder = Enum.SortOrder.LayoutOrder
+        list.Parent = content
     
         local header = Instance.new("Frame")
-        header.Name = "DashboardHeader"
         header.Size = UDim2.new(1, 0, 0, 48)
         header.BackgroundTransparency = 1
         header.LayoutOrder = 1
@@ -5052,10 +5052,13 @@ function GameModule.Register(api)
         subtitle.TextXAlignment = Enum.TextXAlignment.Left
         subtitle.Parent = header
     
-        -- Statistics grid
+        --==================================================
+        -- STATISTICS CARDS
+        --==================================================
+    
         local grid = Instance.new("Frame")
         grid.Name = "StatisticsGrid"
-        grid.Size = UDim2.new(1, 0, 0, 190)
+        grid.Size = UDim2.new(1, 0, 0, 284)
         grid.BackgroundTransparency = 1
         grid.LayoutOrder = 2
         grid.Parent = content
@@ -5122,31 +5125,58 @@ function GameModule.Register(api)
         createCard("Money", "CURRENT MONEY", 2)
         createCard("Earned", "MONEY EARNED", 3)
         createCard("PerSecond", "MONEY / SEC", 4)
+        createCard("FoodOwned", "FOODS OWNED", 5)
+        createCard("EquippedFood", "EQUIPPED FOOD", 6)
     
-        -- Update loop
+        --==================================================
+        -- LIVE DATA UPDATE
+        --==================================================
+    
         task.spawn(function()
             while page.Parent and content.Parent do
-                local money = getMoney()
-                local elapsed = math.max(1, os.clock() - startedAt)
+                local now = os.clock()
     
-                if money ~= nil then
-                    if previousMoney ~= nil and money > previousMoney then
-                        earnedMoney += money - previousMoney
+                local money = readData("Money")
+                local ownedFoods = readData("OwnedFoods")
+                local equippedFood = readData("EquippedFood")
+    
+                if type(money) == "number" then
+                    if previousMoney ~= nil then
+                        local difference = money - previousMoney
+    
+                        if difference > 0 then
+                            earnedMoney += difference
+    
+                            table.insert(moneySamples, {
+                                time = now,
+                                amount = difference
+                            })
+                        end
                     end
     
                     previousMoney = money
                 end
     
-                local moneyPerSecond = getMoneyPerSecond()
+                labels.Session.Text =
+                    formatTime(now - startedAt)
     
-                labels.Session.Text = formatTime(elapsed)
-                labels.Money.Text = formatNumber(money)
-                labels.Earned.Text = formatNumber(earnedMoney)
+                labels.Money.Text =
+                    formatNumber(money)
     
-                if moneyPerSecond then
-                    labels.PerSecond.Text = formatNumber(moneyPerSecond)
+                labels.Earned.Text =
+                    formatNumber(earnedMoney)
+    
+                labels.PerSecond.Text =
+                    formatNumber(getMoneyPerSecond(now))
+    
+                labels.FoodOwned.Text =
+                    tostring(countOwnedFoods(ownedFoods))
+    
+                if equippedFood ~= nil then
+                    labels.EquippedFood.Text =
+                        "#" .. tostring(equippedFood)
                 else
-                    labels.PerSecond.Text = formatNumber(earnedMoney / elapsed)
+                    labels.EquippedFood.Text = "N/A"
                 end
     
                 task.wait(1)
