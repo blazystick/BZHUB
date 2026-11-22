@@ -1,4 +1,4 @@
---123123123
+ 
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -2332,7 +2332,7 @@ function GameModule.Register(api)
                     helpers.setHudProgress(math.clamp(elapsed / math.max(seconds, 0.01), 0, 1))
                 end
 
-                task.wait(0.05)
+                task.wait(0.01)
             end
 
             return helpers.stillRunning(currentId)
@@ -2453,7 +2453,7 @@ function GameModule.Register(api)
                     error("ThrowSequence Marker not found. Timed out.")
                 end
 
-                task.wait(0.03)
+                task.wait(0.01)
             end
 
             return nil
@@ -2741,7 +2741,7 @@ function GameModule.Register(api)
                         break
                     end
 
-                    task.wait(0.1)
+                    task.wait(0.02)
                 end
 
                 if not helpers.stillRunning(currentId) then
@@ -2923,7 +2923,7 @@ function GameModule.Register(api)
                         .. tostring(computeError)
                     )
 
-                    task.wait(0.5)
+                    task.wait(0.05)
                     continue
                 end
 
@@ -2933,7 +2933,7 @@ function GameModule.Register(api)
 
                 if path.Status ~= Enum.PathStatus.Success then
                     helpers.debugLog("Pathfinding status: " .. tostring(path.Status))
-                    task.wait(0.5)
+                    task.wait(0.05)
                     continue
                 end
 
@@ -2969,7 +2969,7 @@ function GameModule.Register(api)
                 end
 
                 helpers.debugLog("Recalculating route...")
-                task.wait(0.5)
+                task.wait(0.05)
             end
 
             error("Could not reach StarterArea after path retries.")
@@ -3020,7 +3020,7 @@ function GameModule.Register(api)
                     end
                 end
 
-                task.wait(0.1)
+                task.wait(0.02)
             end
 
             return false
@@ -3517,7 +3517,7 @@ function GameModule.Register(api)
                         helpers.startFarm()
 
                         while autoFarmRunning and autoFarmWorkerId == thisWorkerId and not autoFarmThrowDone do
-                            task.wait(0.1)
+                            task.wait(0.02)
                         end
                         if not autoFarmRunning or autoFarmWorkerId ~= thisWorkerId then break end
 
@@ -3535,7 +3535,7 @@ function GameModule.Register(api)
                             if os.clock() - trainingStarted > 120 then
                                 error("TrainingSpot'a 120 saniye i inde ula  lamad .")
                             end
-                            task.wait(0.1)
+                            task.wait(0.02)
                         end
                         if not autoFarmRunning or autoFarmWorkerId ~= thisWorkerId then break end
                         if not trainingReady then error("Training ba lat lamad .") end
@@ -3554,11 +3554,10 @@ function GameModule.Register(api)
                             error("TrainingSequence remained visible after Auto Train was stopped.")
                         end
                         local equipped = helpers.invokeEquipBest()
-                        task.wait(1)
+                        task.wait(0.1)
                         local petNames = helpers.readEquippedPetNames()
                         helpers.setAfkPets(petNames)
                         helpers.debugLog("AFK Farm Equip Best: " .. tostring(equipped) .. "; pets: " .. table.concat(petNames, ", "))
-                        task.wait(1)
                     end
                 end)
 
@@ -3779,7 +3778,7 @@ function GameModule.Register(api)
         local player = Players.LocalPlayer
         local sellBusy = false
     
-        local CHECK_DELAY = 0.05
+        local CHECK_DELAY = 0.015
     
         --==================================================
         -- GUI REFERENCES
@@ -3990,7 +3989,7 @@ function GameModule.Register(api)
             end)
             if not success then return false end
 
-            task.wait(0.3)
+            task.wait(0.08)
             local currentCharacter = player.Character
             local currentRoot = currentCharacter and currentCharacter:FindFirstChild("HumanoidRootPart")
             if not currentRoot then return false end
@@ -4065,7 +4064,7 @@ function GameModule.Register(api)
                     end
                 end
     
-                task.wait(0.1)
+                task.wait(0.02)
             end
     
             return false
@@ -4083,7 +4082,7 @@ function GameModule.Register(api)
                 error("Could not walk to SellPlace")
             end
     
-            task.wait(0.2)
+            task.wait(0.03)
         end
     
         --==================================================
@@ -4248,7 +4247,6 @@ function GameModule.Register(api)
             if onConfirmed then
                 pcall(onConfirmed)
             end
-            task.wait(0.05)
         end
     
         --==================================================
@@ -4516,7 +4514,7 @@ function GameModule.Register(api)
                     sellButton.Text = "FAILED"
                 end
     
-                task.wait(1)
+                task.wait(0.3)
     
                 sellBusy = false
                 sellButton.Text = "SELL"
