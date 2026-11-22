@@ -4820,19 +4820,23 @@ function GameModule.Register(api)
             card.BorderSizePixel = 0
             card.ZIndex = 2
             card.Parent = page
+        
             local corner = Instance.new("UICorner")
             corner.CornerRadius = UDim.new(0, 9)
             corner.Parent = card
+        
             local stroke = Instance.new("UIStroke")
             stroke.Color = ACCENT
             stroke.Thickness = 1.3
             stroke.Transparency = 0.25
             stroke.Parent = card
+        
+            -- TITLE
             local title = Instance.new("TextLabel")
             title.Name = "Title"
             title.BackgroundTransparency = 1
             title.Position = UDim2.fromOffset(12, 0)
-            title.Size = UDim2.new(1, -112, 1, 0)
+            title.Size = UDim2.new(1, -75, 1, 0)
             title.Font = Enum.Font.GothamBold
             title.Text = name
             title.TextColor3 = TEXT
@@ -4840,33 +4844,100 @@ function GameModule.Register(api)
             title.TextXAlignment = Enum.TextXAlignment.Left
             title.ZIndex = 4
             title.Parent = card
+        
+            -- SWITCH TRACK
+            local track = Instance.new("Frame")
+            track.Name = "SwitchTrack"
+            track.AnchorPoint = Vector2.new(1, 0.5)
+            track.Position = UDim2.new(1, -12, 0.5, 0)
+            track.Size = UDim2.fromOffset(40, 22)
+            track.BackgroundColor3 = Color3.fromRGB(90, 90, 90)
+            track.BorderSizePixel = 0
+            track.ZIndex = 5
+            track.Parent = card
+        
+            local trackCorner = Instance.new("UICorner")
+            trackCorner.CornerRadius = UDim.new(1, 0)
+            trackCorner.Parent = track
+        
+            -- SWITCH KNOB
+            local knob = Instance.new("Frame")
+            knob.Name = "SwitchKnob"
+            knob.Size = UDim2.fromOffset(18, 18)
+            knob.Position = UDim2.new(0, 2, 0.5, -9)
+            knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            knob.BorderSizePixel = 0
+            knob.ZIndex = 6
+            knob.Parent = track
+        
+            local knobCorner = Instance.new("UICorner")
+            knobCorner.CornerRadius = UDim.new(1, 0)
+            knobCorner.Parent = knob
+        
+            -- INVISIBLE CLICK AREA
             local toggle = Instance.new("TextButton")
             toggle.Name = "Toggle"
-            toggle.AnchorPoint = Vector2.new(1, 0.5)
-            toggle.Position = UDim2.new(1, -9, 0.5, 0)
-            toggle.Size = UDim2.fromOffset(72, 27)
-            toggle.BackgroundColor3 = RED_DARK
-            toggle.BorderSizePixel = 0
+            toggle.Size = UDim2.fromScale(1, 1)
+            toggle.BackgroundTransparency = 1
+            toggle.Text = ""
             toggle.AutoButtonColor = false
-            toggle.Font = Enum.Font.GothamBold
-            toggle.Text = "OFF"
-            toggle.TextColor3 = Color3.new(1, 1, 1)
-            toggle.TextSize = 10
-            toggle.ZIndex = 5
-            toggle.Parent = card
-            local toggleCorner = Instance.new("UICorner")
-            toggleCorner.CornerRadius = UDim.new(0, 6)
-            toggleCorner.Parent = toggle
+            toggle.ZIndex = 7
+            toggle.Parent = track
+        
+            -- SWITCH ANIMATION
             local function refresh()
                 local enabled = upgradeRunning[key]
-                toggle.Text = enabled and "ON" or "OFF"
-                toggle.BackgroundColor3 = enabled and Color3.fromRGB(35, 155, 85) or RED_DARK
-                stroke.Color = enabled and Color3.fromRGB(70, 220, 130) or ACCENT
+        
+                local targetPosition = enabled
+                    and UDim2.new(1, -20, 0.5, -9)
+                    or UDim2.new(0, 2, 0.5, -9)
+        
+                local targetColor = enabled
+                    and Color3.fromRGB(35, 190, 90)
+                    or Color3.fromRGB(90, 90, 90)
+        
+                local targetStroke = enabled
+                    and Color3.fromRGB(70, 220, 130)
+                    or ACCENT
+        
+                TweenService:Create(
+                    knob,
+                    TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+                    {
+                        Position = targetPosition
+                    }
+                ):Play()
+        
+                TweenService:Create(
+                    track,
+                    TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+                    {
+                        BackgroundColor3 = targetColor
+                    }
+                ):Play()
+        
+                TweenService:Create(
+                    stroke,
+                    TweenInfo.new(0.2),
+                    {
+                        Color = targetStroke
+                    }
+                ):Play()
             end
+        
+            -- ON / OFF
             toggle.Activated:Connect(function()
-                if upgradeRunning[key] then stopSmartUpgrade(key) else startSmartUpgrade(key, worker) end
+                if upgradeRunning[key] then
+                    stopSmartUpgrade(key)
+                else
+                    startSmartUpgrade(key, worker)
+                end
+        
                 refresh()
             end)
+        
+            refresh()
+        
             return card
         end
 
