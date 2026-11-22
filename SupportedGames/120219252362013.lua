@@ -3743,13 +3743,7 @@ function GameModule.Register(api)
         print("[BZHUB AUTOMATION SOUND] READY. Connected buttons:", automationButtonCount)
     end)
     
-    
-    
-    
-    
-
-    
-        api.AddCategory("Upgrades", "UPGRADES", function(page)
+    api.AddCategory("Upgrades", "UPGRADES", function(page)
     
         --==================================================
         -- COLORS
@@ -4883,7 +4877,283 @@ function GameModule.Register(api)
         end
 
         print("[BZHUB SOUND] READY. Connected BZHUB buttons:", attachedButtonCount)
-
+    end)
+    
+    --==================================================
+    -- DASHBOARD
+    --==================================================
+    
+    api.AddCategory("Dashboard", "DASHBOARD", function(page)
+    
+        local Players = game:GetService("Players")
+        local player = Players.LocalPlayer
+        local playerGui = player:WaitForChild("PlayerGui")
+    
+        local ACCENT = Color3.fromRGB(45, 155, 255)
+        local CARD = Color3.fromRGB(17, 23, 33)
+        local TEXT = Color3.fromRGB(225, 233, 245)
+        local MUTED = Color3.fromRGB(145, 160, 180)
+    
+        local startedAt = os.clock()
+        local previousMoney = nil
+        local earnedMoney = 0
+    
+        local function parseNumber(value)
+            if type(value) ~= "string" then return nil end
+    
+            value = value:upper():gsub(",", ""):gsub("%s", "")
+    
+            local number, suffix = value:match("([%d%.]+)([A-Z]+)")
+    
+            if not number then
+                number = value:match("([%d%.]+)")
+                suffix = ""
+            end
+    
+            number = tonumber(number)
+            if not number then return nil end
+    
+            local multipliers = {
+                K = 1e3,
+                M = 1e6,
+                B = 1e9,
+                T = 1e12,
+                QA = 1e15,
+                QI = 1e18
+            }
+    
+            return number * (multipliers[suffix or ""] or 1)
+        end
+    
+        local function formatNumber(number)
+            if number == nil then return "N/A" end
+    
+            if number >= 1e12 then
+                return string.format("%.2fT", number / 1e12)
+            elseif number >= 1e9 then
+                return string.format("%.2fB", number / 1e9)
+            elseif number >= 1e6 then
+                return string.format("%.2fM", number / 1e6)
+            elseif number >= 1e3 then
+                return string.format("%.2fK", number / 1e3)
+            end
+    
+            return tostring(math.floor(number))
+        end
+    
+        local function formatTime(seconds)
+            seconds = math.floor(seconds)
+    
+            local hours = math.floor(seconds / 3600)
+            local minutes = math.floor((seconds % 3600) / 60)
+            local secs = seconds % 60
+    
+            return string.format("%02d:%02d:%02d", hours, minutes, secs)
+        end
+    
+        local function getMoney()
+            local leaderstats = player:FindFirstChild("leaderstats")
+    
+            if leaderstats then
+                for _, value in ipairs(leaderstats:GetChildren()) do
+                    local name = value.Name:lower()
+    
+                    if (value:IsA("NumberValue") or value:IsA("IntValue"))
+                        and (
+                            name:find("cash", 1, true)
+                            or name:find("money", 1, true)
+                            or name:find("coin", 1, true)
+                        ) then
+                        return value.Value
+                    end
+                end
+            end
+    
+            for _, object in ipairs(playerGui:GetDescendants()) do
+                if object:IsA("TextLabel") or object:IsA("TextButton") then
+                    local name = (object.Name .. " " .. object.Text):lower()
+    
+                    if name:find("cash", 1, true)
+                        or name:find("money", 1, true) then
+    
+                        local amount = parseNumber(object.Text)
+                        if amount then return amount end
+                    end
+                end
+            end
+    
+            return nil
+        end
+    
+        local function getMoneyPerSecond()
+            for _, object in ipairs(playerGui:GetDescendants()) do
+                if object:IsA("TextLabel") or object:IsA("TextButton") then
+                    local value = object.Text
+    
+                    if value and value:find("/s", 1, true) then
+                        local amount = parseNumber(value)
+                        if amount then return amount end
+                    end
+                end
+            end
+    
+            return nil
+        end
+    
+        -- Main scrolling area
+        local scroll = Instance.new("ScrollingFrame")
+        scroll.Name = "DashboardScroll"
+        scroll.Size = UDim2.fromScale(1, 1)
+        scroll.BackgroundTransparency = 1
+        scroll.BorderSizePixel = 0
+        scroll.ScrollBarThickness = 4
+        scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+        scroll.Parent = page
+    
+        local content = Instance.new("Frame")
+        content.Name = "DashboardContent"
+        content.Position = UDim2.fromOffset(8, 8)
+        content.Size = UDim2.new(1, -16, 0, 0)
+        content.AutomaticSize = Enum.AutomaticSize.Y
+        content.BackgroundTransparency = 1
+        content.Parent = scroll
+    
+        local contentLayout = Instance.new("UIListLayout")
+        contentLayout.Padding = UDim.new(0, 10)
+        contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        contentLayout.Parent = content
+    
+        local header = Instance.new("Frame")
+        header.Name = "DashboardHeader"
+        header.Size = UDim2.new(1, 0, 0, 48)
+        header.BackgroundTransparency = 1
+        header.LayoutOrder = 1
+        header.Parent = content
+    
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, 0, 0, 23)
+        title.BackgroundTransparency = 1
+        title.Text = "GAME OVERVIEW"
+        title.TextColor3 = TEXT
+        title.TextSize = 17
+        title.Font = Enum.Font.GothamBold
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.Parent = header
+    
+        local subtitle = Instance.new("TextLabel")
+        subtitle.Position = UDim2.fromOffset(0, 25)
+        subtitle.Size = UDim2.new(1, 0, 0, 17)
+        subtitle.BackgroundTransparency = 1
+        subtitle.Text = "Live game statistics"
+        subtitle.TextColor3 = MUTED
+        subtitle.TextSize = 10
+        subtitle.Font = Enum.Font.Gotham
+        subtitle.TextXAlignment = Enum.TextXAlignment.Left
+        subtitle.Parent = header
+    
+        -- Statistics grid
+        local grid = Instance.new("Frame")
+        grid.Name = "StatisticsGrid"
+        grid.Size = UDim2.new(1, 0, 0, 190)
+        grid.BackgroundTransparency = 1
+        grid.LayoutOrder = 2
+        grid.Parent = content
+    
+        local gridLayout = Instance.new("UIGridLayout")
+        gridLayout.CellSize = UDim2.new(0.5, -5, 0, 88)
+        gridLayout.CellPadding = UDim2.fromOffset(10, 10)
+        gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        gridLayout.Parent = grid
+    
+        local labels = {}
+    
+        local function createCard(name, heading, order)
+            local card = Instance.new("Frame")
+            card.Name = name
+            card.BackgroundColor3 = CARD
+            card.BorderSizePixel = 0
+            card.LayoutOrder = order
+            card.Parent = grid
+    
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 10)
+            corner.Parent = card
+    
+            local stroke = Instance.new("UIStroke")
+            stroke.Color = ACCENT
+            stroke.Transparency = 0.55
+            stroke.Thickness = 1
+            stroke.Parent = card
+    
+            local accent = Instance.new("Frame")
+            accent.Size = UDim2.new(0, 3, 0, 35)
+            accent.Position = UDim2.fromOffset(0, 13)
+            accent.BackgroundColor3 = ACCENT
+            accent.BorderSizePixel = 0
+            accent.Parent = card
+    
+            local headingLabel = Instance.new("TextLabel")
+            headingLabel.Position = UDim2.fromOffset(12, 12)
+            headingLabel.Size = UDim2.new(1, -20, 0, 17)
+            headingLabel.BackgroundTransparency = 1
+            headingLabel.Text = heading
+            headingLabel.TextColor3 = MUTED
+            headingLabel.TextSize = 9
+            headingLabel.Font = Enum.Font.GothamBold
+            headingLabel.TextXAlignment = Enum.TextXAlignment.Left
+            headingLabel.Parent = card
+    
+            local valueLabel = Instance.new("TextLabel")
+            valueLabel.Position = UDim2.fromOffset(12, 34)
+            valueLabel.Size = UDim2.new(1, -20, 0, 30)
+            valueLabel.BackgroundTransparency = 1
+            valueLabel.Text = "Loading..."
+            valueLabel.TextColor3 = TEXT
+            valueLabel.TextSize = 17
+            valueLabel.Font = Enum.Font.GothamBold
+            valueLabel.TextXAlignment = Enum.TextXAlignment.Left
+            valueLabel.Parent = card
+    
+            labels[name] = valueLabel
+        end
+    
+        createCard("Session", "SESSION TIME", 1)
+        createCard("Money", "CURRENT MONEY", 2)
+        createCard("Earned", "MONEY EARNED", 3)
+        createCard("PerSecond", "MONEY / SEC", 4)
+    
+        -- Update loop
+        task.spawn(function()
+            while page.Parent and content.Parent do
+                local money = getMoney()
+                local elapsed = math.max(1, os.clock() - startedAt)
+    
+                if money ~= nil then
+                    if previousMoney ~= nil and money > previousMoney then
+                        earnedMoney += money - previousMoney
+                    end
+    
+                    previousMoney = money
+                end
+    
+                local moneyPerSecond = getMoneyPerSecond()
+    
+                labels.Session.Text = formatTime(elapsed)
+                labels.Money.Text = formatNumber(money)
+                labels.Earned.Text = formatNumber(earnedMoney)
+    
+                if moneyPerSecond then
+                    labels.PerSecond.Text = formatNumber(moneyPerSecond)
+                else
+                    labels.PerSecond.Text = formatNumber(earnedMoney / elapsed)
+                end
+    
+                task.wait(1)
+            end
+        end)
+    
+        print("[BZHUB DASHBOARD] Initialized")
     end)
 end
 return GameModule
