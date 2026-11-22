@@ -15,8 +15,8 @@ local SUPPORTED_GAMES = {
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local NORMAL_SIZE = UDim2.fromOffset(665, 415)
-local MIN_SIZE = Vector2.new(665, 415)
+local NORMAL_SIZE = UDim2.fromOffset(775, 515)
+local MIN_SIZE = Vector2.new(775, 515)
 local MAX_SIZE = Vector2.new(1000, 750)
 
 local NORMAL_POSITION = UDim2.fromScale(0.5, 0.5)
