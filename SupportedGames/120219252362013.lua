@@ -5195,11 +5195,14 @@ function GameModule.Register(api)
         print("[BZHUB DASHBOARD] Initialized")
     end)
     
+    
     --==================================================
     -- EVENT CATEGORY
     --==================================================
     
     api.AddCategory("EVENT", "EVENT", function(page)
+    
+        local TweenService = game:GetService("TweenService")
     
         local card = Instance.new("TextButton")
         card.Name = "StartEventFarm"
@@ -5211,6 +5214,7 @@ function GameModule.Register(api)
         card.TextColor3 = Color3.fromRGB(255, 255, 255)
         card.TextSize = 24
         card.Font = Enum.Font.GothamBold
+        card.AutoButtonColor = false
         card.Parent = page
     
         local corner = Instance.new("UICorner")
@@ -5222,23 +5226,73 @@ function GameModule.Register(api)
         stroke.Color = Color3.fromRGB(255, 55, 65)
         stroke.Parent = card
     
+        local scale = Instance.new("UIScale")
+        scale.Scale = 1
+        scale.Parent = card
+    
         local enabled = false
+        local busy = false
+    
+        local function tween(object, duration, properties)
+            local animation = TweenService:Create(
+                object,
+                TweenInfo.new(
+                    duration,
+                    Enum.EasingStyle.Quint,
+                    Enum.EasingDirection.Out
+                ),
+                properties
+            )
+            animation:Play()
+            return animation
+        end
     
         card.Activated:Connect(function()
+            if busy then return end
+            busy = true
+    
             enabled = not enabled
+    
+            tween(scale, 0.12, {
+                Scale = 0.96
+            })
     
             if enabled then
                 card.Text = "EVENT FARM ON"
-                card.BackgroundColor3 = Color3.fromRGB(12, 65, 35)
-                stroke.Color = Color3.fromRGB(45, 255, 125)
+    
+                tween(card, 0.35, {
+                    BackgroundColor3 = Color3.fromRGB(12, 65, 35)
+                })
+    
+                tween(stroke, 0.35, {
+                    Color = Color3.fromRGB(45, 255, 125),
+                    Thickness = 3
+                })
             else
                 card.Text = "START EVENT FARM"
-                card.BackgroundColor3 = Color3.fromRGB(65, 15, 20)
-                stroke.Color = Color3.fromRGB(255, 55, 65)
+    
+                tween(card, 0.35, {
+                    BackgroundColor3 = Color3.fromRGB(65, 15, 20)
+                })
+    
+                tween(stroke, 0.35, {
+                    Color = Color3.fromRGB(255, 55, 65),
+                    Thickness = 2
+                })
             end
+    
+            task.wait(0.12)
+    
+            tween(scale, 0.25, {
+                Scale = 1
+            })
+    
+            task.wait(0.25)
+            busy = false
         end)
     
     end)
+
 
 end
 return GameModule
