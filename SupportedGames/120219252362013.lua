@@ -4831,7 +4831,6 @@ function GameModule.Register(api)
             stroke.Transparency = 0.25
             stroke.Parent = card
         
-            -- TITLE
             local title = Instance.new("TextLabel")
             title.Name = "Title"
             title.BackgroundTransparency = 1
@@ -4865,7 +4864,7 @@ function GameModule.Register(api)
             knob.Name = "SwitchKnob"
             knob.Size = UDim2.fromOffset(18, 18)
             knob.Position = UDim2.new(0, 2, 0.5, -9)
-            knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            knob.BackgroundColor3 = Color3.new(1, 1, 1)
             knob.BorderSizePixel = 0
             knob.ZIndex = 6
             knob.Parent = track
@@ -4874,7 +4873,7 @@ function GameModule.Register(api)
             knobCorner.CornerRadius = UDim.new(1, 0)
             knobCorner.Parent = knob
         
-            -- INVISIBLE CLICK AREA
+            -- INVISIBLE INPUT
             local toggle = Instance.new("TextButton")
             toggle.Name = "Toggle"
             toggle.Size = UDim2.fromScale(1, 1)
@@ -4884,9 +4883,32 @@ function GameModule.Register(api)
             toggle.ZIndex = 7
             toggle.Parent = track
         
-            -- SWITCH ANIMATION
+            -- OPTIMIZED TWEEN SETTINGS
+            local tweenInfo = TweenInfo.new(
+                0.16,
+                Enum.EasingStyle.Quad,
+                Enum.EasingDirection.Out
+            )
+        
+            local knobTween
+            local trackTween
+            local strokeTween
+            local lastState = nil
+        
             local function refresh()
                 local enabled = upgradeRunning[key]
+        
+                -- Durum değişmediyse hiçbir işlem yapma.
+                if lastState == enabled then
+                    return
+                end
+        
+                lastState = enabled
+        
+                -- Önceki animasyonları durdur.
+                if knobTween then knobTween:Cancel() end
+                if trackTween then trackTween:Cancel() end
+                if strokeTween then strokeTween:Cancel() end
         
                 local targetPosition = enabled
                     and UDim2.new(1, -20, 0.5, -9)
@@ -4900,32 +4922,23 @@ function GameModule.Register(api)
                     and Color3.fromRGB(70, 220, 130)
                     or ACCENT
         
-                TweenService:Create(
-                    knob,
-                    TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-                    {
-                        Position = targetPosition
-                    }
-                ):Play()
+                knobTween = TweenService:Create(knob, tweenInfo, {
+                    Position = targetPosition
+                })
         
-                TweenService:Create(
-                    track,
-                    TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-                    {
-                        BackgroundColor3 = targetColor
-                    }
-                ):Play()
+                trackTween = TweenService:Create(track, tweenInfo, {
+                    BackgroundColor3 = targetColor
+                })
         
-                TweenService:Create(
-                    stroke,
-                    TweenInfo.new(0.2),
-                    {
-                        Color = targetStroke
-                    }
-                ):Play()
+                strokeTween = TweenService:Create(stroke, tweenInfo, {
+                    Color = targetStroke
+                })
+        
+                knobTween:Play()
+                trackTween:Play()
+                strokeTween:Play()
             end
         
-            -- ON / OFF
             toggle.Activated:Connect(function()
                 if upgradeRunning[key] then
                     stopSmartUpgrade(key)
