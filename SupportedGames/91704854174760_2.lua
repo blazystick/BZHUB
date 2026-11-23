@@ -335,6 +335,9 @@ function GameModule.Register(api)
                                     usedWords[word] = true
                                     break
                                 elseif answerRejected then
+                                    -- Reddedilen kelimeyi de kalici olarak kullanilmis say;
+                                    -- oyun bunu daha once kullanilmis diye reddetmis olabilir.
+                                    usedWords[word] = true
                                     -- Yanlis cevapta sadece bizim yazdigimiz harfleri sil.
                                     for _ = 1, (#word - #prefix) do
                                         if not pressLetter("backspace") then
