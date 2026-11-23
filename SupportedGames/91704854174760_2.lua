@@ -64,36 +64,41 @@ function GameModule.Register(api)
         local infoStatusLabel, infoDetailLabel
 
         local function refreshOpponentInfo(isTurn, screen)
-            if not infoStatusLabel or not infoDetailLabel then return end
-            local choiceList = screen and screen:FindFirstChild("ChoiceList")
-            local answerInput = screen and screen:FindFirstChild("TopBar")
-            answerInput = answerInput and answerInput:FindFirstChild("AnswerInput")
-            local active = not isTurn and answerInput and answerInput.Visible
-                and not (choiceList and choiceList.Visible) and opponentSamplePrefix ~= nil
+            if not infoHudGui or not infoHudGui.Parent then return end
+            infoHudGui.Enabled = completeWordsEnabled
+            if not completeWordsEnabled then return end
 
-            if not completeWordsEnabled then
-                infoStatusLabel.Text = "ANALIZ KAPALI"
-                infoDetailLabel.Text = "Complete Words'i acarak rakip takibini baslat."
-            elseif active then
+            local choiceList = screen and screen:FindFirstChild("ChoiceList")
+            local topBar = screen and screen:FindFirstChild("TopBar")
+            local answerInput = topBar and topBar:FindFirstChild("AnswerInput")
+            local prefix = getRequiredPrefix()
+            local matchActive = (choiceList and choiceList.Visible)
+                or (answerInput and answerInput.Visible and prefix ~= nil)
+
+            if not matchActive then
+                infoStatusLabel.Text = "MAÇ BEKLENİYOR"
+                infoDetailLabel.Text = "Oyun turu başladığında analiz otomatik devreye girecek."
+            elseif opponentSamplePrefix and opponentSampleStarted then
                 local elapsed = math.clamp(os.clock() - opponentSampleStarted, 0, 16)
-                infoStatusLabel.Text = "RAKIP TAKIP EDILIYOR"
-                infoDetailLabel.Text = string.format("Harf: %s   |   Gecen: %.1f / 16 sn\nSon kayit: %s", opponentSamplePrefix:upper(), elapsed, lastOpponentResult)
+                infoStatusLabel.Text = "RAKİP TAKİP EDİLİYOR"
+                infoDetailLabel.Text = string.format("Görülen harf: %s   |   Süre: %.1f / 16 sn\nSon kayıt: %s", opponentSamplePrefix:upper(), elapsed, lastOpponentResult)
             elseif isTurn then
-                infoStatusLabel.Text = "SENIN SIRAN"
-                infoDetailLabel.Text = "Rakip verileri kaydedildi. En zor harf: " .. (function()
-                    local best, bestAvg = nil, 0
-                    for prefix, stats in pairs(opponentDifficulty) do
-                        local avg = stats.total / math.max(stats.count, 1)
-                        if avg > bestAvg then best, bestAvg = prefix, avg end
-                    end
-                    return best and (best:upper() .. string.format(" (%.1f sn)", bestAvg)) or "yok"
-                end)()
+                infoStatusLabel.Text = "SENİN SIRAN"
+                infoDetailLabel.Text = "Prefix: " .. tostring(prefix and prefix:upper() or "algılanamadı")
+                    .. "   |   En zor rakip harfi: " .. (function()
+                        local best, bestAvg = nil, 0
+                        for letter, stats in pairs(opponentDifficulty) do
+                            local avg = stats.total / math.max(stats.count, 1)
+                            if avg > bestAvg then best, bestAvg = letter, avg end
+                        end
+                        return best and (best:upper() .. string.format(" (%.1f sn)", bestAvg)) or "veri yok"
+                    end)()
             elseif choiceList and choiceList.Visible then
-                infoStatusLabel.Text = "RAKIP HARF SECIYOR"
-                infoDetailLabel.Text = "Secim ekrani acik; cevap suresi henuz baslamadi."
+                infoStatusLabel.Text = "RAKİP HARF SEÇİYOR"
+                infoDetailLabel.Text = "Seçim ekranı açık; cevap süresi henüz başlamadı."
             else
-                infoStatusLabel.Text = "RAKIP TURU BEKLENIYOR"
-                infoDetailLabel.Text = "IsTurn=false, cevap ekrani bekleniyor. " .. lastOpponentResult
+                infoStatusLabel.Text = "RAKİP TURU BEKLENİYOR"
+                infoDetailLabel.Text = "Rakibin cevap ekranı algılanmaya çalışılıyor. " .. lastOpponentResult
             end
         end
 
@@ -115,9 +120,12 @@ function GameModule.Register(api)
             local answerInput = topBar and topBar:FindFirstChild("AnswerInput")
             local choiceList = screen and screen:FindFirstChild("ChoiceList")
             local prefix = getRequiredPrefix()
+            local matchActive = (choiceList and choiceList.Visible)
+                or (answerInput and answerInput.Visible and prefix ~= nil)
 
-            -- IsTurn=false tek basina yeterli degil; rakibin cevap ekrani da acik olmali.
-            local opponentAnswering = not isTurn
+            -- IsTurn=false only counts as the opponent's turn during an active round.
+            local opponentAnswering = matchActive
+                and not isTurn
                 and answerInput ~= nil
                 and answerInput.Visible
                 and not (choiceList and choiceList.Visible)
@@ -190,7 +198,13 @@ function GameModule.Register(api)
                     local isTurn = player:GetAttribute("IsTurn") == true
                     observeOpponent(screen, isTurn)
 
-                    if not isTurn or (choiceList and choiceList.Visible) then
+                    local answerInput = screen and screen:FindFirstChild("TopBar")
+                    answerInput = answerInput and answerInput:FindFirstChild("AnswerInput")
+                    local currentPrefix = getRequiredPrefix()
+                    local matchActive = (choiceList and choiceList.Visible)
+                        or (answerInput and answerInput.Visible and currentPrefix ~= nil)
+
+                    if not matchActive or not isTurn or (choiceList and choiceList.Visible) then
                         lastPrefix = nil
                         task.wait(0.2)
                     else
@@ -199,17 +213,25 @@ function GameModule.Register(api)
                             local word = findWord(prefix)
                             lastPrefix = prefix
                             if word and eventAPI and type(eventAPI.fire) == "function" then
-                                usedWords[word] = true
+                                local typedSuccessfully = true
                                 for index = #prefix + 1, #word do
                                     if not completeWordsEnabled or player:GetAttribute("IsTurn") ~= true then
+                                        typedSuccessfully = false
                                         break
                                     end
-                                    eventAPI.fire("keyStroke", word:sub(index, index))
+                                    local ok = pcall(function()
+                                        eventAPI.fire("tryKeystroke", word:sub(index, index))
+                                    end)
+                                    if not ok then
+                                        typedSuccessfully = false
+                                        break
+                                    end
                                     task.wait(0.09)
                                 end
-                                if completeWordsEnabled and player:GetAttribute("IsTurn") == true then
+                                if typedSuccessfully and completeWordsEnabled and player:GetAttribute("IsTurn") == true then
                                     task.wait(0.15)
-                                    eventAPI.fire("tryAnswer")
+                                    pcall(function() eventAPI.fire("tryAnswer") end)
+                                    usedWords[word] = true
                                 end
                             end
                         end
@@ -275,49 +297,63 @@ function GameModule.Register(api)
         cardStroke.Transparency = 0.28
         cardStroke.Parent = card
 
-        local infoCard = Instance.new("Frame")
-        infoCard.Name = "OpponentAnalysisInfo"
-        infoCard.Size = UDim2.new(1, 0, 0, 86)
-        infoCard.BackgroundColor3 = PANEL
-        infoCard.BorderSizePixel = 0
-        infoCard.LayoutOrder = 2
-        infoCard.Parent = content
+        -- Independent top HUD, like the Auto Throw status panel.
+        local player = game:GetService("Players").LocalPlayer
+        local playerGui = player:WaitForChild("PlayerGui")
+        infoHudGui = Instance.new("ScreenGui")
+        infoHudGui.Name = "BZHUB_CompleteWords_AnalysisHUD"
+        infoHudGui.ResetOnSpawn = false
+        infoHudGui.IgnoreGuiInset = true
+        infoHudGui.DisplayOrder = 100002
+        infoHudGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        infoHudGui.Enabled = false
+        infoHudGui.Parent = playerGui
 
-        local infoCorner = Instance.new("UICorner")
-        infoCorner.CornerRadius = UDim.new(0, 12)
-        infoCorner.Parent = infoCard
+        local infoHudPanel = Instance.new("Frame")
+        infoHudPanel.Name = "OpponentAnalysisPanel"
+        infoHudPanel.AnchorPoint = Vector2.new(0.5, 0)
+        infoHudPanel.Position = UDim2.new(0.5, 0, 0, 18)
+        infoHudPanel.Size = UDim2.fromOffset(390, 82)
+        infoHudPanel.BackgroundColor3 = Color3.fromRGB(8, 13, 22)
+        infoHudPanel.BackgroundTransparency = 0.08
+        infoHudPanel.BorderSizePixel = 0
+        infoHudPanel.Parent = infoHudGui
 
-        local infoStroke = Instance.new("UIStroke")
-        infoStroke.Color = WHITE
-        infoStroke.Transparency = 0.65
-        infoStroke.Thickness = 1
-        infoStroke.Parent = infoCard
+        local infoHudCorner = Instance.new("UICorner")
+        infoHudCorner.CornerRadius = UDim.new(0, 12)
+        infoHudCorner.Parent = infoHudPanel
+
+        local infoHudStroke = Instance.new("UIStroke")
+        infoHudStroke.Color = Color3.fromRGB(70, 165, 245)
+        infoHudStroke.Thickness = 1.2
+        infoHudStroke.Transparency = 0.18
+        infoHudStroke.Parent = infoHudPanel
 
         infoStatusLabel = Instance.new("TextLabel")
         infoStatusLabel.Name = "AnalysisStatus"
-        infoStatusLabel.Position = UDim2.fromOffset(13, 9)
-        infoStatusLabel.Size = UDim2.new(1, -26, 0, 18)
+        infoStatusLabel.Position = UDim2.fromOffset(14, 9)
+        infoStatusLabel.Size = UDim2.new(1, -28, 0, 20)
         infoStatusLabel.BackgroundTransparency = 1
-        infoStatusLabel.Text = "ANALIZ KAPALI"
+        infoStatusLabel.Text = "ANALİZ KAPALI"
         infoStatusLabel.TextColor3 = WHITE
-        infoStatusLabel.TextSize = 11
+        infoStatusLabel.TextSize = 12
         infoStatusLabel.Font = Enum.Font.GothamBold
         infoStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-        infoStatusLabel.Parent = infoCard
+        infoStatusLabel.Parent = infoHudPanel
 
         infoDetailLabel = Instance.new("TextLabel")
         infoDetailLabel.Name = "AnalysisDetails"
-        infoDetailLabel.Position = UDim2.fromOffset(13, 31)
-        infoDetailLabel.Size = UDim2.new(1, -26, 0, 45)
+        infoDetailLabel.Position = UDim2.fromOffset(14, 34)
+        infoDetailLabel.Size = UDim2.new(1, -28, 0, 38)
         infoDetailLabel.BackgroundTransparency = 1
-        infoDetailLabel.Text = "Complete Words'i acarak rakip takibini baslat."
+        infoDetailLabel.Text = "Complete Words açıldığında rakip takibi başlayacak."
         infoDetailLabel.TextColor3 = MUTED
         infoDetailLabel.TextSize = 10
         infoDetailLabel.Font = Enum.Font.Gotham
         infoDetailLabel.TextWrapped = true
         infoDetailLabel.TextXAlignment = Enum.TextXAlignment.Left
         infoDetailLabel.TextYAlignment = Enum.TextYAlignment.Top
-        infoDetailLabel.Parent = infoCard
+        infoDetailLabel.Parent = infoHudPanel
 
         local nameLabel = Instance.new("TextLabel")
         nameLabel.Name = "CompleteWordsLabel"
@@ -413,7 +449,11 @@ function GameModule.Register(api)
         switch.MouseButton1Click:Connect(function()
             completeWordsEnabled = not completeWordsEnabled
             updateSwitch(false)
-            if completeWordsEnabled then
+            if not completeWordsEnabled then
+                finishOpponentSample()
+                if infoHudGui then infoHudGui.Enabled = false end
+            else
+                if infoHudGui then infoHudGui.Enabled = true end
                 runCompleteWords()
             end
         end)
