@@ -3121,6 +3121,17 @@ function GameModule.Register(api)
         helpers.pressTrainingStopWithoutMouse = function()
             local keyCode = Enum.KeyCode.Space
 
+            if type(keytap) == "function" then
+                local ok, err = pcall(function()
+                    keytap(0x20)
+                end)
+                if ok then
+                    helpers.debugLog("SPACE sent through executor keytap.")
+                    return true
+                end
+                warn("[BZHUB AUTO TRAIN] Executor keytap failed: " .. tostring(err))
+            end
+
             if type(keypress) == "function" and type(keyrelease) == "function" then
                 local ok, err = pcall(function()
                     keypress(0x20)
@@ -5865,7 +5876,7 @@ function GameModule.Register(api)
         -- BUTTON ACTION
         --==================================================
     
-        card.Activated:Connect(function()
+        local function onEventCardPressed()
             if busy then
                 return
             end
@@ -5910,7 +5921,11 @@ function GameModule.Register(api)
             task.delay(0.3, function()
                 busy = false
             end)
-        end)
+        end
+
+        -- Activated is preferred; MouseButton1Click is a compatibility fallback.
+        card.Activated:Connect(onEventCardPressed)
+        card.MouseButton1Click:Connect(onEventCardPressed)
     
         --==================================================
         -- CLEANUP
