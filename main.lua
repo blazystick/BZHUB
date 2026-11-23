@@ -2178,6 +2178,9 @@ function BZHUB_API.AddCategory(name, text, callback)
     if name == "Dashboard" then
         button.Text = "    " .. string.upper(text)
     end
+    if name == "EVENT" then
+        button.Text = "    " .. string.upper(text)
+    end
     pages[name] = page
 
     button.MouseButton1Click:Connect(function()
