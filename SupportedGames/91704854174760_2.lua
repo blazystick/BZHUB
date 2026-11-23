@@ -77,7 +77,7 @@ function GameModule.Register(api)
             elseif active then
                 local elapsed = math.clamp(os.clock() - opponentSampleStarted, 0, 16)
                 infoStatusLabel.Text = "RAKIP TAKIP EDILIYOR"
-                infoDetailLabel.Text = string.format("Har f: %s   |   Gecen: %.1f / 16 sn\nSon kayit: %s", opponentSamplePrefix:upper(), elapsed, lastOpponentResult)
+                infoDetailLabel.Text = string.format("Harf: %s   |   Gecen: %.1f / 16 sn\nSon kayit: %s", opponentSamplePrefix:upper(), elapsed, lastOpponentResult)
             elseif isTurn then
                 infoStatusLabel.Text = "SENIN SIRAN"
                 infoDetailLabel.Text = "Rakip verileri kaydedildi. En zor harf: " .. (function()
