@@ -2128,6 +2128,23 @@ local BZHUB_API = {}
 
 local gameCategoryCount = 0
 
+function BZHUB_API.SetStatus(message, isError)
+    if not statusText or not statusText.Parent then
+        return
+    end
+
+    statusText.Text = tostring(message or "")
+    statusText.TextColor3 = isError
+        and Color3.fromRGB(235, 75, 75)
+        or Color3.fromRGB(70, 225, 125)
+
+    if statusDot and statusDot.Parent then
+        statusDot.BackgroundColor3 = isError
+            and Color3.fromRGB(225, 55, 55)
+            or Color3.fromRGB(55, 220, 115)
+    end
+end
+
 function BZHUB_API.AddCategory(name, text, callback)
     if not gameSupported then return end
     if pages[name] then return end
@@ -2175,36 +2192,182 @@ function BZHUB_API.AddCategory(name, text, callback)
     end
 end
 
+--==================================================
+-- EXECUTOR-COMPATIBLE GAME MODULE LOADER
+--==================================================
+
+local GAME_MODULE_URL =
+    "https://raw.githubusercontent.com/blazystick/BZHUB/refs/heads/main/SupportedGames/120219252362013.lua"
+
+local function getResponseBody(response)
+    if type(response) == "string" then
+        return response
+    end
+
+    if type(response) == "table" then
+        if type(response.Body) == "string" then
+            return response.Body
+        end
+
+        if type(response.body) == "string" then
+            return response.body
+        end
+
+        if type(response.ResponseBody) == "string" then
+            return response.ResponseBody
+        end
+    end
+
+    return nil
+end
+
+local function tryHttpRequest(requestFunction, requestName)
+    if type(requestFunction) ~= "function" then
+        return nil, requestName .. " is unavailable"
+    end
+
+    local success, response = pcall(requestFunction)
+
+    if not success then
+        return nil, requestName .. " failed: " .. tostring(response)
+    end
+
+    local body = getResponseBody(response)
+
+    if type(body) ~= "string" or body == "" then
+        return nil, requestName .. " returned an empty or invalid response"
+    end
+
+    return body
+end
+
+local function downloadGameModule(url)
+    local errors = {}
+
+    -- Roblox-style HttpGet is retained first for Solara compatibility.
+    local body, err = tryHttpRequest(function()
+        return game:HttpGet(url)
+    end, "game:HttpGet")
+
+    if body then
+        return body
+    end
+    table.insert(errors, err)
+
+    -- Executor request APIs are optional and are checked only when present.
+    if type(request) == "function" then
+        body, err = tryHttpRequest(function()
+            return request({
+                Url = url,
+                Method = "GET"
+            })
+        end, "request")
+
+        if body then
+            return body
+        end
+        table.insert(errors, err)
+    end
+
+    if type(http_request) == "function" then
+        body, err = tryHttpRequest(function()
+            return http_request({
+                Url = url,
+                Method = "GET"
+            })
+        end, "http_request")
+
+        if body then
+            return body
+        end
+        table.insert(errors, err)
+    end
+
+    if type(syn) == "table" and type(syn.request) == "function" then
+        body, err = tryHttpRequest(function()
+            return syn.request({
+                Url = url,
+                Method = "GET"
+            })
+        end, "syn.request")
+
+        if body then
+            return body
+        end
+        table.insert(errors, err)
+    end
+
+    return nil, table.concat(errors, " | ")
+end
+
+local function setModuleLoadError(message)
+    local readableError = tostring(message)
+
+    warn("[BZHUB] Game module load failed:", readableError)
+
+    if statusText and statusText.Parent then
+        statusText.Text = "MODULE LOAD ERROR"
+        statusText.TextColor3 = Color3.fromRGB(235, 75, 75)
+    end
+
+    if statusDot and statusDot.Parent then
+        statusDot.BackgroundColor3 = Color3.fromRGB(225, 55, 55)
+    end
+end
+
 if gameSupported and game.PlaceId == 120219252362013 then
     task.spawn(function()
         local success, err = pcall(function()
-            local url = "https://raw.githubusercontent.com/blazystick/BZHUB/refs/heads/main/SupportedGames/120219252362013.lua"
-            local requestSuccess, response = pcall(function()
-                return game:HttpGet(url)
-            end)
-            if not requestSuccess or type(response) ~= "string" then
-                warn("[BZHUB] HTTP request failed:", response)
-                return
+            local response, downloadError = downloadGameModule(GAME_MODULE_URL)
+
+            if type(response) ~= "string" then
+                error("Could not download game module. " .. tostring(downloadError))
             end
+
             if response:find("^404:") then
-                warn("[BZHUB] GitHub returned 404")
-                return
+                error("GitHub returned 404. Check the module URL and repository file.")
             end
-            print("[BZHUB] Module response:", response:sub(1, 100))
-            assert(type(loadstring) == "function", "Executor does not support loadstring")
+
+            if #response < 20 then
+                error("Downloaded module is unexpectedly short.")
+            end
+
+            print("[BZHUB] Game module downloaded:", #response, "bytes")
+
+            if type(loadstring) ~= "function" then
+                error("This executor does not expose loadstring.")
+            end
+
             local compiled, compileError = loadstring(response)
-            if not compiled then
-                warn("[BZHUB] Compile error:", compileError)
-                return
+
+            if type(compiled) ~= "function" then
+                error("Module compile failed: " .. tostring(compileError))
             end
+
             local moduleScript = compiled()
-            assert(type(moduleScript) == "table", "Module must return a table")
-            assert(type(moduleScript.Register) == "function", "Register function missing")
-            moduleScript.Register(BZHUB_API)
+
+            if type(moduleScript) ~= "table" then
+                error("Downloaded module did not return a table.")
+            end
+
+            if type(moduleScript.Register) ~= "function" then
+                error("Downloaded module is missing Register(api).")
+            end
+
+            local registerSuccess, registerError = pcall(
+                moduleScript.Register,
+                BZHUB_API
+            )
+
+            if not registerSuccess then
+                error("Module Register failed: " .. tostring(registerError))
+            end
+
+            print("[BZHUB] Game module registered successfully.")
         end)
 
         if not success then
-            warn("[BZHUB] Game module error:", err)
+            setModuleLoadError(err)
         end
 
         gameModuleLoadFinished = true
