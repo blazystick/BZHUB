@@ -246,16 +246,15 @@ function GameModule.Register(api)
             return keyUp
         end
 
-        local automationRunning = false
-        local function runCompleteWords()
-            if automationRunning then return end
-            automationRunning = true
+        -- Her acilis yeni bir oturum kimligi alir; eski donguler bu kimlikle durdurulur.
+        local activeRunId = 0
+        local function runCompleteWords(runId)
             task.spawn(function()
                 local Players = game:GetService("Players")
                 local player = Players.LocalPlayer
                 local lastPrefix = nil
 
-                while completeWordsEnabled do
+                while completeWordsEnabled and activeRunId == runId do
                     local screen = player:FindFirstChildOfClass("PlayerGui")
                     screen = screen and screen:FindFirstChild("ScreenGui")
                     local choiceList = screen and screen:FindFirstChild("ChoiceList")
@@ -279,7 +278,7 @@ function GameModule.Register(api)
                             local maxAttempts = 3
 
                             for attempt = 1, maxAttempts do
-                                if not completeWordsEnabled or player:GetAttribute("IsTurn") ~= true then
+                                if not completeWordsEnabled or activeRunId ~= runId or player:GetAttribute("IsTurn") ~= true then
                                     break
                                 end
 
@@ -289,7 +288,7 @@ function GameModule.Register(api)
 
                                 local typedSuccessfully = true
                                 for index = #prefix + 1, #word do
-                                    if not completeWordsEnabled or player:GetAttribute("IsTurn") ~= true then
+                                    if not completeWordsEnabled or activeRunId ~= runId or player:GetAttribute("IsTurn") ~= true then
                                         typedSuccessfully = false
                                         break
                                     end
@@ -315,7 +314,7 @@ function GameModule.Register(api)
                                 local answerRejected = false
                                 for _ = 1, 20 do
                                     task.wait(0.1)
-                                    if not completeWordsEnabled or player:GetAttribute("IsTurn") ~= true then
+                                    if not completeWordsEnabled or activeRunId ~= runId or player:GetAttribute("IsTurn") ~= true then
                                         answerAccepted = true
                                         break
                                     end
@@ -357,7 +356,6 @@ function GameModule.Register(api)
                         task.wait(0.12)
                     end
                 end
-                automationRunning = false
             end)
         end
 
@@ -567,13 +565,26 @@ function GameModule.Register(api)
 
         switch.MouseButton1Click:Connect(function()
             completeWordsEnabled = not completeWordsEnabled
+            activeRunId = activeRunId + 1
             updateSwitch(false)
+
             if not completeWordsEnabled then
-                finishOpponentSample()
+                -- Kapatirken aktif donguyu gecersiz kil ve tum oturum verilerini sifirla.
+                opponentSamplePrefix = nil
+                opponentSampleStarted = nil
+                opponentDifficulty = {}
+                lastOpponentResult = "Henüz veri yok"
+                usedWords = {}
                 if infoHudGui then infoHudGui.Enabled = false end
             else
+                -- Her acilista kelime listesi, rakip analizi ve deneme durumu bastan baslar.
+                usedWords = {}
+                opponentDifficulty = {}
+                opponentSamplePrefix = nil
+                opponentSampleStarted = nil
+                lastOpponentResult = "Henüz veri yok"
                 if infoHudGui then infoHudGui.Enabled = true end
-                runCompleteWords()
+                runCompleteWords(activeRunId)
             end
         end)
 
