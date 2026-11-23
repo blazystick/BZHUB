@@ -60,6 +60,42 @@ function GameModule.Register(api)
         local opponentDifficulty = {}
         local opponentSamplePrefix = nil
         local opponentSampleStarted = nil
+        local lastOpponentResult = "Henüz veri yok"
+        local infoStatusLabel, infoDetailLabel
+
+        local function refreshOpponentInfo(isTurn, screen)
+            if not infoStatusLabel or not infoDetailLabel then return end
+            local choiceList = screen and screen:FindFirstChild("ChoiceList")
+            local answerInput = screen and screen:FindFirstChild("TopBar")
+            answerInput = answerInput and answerInput:FindFirstChild("AnswerInput")
+            local active = not isTurn and answerInput and answerInput.Visible
+                and not (choiceList and choiceList.Visible) and opponentSamplePrefix ~= nil
+
+            if not completeWordsEnabled then
+                infoStatusLabel.Text = "ANALIZ KAPALI"
+                infoDetailLabel.Text = "Complete Words'i acarak rakip takibini baslat."
+            elseif active then
+                local elapsed = math.clamp(os.clock() - opponentSampleStarted, 0, 16)
+                infoStatusLabel.Text = "RAKIP TAKIP EDILIYOR"
+                infoDetailLabel.Text = string.format("Har f: %s   |   Gecen: %.1f / 16 sn\nSon kayit: %s", opponentSamplePrefix:upper(), elapsed, lastOpponentResult)
+            elseif isTurn then
+                infoStatusLabel.Text = "SENIN SIRAN"
+                infoDetailLabel.Text = "Rakip verileri kaydedildi. En zor harf: " .. (function()
+                    local best, bestAvg = nil, 0
+                    for prefix, stats in pairs(opponentDifficulty) do
+                        local avg = stats.total / math.max(stats.count, 1)
+                        if avg > bestAvg then best, bestAvg = prefix, avg end
+                    end
+                    return best and (best:upper() .. string.format(" (%.1f sn)", bestAvg)) or "yok"
+                end)()
+            elseif choiceList and choiceList.Visible then
+                infoStatusLabel.Text = "RAKIP HARF SECIYOR"
+                infoDetailLabel.Text = "Secim ekrani acik; cevap suresi henuz baslamadi."
+            else
+                infoStatusLabel.Text = "RAKIP TURU BEKLENIYOR"
+                infoDetailLabel.Text = "IsTurn=false, cevap ekrani bekleniyor. " .. lastOpponentResult
+            end
+        end
 
         local function finishOpponentSample()
             if opponentSamplePrefix and opponentSampleStarted then
@@ -68,6 +104,7 @@ function GameModule.Register(api)
                 stats.total = stats.total + elapsed
                 stats.count = stats.count + 1
                 opponentDifficulty[opponentSamplePrefix] = stats
+                lastOpponentResult = string.format("%s: %.1f sn kaydedildi", opponentSamplePrefix:upper(), elapsed)
             end
             opponentSamplePrefix = nil
             opponentSampleStarted = nil
@@ -95,6 +132,7 @@ function GameModule.Register(api)
             else
                 finishOpponentSample()
             end
+            refreshOpponentInfo(isTurn, screen)
         end
 
         local function findWord(prefix)
@@ -236,6 +274,50 @@ function GameModule.Register(api)
         cardStroke.Thickness = 1.35
         cardStroke.Transparency = 0.28
         cardStroke.Parent = card
+
+        local infoCard = Instance.new("Frame")
+        infoCard.Name = "OpponentAnalysisInfo"
+        infoCard.Size = UDim2.new(1, 0, 0, 86)
+        infoCard.BackgroundColor3 = PANEL
+        infoCard.BorderSizePixel = 0
+        infoCard.LayoutOrder = 2
+        infoCard.Parent = content
+
+        local infoCorner = Instance.new("UICorner")
+        infoCorner.CornerRadius = UDim.new(0, 12)
+        infoCorner.Parent = infoCard
+
+        local infoStroke = Instance.new("UIStroke")
+        infoStroke.Color = WHITE
+        infoStroke.Transparency = 0.65
+        infoStroke.Thickness = 1
+        infoStroke.Parent = infoCard
+
+        infoStatusLabel = Instance.new("TextLabel")
+        infoStatusLabel.Name = "AnalysisStatus"
+        infoStatusLabel.Position = UDim2.fromOffset(13, 9)
+        infoStatusLabel.Size = UDim2.new(1, -26, 0, 18)
+        infoStatusLabel.BackgroundTransparency = 1
+        infoStatusLabel.Text = "ANALIZ KAPALI"
+        infoStatusLabel.TextColor3 = WHITE
+        infoStatusLabel.TextSize = 11
+        infoStatusLabel.Font = Enum.Font.GothamBold
+        infoStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+        infoStatusLabel.Parent = infoCard
+
+        infoDetailLabel = Instance.new("TextLabel")
+        infoDetailLabel.Name = "AnalysisDetails"
+        infoDetailLabel.Position = UDim2.fromOffset(13, 31)
+        infoDetailLabel.Size = UDim2.new(1, -26, 0, 45)
+        infoDetailLabel.BackgroundTransparency = 1
+        infoDetailLabel.Text = "Complete Words'i acarak rakip takibini baslat."
+        infoDetailLabel.TextColor3 = MUTED
+        infoDetailLabel.TextSize = 10
+        infoDetailLabel.Font = Enum.Font.Gotham
+        infoDetailLabel.TextWrapped = true
+        infoDetailLabel.TextXAlignment = Enum.TextXAlignment.Left
+        infoDetailLabel.TextYAlignment = Enum.TextYAlignment.Top
+        infoDetailLabel.Parent = infoCard
 
         local nameLabel = Instance.new("TextLabel")
         nameLabel.Name = "CompleteWordsLabel"
