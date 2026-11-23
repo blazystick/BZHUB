@@ -57,6 +57,25 @@ function GameModule.Register(api)
             return prefix:sub(1, 1)
         end
 
+        -- Strikes altindaki pembe ImageLabel'lari dolu carpi olarak say.
+        local function getFilledStrikeCount(screen)
+            local bottomBar = screen and screen:FindFirstChild("BottomBar")
+            local centerBar = bottomBar and bottomBar:FindFirstChild("CenterBar")
+            local strikes = centerBar and centerBar:FindFirstChild("Strikes")
+            if not strikes then return 0 end
+
+            local count = 0
+            for _, object in ipairs(strikes:GetChildren()) do
+                if object:IsA("ImageLabel") then
+                    local color = object.ImageColor3
+                    if color.R > 0.8 and color.G < 0.6 and color.B > 0.5 then
+                        count = count + 1
+                    end
+                end
+            end
+            return count
+        end
+
         -- Rakibin harf/prefix bazinda zorlanma suresi.
         local opponentDifficulty = {}
         local opponentSamplePrefix = nil
@@ -263,37 +282,36 @@ function GameModule.Register(api)
                                 if not typedSuccessfully then break end
 
                                 task.wait(0.15)
+                                local strikesBefore = getFilledStrikeCount(screen)
                                 if not pressLetter("return") then break end
 
-                                -- Wait for the game to react. A visible ChoiceList means
-                                -- the answer was accepted and the player is choosing the next letter,
-                                -- even if IsTurn remains true.
-                                local acceptedOrTurnChanged = false
+                                -- ChoiceList / IsTurn degisikligi kabul; yeni pembe strike reddedilme demek.
                                 local answerGui = screen and screen:FindFirstChild("TopBar")
                                 answerGui = answerGui and answerGui:FindFirstChild("AnswerInput")
                                 local choiceGui = screen and screen:FindFirstChild("ChoiceList")
-                                for _ = 1, 16 do
+                                local answerAccepted = false
+                                local answerRejected = false
+                                for _ = 1, 20 do
                                     task.wait(0.1)
                                     if not completeWordsEnabled or player:GetAttribute("IsTurn") ~= true then
-                                        acceptedOrTurnChanged = true
+                                        answerAccepted = true
                                         break
                                     end
                                     if choiceGui and choiceGui.Visible then
-                                        acceptedOrTurnChanged = true
+                                        answerAccepted = true
+                                        break
+                                    end
+                                    if getFilledStrikeCount(screen) > strikesBefore then
+                                        answerRejected = true
                                         break
                                     end
                                 end
 
-                                if acceptedOrTurnChanged then
+                                if answerAccepted then
                                     usedWords[word] = true
                                     break
-                                end
-
-                                -- No choice phase appeared and our answer input is still active:
-                                -- assume rejection, erase only our suffix, then try another word.
-                                if completeWordsEnabled and player:GetAttribute("IsTurn") == true
-                                    and answerGui and answerGui.Visible
-                                    and not (choiceGui and choiceGui.Visible) then
+                                elseif answerRejected then
+                                    -- Yanlis cevapta sadece bizim yazdigimiz harfleri sil.
                                     for _ = 1, (#word - #prefix) do
                                         if not pressLetter("backspace") then
                                             typedSuccessfully = false
@@ -304,7 +322,7 @@ function GameModule.Register(api)
                                     if not typedSuccessfully then break end
                                     task.wait(0.12)
                                 else
-                                    usedWords[word] = true
+                                    -- Oyun henuz kabul/red sinyali vermediyse metni bozma.
                                     break
                                 end
                             end
