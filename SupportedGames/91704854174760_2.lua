@@ -184,6 +184,24 @@ function GameModule.Register(api)
             return candidates[1]
         end
 
+        -- Send real virtual keyboard key events instead of firing the game's internal events.
+        local VirtualInputManager = game:GetService("VirtualInputManager")
+        local function pressLetter(letter)
+            local keyCode = Enum.KeyCode[string.upper(letter)]
+            if not keyCode then return false end
+
+            local keyDown = pcall(function()
+                VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
+            end)
+            if not keyDown then return false end
+
+            task.wait(0.06)
+            local keyUp = pcall(function()
+                VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+            end)
+            return keyUp
+        end
+
         local automationRunning = false
         local function runCompleteWords()
             if automationRunning then return end
@@ -214,25 +232,23 @@ function GameModule.Register(api)
                         if prefix and prefix ~= lastPrefix then
                             local word = findWord(prefix)
                             lastPrefix = prefix
-                            if word and eventAPI and type(eventAPI.fire) == "function" then
+                            if word then
                                 local typedSuccessfully = true
                                 for index = #prefix + 1, #word do
                                     if not completeWordsEnabled or player:GetAttribute("IsTurn") ~= true then
                                         typedSuccessfully = false
                                         break
                                     end
-                                    local ok = pcall(function()
-                                        eventAPI.fire("keyStroke", word:sub(index, index))
-                                    end)
-                                    if not ok then
+                                    if not pressLetter(word:sub(index, index)) then
                                         typedSuccessfully = false
                                         break
                                     end
-                                    task.wait(0.09)
+                                    task.wait(0.1)
                                 end
                                 if typedSuccessfully and completeWordsEnabled and player:GetAttribute("IsTurn") == true then
                                     task.wait(0.15)
-                                    pcall(function() eventAPI.fire("tryAnswer") end)
+                                    -- Submit with the Enter key through the same virtual keyboard.
+                                    pressLetter("return")
                                     usedWords[word] = true
                                 end
                             end
