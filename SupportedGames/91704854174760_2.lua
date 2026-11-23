@@ -56,6 +56,47 @@ function GameModule.Register(api)
             return prefix
         end
 
+        -- Rakibin harf/prefix bazinda zorlanma suresi.
+        local opponentDifficulty = {}
+        local opponentSamplePrefix = nil
+        local opponentSampleStarted = nil
+
+        local function finishOpponentSample()
+            if opponentSamplePrefix and opponentSampleStarted then
+                local elapsed = math.clamp(os.clock() - opponentSampleStarted, 0, 16)
+                local stats = opponentDifficulty[opponentSamplePrefix] or { total = 0, count = 0 }
+                stats.total = stats.total + elapsed
+                stats.count = stats.count + 1
+                opponentDifficulty[opponentSamplePrefix] = stats
+            end
+            opponentSamplePrefix = nil
+            opponentSampleStarted = nil
+        end
+
+        local function observeOpponent(screen, isTurn)
+            local topBar = screen and screen:FindFirstChild("TopBar")
+            local answerInput = topBar and topBar:FindFirstChild("AnswerInput")
+            local choiceList = screen and screen:FindFirstChild("ChoiceList")
+            local prefix = getRequiredPrefix()
+
+            -- IsTurn=false tek basina yeterli degil; rakibin cevap ekrani da acik olmali.
+            local opponentAnswering = not isTurn
+                and answerInput ~= nil
+                and answerInput.Visible
+                and not (choiceList and choiceList.Visible)
+                and prefix ~= nil
+
+            if opponentAnswering then
+                if opponentSamplePrefix ~= prefix then
+                    finishOpponentSample()
+                    opponentSamplePrefix = prefix
+                    opponentSampleStarted = os.clock()
+                end
+            else
+                finishOpponentSample()
+            end
+        end
+
         local function findWord(prefix)
             local candidates = {}
             for _, word in ipairs(WORDS) do
@@ -64,11 +105,34 @@ function GameModule.Register(api)
                 end
             end
             if #candidates == 0 then return nil end
-            -- Prefer familiar, shorter answers to reduce typing time.
-            table.sort(candidates, function(a, b)
-                if #a == #b then return a < b end
-                return #a < #b
-            end)
+
+            -- Rakibin en uzun sure zorlandigi prefix ile biten kelimelere oncelik ver.
+            local targetSuffix = nil
+            local highestAverage = 0
+            for observedPrefix, stats in pairs(opponentDifficulty) do
+                if stats.count > 0 then
+                    local average = stats.total / stats.count
+                    if average > highestAverage then
+                        highestAverage = average
+                        targetSuffix = observedPrefix
+                    end
+                end
+            end
+
+            if targetSuffix then
+                table.sort(candidates, function(a, b)
+                    local aMatch = a:sub(-#targetSuffix) == targetSuffix
+                    local bMatch = b:sub(-#targetSuffix) == targetSuffix
+                    if aMatch ~= bMatch then return aMatch end
+                    if #a == #b then return a < b end
+                    return #a < #b
+                end)
+            else
+                table.sort(candidates, function(a, b)
+                    if #a == #b then return a < b end
+                    return #a < #b
+                end)
+            end
             return candidates[1]
         end
 
@@ -86,6 +150,7 @@ function GameModule.Register(api)
                     screen = screen and screen:FindFirstChild("ScreenGui")
                     local choiceList = screen and screen:FindFirstChild("ChoiceList")
                     local isTurn = player:GetAttribute("IsTurn") == true
+                    observeOpponent(screen, isTurn)
 
                     if not isTurn or (choiceList and choiceList.Visible) then
                         lastPrefix = nil
