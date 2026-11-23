@@ -187,7 +187,8 @@ function GameModule.Register(api)
         -- Send real virtual keyboard key events instead of firing the game's internal events.
         local VirtualInputManager = game:GetService("VirtualInputManager")
         local function pressLetter(letter)
-            local keyCode = Enum.KeyCode[string.upper(letter)]
+            local keyName = string.lower(letter) == "return" and "Return" or string.upper(letter)
+            local keyCode = Enum.KeyCode[keyName]
             if not keyCode then return false end
 
             local keyDown = pcall(function()
