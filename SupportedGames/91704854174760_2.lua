@@ -12,6 +12,112 @@ function GameModule.Register(api)
 
         local completeWordsEnabled = false
 
+        -- English single-word dictionary (A-Z only).
+        local WORDS = {
+            "apple", "animal", "answer", "amazing", "always", "about", "above", "action", "active", "address", "adventure", "after", "again", "against", "age", "agent", "agree", "air", "airport", "album", "alive", "allow", "almost", "alone", "along", "already", "also", "although", "among", "amount", "ancient", "angle", "angry", "another", "anyone", "anything", "appear", "area", "argue", "arm", "around", "arrive", "artist", "ask", "attack", "attempt", "attention", "author", "avoid", "awake", "baby", "back", "bad", "balance", "ball", "banana", "bank", "base", "basic", "basket", "beautiful", "because", "become", "before", "begin", "behind", "believe", "best", "better", "between", "beyond", "bird", "black", "blue", "board", "body", "book", "both", "brain", "brave", "bread", "break", "bright", "bring", "brother", "build", "building", "business", "button", "camera", "camp", "capital", "captain", "care", "career", "careful", "carry", "case", "castle", "cat", "catch", "cause", "center", "certain", "chance", "change", "character", "charge", "check", "cheese", "child", "choice", "choose", "circle", "city", "class", "clean", "clear", "climb", "clock", "close", "cloud", "coffee", "cold", "collect", "color", "come", "comfort", "common", "company", "complete", "computer", "condition", "connect", "consider", "continue", "control", "cook", "cool", "copy", "corner", "correct", "cost", "country", "course", "cover", "create", "culture", "cup", "curious", "current", "cut", "dance", "danger", "dark", "data", "date", "daughter", "day", "dead", "deal", "death", "decide", "deep", "degree", "depend", "describe", "design", "desk", "detail", "develop", "different", "difficult", "dinner", "direction", "discover", "discuss", "distance", "doctor", "dog", "door", "down", "draw", "dream", "dress", "drink", "drive", "drop", "dry", "during", "each", "early", "earth", "east", "easy", "eat", "education", "effect", "effort", "egg", "eight", "either", "electric", "elephant", "else", "email", "empty", "end", "energy", "engine", "enjoy", "enough", "enter", "environment", "equal", "escape", "especially", "even", "evening", "event", "ever", "every", "everyone", "everything", "example", "excellent", "except", "exercise", "exist", "expect", "experience", "explain", "eye", "face", "fact", "factory", "fail", "fair", "fall", "family", "famous", "far", "farm", "fast", "father", "fear", "feel", "few", "field", "fight", "figure", "fill", "film", "final", "find", "fine", "finger", "finish", "fire", "first", "fish", "fit", "five", "floor", "flower", "fly", "focus", "follow", "food", "foot", "forest", "forget", "form", "forward", "four", "free", "friend", "front", "fruit", "full", "fun", "future", "game", "garden", "general", "get", "girl", "give", "glass", "go", "goal", "gold", "good", "government", "great", "green", "ground", "group", "grow", "guess", "guide", "gun", "hair", "half", "hand", "happen", "happy", "hard", "hat", "have", "head", "health", "hear", "heart", "heavy", "help", "here", "high", "history", "hit", "hold", "holiday", "home", "hope", "horse", "hospital", "hot", "hotel", "hour", "house", "human", "hundred", "hungry", "hunt", "hurry", "ice", "idea", "identify", "if", "image", "imagine", "important", "improve", "include", "income", "increase", "indeed", "inside", "instead", "interest", "interesting", "international", "internet", "interview", "into", "introduce", "invent", "invite", "island", "issue", "item", "jacket", "job", "join", "journey", "joy", "judge", "jump", "just", "keep", "key", "keyboard", "kick", "kid", "kill", "kind", "king", "kitchen", "knee", "know", "knowledge", "label", "lake", "land", "language", "large", "last", "late", "laugh", "law", "lead", "learn", "leave", "left", "leg", "lesson", "letter", "level", "library", "life", "light", "like", "line", "lion", "list", "listen", "little", "live", "local", "long", "look", "lose", "love", "low", "machine", "magic", "main", "major", "make", "man", "manage", "many", "map", "market", "marry", "match", "material", "matter", "maybe", "meal", "mean", "measure", "meat", "medicine", "meet", "member", "memory", "message", "middle", "might", "mile", "milk", "mind", "minute", "miss", "mistake", "model", "modern", "moment", "money", "month", "moon", "more", "morning", "mother", "mountain", "mouse", "mouth", "move", "movie", "much", "music", "must", "name", "nation", "nature", "near", "necessary", "neck", "need", "neighbor", "never", "new", "news", "next", "nice", "night", "nine", "no", "noise", "none", "north", "nose", "not", "note", "nothing", "notice", "number", "object", "ocean", "of", "off", "offer", "office", "often", "oil", "old", "once", "one", "only", "open", "operation", "opinion", "opportunity", "orange", "order", "other", "our", "out", "outside", "over", "own", "page", "pain", "paint", "pair", "paper", "parent", "park", "part", "party", "pass", "past", "pay", "peace", "people", "perfect", "perhaps", "person", "phone", "photo", "pick", "picture", "piece", "place", "plan", "planet", "plant", "play", "player", "please", "point", "police", "popular", "position", "possible", "power", "practice", "prepare", "present", "pretty", "price", "problem", "process", "produce", "product", "program", "project", "promise", "protect", "prove", "public", "pull", "purple", "purpose", "push", "put", "quality", "question", "quick", "quiet", "quite", "race", "radio", "rain", "raise", "range", "reach", "read", "ready", "real", "reason", "receive", "record", "red", "remember", "remove", "repeat", "reply", "report", "rest", "result", "return", "rich", "ride", "right", "river", "road", "rock", "rocket", "room", "round", "rule", "run", "safe", "same", "save", "say", "school", "science", "sea", "search", "season", "seat", "second", "secret", "see", "seem", "sell", "send", "sense", "sentence", "serve", "service", "set", "seven", "several", "shape", "share", "she", "ship", "shirt", "shoe", "shoot", "short", "should", "show", "side", "sign", "simple", "since", "sing", "sister", "sit", "six", "size", "skill", "sky", "sleep", "slow", "small", "smile", "snow", "so", "social", "society", "soft", "some", "someone", "something", "song", "soon", "sorry", "sound", "south", "space", "speak", "special", "speed", "spell", "spend", "sport", "spring", "stand", "star", "start", "state", "stay", "step", "still", "stone", "stop", "story", "street", "strong", "student", "study", "subject", "success", "such", "sudden", "sugar", "summer", "sun", "support", "sure", "surprise", "sweet", "system", "table", "take", "talk", "tall", "task", "teach", "teacher", "team", "technology", "tell", "ten", "test", "than", "thank", "that", "the", "their", "them", "then", "there", "these", "they", "thing", "think", "third", "this", "those", "though", "thought", "three", "through", "throw", "time", "today", "together", "tomorrow", "tonight", "too", "tool", "top", "total", "touch", "town", "trade", "train", "travel", "tree", "trip", "trouble", "true", "try", "turn", "two", "type", "under", "understand", "unit", "universe", "university", "until", "up", "use", "useful", "usual", "value", "various", "very", "video", "view", "village", "visit", "voice", "wait", "walk", "wall", "want", "war", "warm", "wash", "watch", "water", "way", "we", "wear", "weather", "week", "welcome", "well", "west", "what", "when", "where", "which", "while", "white", "who", "whole", "why", "wide", "wife", "wild", "will", "win", "wind", "window", "winter", "wish", "with", "woman", "wonder", "word", "work", "world", "worry", "write", "writer", "wrong", "year", "yellow", "yes", "yesterday", "yet", "you", "young", "your", "zero", "zebra", "zone"
+        }
+        local usedWords = {}
+        local eventAPI
+        pcall(function()
+            eventAPI = _G.import("event")
+        end)
+
+        local function getRequiredPrefix()
+            local player = game:GetService("Players").LocalPlayer
+            local gui = player and player:FindFirstChildOfClass("PlayerGui")
+            local screen = gui and gui:FindFirstChild("ScreenGui")
+            local topBar = screen and screen:FindFirstChild("TopBar")
+            local answerInput = topBar and topBar:FindFirstChild("AnswerInput")
+            local keys = answerInput and answerInput:FindFirstChild("Keys")
+            if not keys then return nil end
+
+            local labels = {}
+            for _, object in ipairs(keys:GetDescendants()) do
+                if object:IsA("TextLabel") or object:IsA("TextButton") then
+                    local value = tostring(object.Text or ""):lower()
+                    if value:match("^[a-z]+$") then
+                        table.insert(labels, object)
+                    end
+                end
+            end
+            table.sort(labels, function(a, b)
+                if a.LayoutOrder == b.LayoutOrder then
+                    return a.Name < b.Name
+                end
+                return a.LayoutOrder < b.LayoutOrder
+            end)
+
+            local prefix = ""
+            for _, label in ipairs(labels) do
+                prefix = prefix .. tostring(label.Text):lower()
+            end
+            prefix = prefix:gsub("[^a-z]", "")
+            if #prefix < 1 or #prefix > 3 then return nil end
+            return prefix
+        end
+
+        local function findWord(prefix)
+            local candidates = {}
+            for _, word in ipairs(WORDS) do
+                if #word > #prefix and word:sub(1, #prefix) == prefix and not usedWords[word] then
+                    table.insert(candidates, word)
+                end
+            end
+            if #candidates == 0 then return nil end
+            -- Prefer familiar, shorter answers to reduce typing time.
+            table.sort(candidates, function(a, b)
+                if #a == #b then return a < b end
+                return #a < #b
+            end)
+            return candidates[1]
+        end
+
+        local automationRunning = false
+        local function runCompleteWords()
+            if automationRunning then return end
+            automationRunning = true
+            task.spawn(function()
+                local Players = game:GetService("Players")
+                local player = Players.LocalPlayer
+                local lastPrefix = nil
+
+                while completeWordsEnabled do
+                    local screen = player:FindFirstChildOfClass("PlayerGui")
+                    screen = screen and screen:FindFirstChild("ScreenGui")
+                    local choiceList = screen and screen:FindFirstChild("ChoiceList")
+                    local isTurn = player:GetAttribute("IsTurn") == true
+
+                    if not isTurn or (choiceList and choiceList.Visible) then
+                        lastPrefix = nil
+                        task.wait(0.2)
+                    else
+                        local prefix = getRequiredPrefix()
+                        if prefix and prefix ~= lastPrefix then
+                            local word = findWord(prefix)
+                            lastPrefix = prefix
+                            if word and eventAPI and type(eventAPI.fire) == "function" then
+                                usedWords[word] = true
+                                for index = #prefix + 1, #word do
+                                    if not completeWordsEnabled or player:GetAttribute("IsTurn") ~= true then
+                                        break
+                                    end
+                                    eventAPI.fire("keyStroke", word:sub(index, index))
+                                    task.wait(0.09)
+                                end
+                                if completeWordsEnabled and player:GetAttribute("IsTurn") == true then
+                                    task.wait(0.15)
+                                    eventAPI.fire("tryAnswer")
+                                end
+                            end
+                        end
+                        task.wait(0.12)
+                    end
+                end
+                automationRunning = false
+            end)
+        end
+
+
         local scroll = Instance.new("ScrollingFrame")
         scroll.Name = "CompleteWordsScroll"
         scroll.Position = UDim2.fromOffset(0, 0)
@@ -160,7 +266,9 @@ function GameModule.Register(api)
         switch.MouseButton1Click:Connect(function()
             completeWordsEnabled = not completeWordsEnabled
             updateSwitch(false)
-            -- UI-only at this stage. The word-solving engine will be connected later.
+            if completeWordsEnabled then
+                runCompleteWords()
+            end
         end)
 
         updateSwitch(true)
