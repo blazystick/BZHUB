@@ -14,7 +14,18 @@ function GameModule.Register(api)
 
         local Players = game:GetService("Players")
         local UserInputService = game:GetService("UserInputService")
-        local VirtualInputManager = game:GetService("VirtualInputManager")
+
+        -- VirtualInputManager is optional: some executor builds block this service.
+        local VirtualInputManager
+        local virtualInputServiceOk, virtualInputServiceError = pcall(function()
+            VirtualInputManager = game:GetService("VirtualInputManager")
+        end)
+        if not virtualInputServiceOk then
+            VirtualInputManager = nil
+            warn("[BZHUB INPUT] VirtualInputManager unavailable; executor input fallbacks will be used: "
+                .. tostring(virtualInputServiceError))
+        end
+
         local PathfindingService = game:GetService("PathfindingService")
         local RunService = game:GetService("RunService")
 
@@ -1405,7 +1416,7 @@ function GameModule.Register(api)
                 and currentButton.Visible and currentButton.Active, currentButton
         end
 
-        -- Optional executor event-connection route. Solara may not expose getconnections.
+        -- Optional executor event-connection route. This API is not available in every executor.
         helpers.tryGetConnectionsActivation = function(button)
             if not button or not button:IsA("GuiButton") then
                 return false
@@ -1469,7 +1480,7 @@ function GameModule.Register(api)
         end
 
         -- Try a touchscreen tap at the button center. This does not move the mouse
-        -- and does not send MouseButton1. Some Solara builds block this Roblox service.
+        -- and does not send MouseButton1. Some executor builds block this Roblox service.
         helpers.touchTapBonus = function(button, expectedObject)
             if not button or not button:IsA("GuiButton") then
                 return false
@@ -1491,7 +1502,7 @@ function GameModule.Register(api)
             end)
             if not methodOk or type(sendTouchEvent) ~= "function" then
                 touchInputSupported = false
-                warn("[BZHUB AUTO 2X] This Solara build does not expose SendTouchEvent.")
+                warn("[BZHUB AUTO 2X] This executor does not expose SendTouchEvent.")
                 return false
             end
 
@@ -1506,7 +1517,7 @@ function GameModule.Register(api)
             end)
             if not beginOk then
                 touchInputSupported = false
-                warn("[BZHUB AUTO 2X] Touch input is blocked by this Solara build: " .. tostring(beginError))
+                warn("[BZHUB AUTO 2X] Touch input is blocked by this executor: " .. tostring(beginError))
                 return false
             end
 
@@ -1621,7 +1632,7 @@ function GameModule.Register(api)
                 return true
             end
 
-            -- Try executor event connections next, if this Solara build exposes them.
+            -- Try executor event connections next, if this executor exposes them.
             local connectionAttempted = helpers.tryGetConnectionsActivation(button)
             if connectionAttempted then
                 local deadline = os.clock() + 0.35
@@ -2577,31 +2588,46 @@ function GameModule.Register(api)
             end
 
             helpers.setStatus("throwing", "Sending throw input...", 0)
-            local mouseLocation = UserInputService:GetMouseLocation()
 
-            VirtualInputManager:SendMouseButtonEvent(
-                mouseLocation.X,
-                mouseLocation.Y,
-                0,
-                true,
-                game,
-                0
-            )
+            if VirtualInputManager then
+                local mouseLocation = UserInputService:GetMouseLocation()
+                local virtualOk, virtualError = pcall(function()
+                    VirtualInputManager:SendMouseButtonEvent(
+                        mouseLocation.X, mouseLocation.Y, 0, true, game, 0
+                    )
+                    task.wait(0.05)
+                    VirtualInputManager:SendMouseButtonEvent(
+                        mouseLocation.X, mouseLocation.Y, 0, false, game, 0
+                    )
+                end)
 
-            task.wait(0.05)
+                if virtualOk then
+                    helpers.debugLog("Throw click completed through VirtualInputManager.")
+                    return true
+                end
+                warn("[BZHUB AUTO THROW] VirtualInputManager click failed: " .. tostring(virtualError))
+            end
 
-            VirtualInputManager:SendMouseButtonEvent(
-                mouseLocation.X,
-                mouseLocation.Y,
-                0,
-                false,
-                game,
-                0
-            )
+            local mouseOk, mouseError = pcall(function()
+                if type(mouse1press) == "function" and type(mouse1release) == "function" then
+                    mouse1press()
+                    task.wait(0.05)
+                    mouse1release()
+                elseif type(mouse1click) == "function" then
+                    mouse1click()
+                else
+                    error("No supported mouse click API is available.")
+                end
+            end)
 
-            helpers.debugLog("MB1 click completed.")
+            if mouseOk then
+                helpers.debugLog("Throw click completed through executor mouse input.")
+                return true
+            end
 
-            return true
+            warn("[BZHUB AUTO THROW] Mouse click unavailable: " .. tostring(mouseError))
+            helpers.setStatus("error", "This executor does not provide a supported click input.", 0)
+            return false
         end
 
         --==================================================
@@ -3105,6 +3131,9 @@ function GameModule.Register(api)
             end
 
             local virtualOk, virtualErr = pcall(function()
+                if not VirtualInputManager then
+                    error("VirtualInputManager is unavailable.")
+                end
                 VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
                 task.wait(0.08)
                 VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
@@ -3820,7 +3849,18 @@ function GameModule.Register(api)
     
         local Players = game:GetService("Players")
         local PathfindingService = game:GetService("PathfindingService")
-        local VirtualInputManager = game:GetService("VirtualInputManager")
+
+        -- Optional service: Xeno may not expose it in every build.
+        local VirtualInputManager
+        local virtualInputServiceOk, virtualInputServiceError = pcall(function()
+            VirtualInputManager = game:GetService("VirtualInputManager")
+        end)
+        if not virtualInputServiceOk then
+            VirtualInputManager = nil
+            warn("[BZHUB UPGRADES] VirtualInputManager unavailable; mouse API fallback will be used: "
+                .. tostring(virtualInputServiceError))
+        end
+
         local GuiService = game:GetService("GuiService")
     
         local player = Players.LocalPlayer
@@ -3943,21 +3983,47 @@ function GameModule.Register(api)
             local x = math.floor(position.X + size.X / 2 + inset.X)
             local y = math.floor(position.Y + size.Y / 2 + inset.Y)
     
-            VirtualInputManager:SendMouseMoveEvent(x, y, game)
-            task.wait(0.03)
-    
-            VirtualInputManager:SendMouseButtonEvent(
-                x, y, 0, true, game, 0
-            )
-    
-            task.wait(0.03)
-    
-            VirtualInputManager:SendMouseButtonEvent(
-                x, y, 0, false, game, 0
-            )
-    
+            if VirtualInputManager then
+                local virtualOk, virtualError = pcall(function()
+                    VirtualInputManager:SendMouseMoveEvent(x, y, game)
+                    task.wait(0.03)
+                    VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
+                    task.wait(0.03)
+                    VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
+                end)
+
+                if virtualOk then
+                    task.wait(0.04)
+                    return true
+                end
+                warn("[BZHUB UPGRADES] VirtualInputManager click failed: " .. tostring(virtualError))
+            end
+
+            local mouseOk, mouseError = pcall(function()
+                if type(mousemoveabs) ~= "function" then
+                    error("mousemoveabs is unavailable.")
+                end
+
+                mousemoveabs(x, y)
+                task.wait(0.03)
+
+                if type(mouse1press) == "function" and type(mouse1release) == "function" then
+                    mouse1press()
+                    task.wait(0.03)
+                    mouse1release()
+                elseif type(mouse1click) == "function" then
+                    mouse1click()
+                else
+                    error("No supported executor mouse click API is available.")
+                end
+            end)
+
+            if not mouseOk then
+                warn("[BZHUB UPGRADES] Could not click upgrade button: " .. tostring(mouseError))
+                return false
+            end
+
             task.wait(0.04)
-    
             return true
         end
     
@@ -4948,7 +5014,303 @@ function GameModule.Register(api)
         print("[BZHUB SOUND] READY. Connected BZHUB buttons:", attachedButtonCount)
     end)
     
+    --==================================================
+    -- BZHUB DASHBOARD
+    --==================================================
     
+    api.AddCategory("Dashboard", "DASHBOARD", function(page)    
+        local Players = game:GetService("Players")
+        local player = Players.LocalPlayer
+        local leaderstats = player:WaitForChild("leaderstats")
+    
+        local moneyValue = leaderstats:WaitForChild("Money")
+        local cashPerSecondValue = leaderstats:WaitForChild("Money/s")
+    
+        local ACCENT = Color3.fromRGB(45, 155, 255)
+        local CARD = Color3.fromRGB(17, 23, 33)
+        local TEXT = Color3.fromRGB(225, 233, 245)
+        local MUTED = Color3.fromRGB(145, 160, 180)
+        local GREEN = Color3.fromRGB(55, 220, 130)
+    
+        local suffixes = {
+            "", "K", "M", "B", "T",
+            "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc",
+            "Ud", "Dd", "Td", "Qad", "Qid", "Sxd", "Spd",
+            "Ocd", "Nod", "Vg", "Uvg", "Dvg", "Tvg",
+            "Qavg", "Qivg", "Sxvg", "Spvg", "Ocvg", "Novg",
+            "Tg", "Utg", "Dtg", "Tstg", "Qattg", "Qntg",
+            "Sstg", "Setg", "Otrg", "Nvtg", "Qag", "Uqg",
+            "Dqg", "Tqg", "Qaqg", "Qnqg", "Sxqg", "Spqg",
+            "Oqg", "Nqg", "Qig"
+        }
+        
+        local function formatNumber(value)
+            if not value or value ~= value then
+                return "N/A"
+            end
+        
+            if value == 0 then
+                return "0"
+            end
+        
+            local exponent = math.floor(math.log10(math.abs(value)) / 3)
+            exponent = math.max(0, exponent)
+        
+            if exponent >= #suffixes then
+                return string.format("%.2e", value)
+            end
+        
+            local scaled = value / (10 ^ (exponent * 3))
+            local formatted = string.format("%.2f", scaled)
+            formatted = formatted:gsub("%.?0+$", "")
+        
+            return formatted .. suffixes[exponent + 1]
+        end
+    
+        local function formatTime(seconds)
+            seconds = math.floor(seconds)
+    
+            local hours = math.floor(seconds / 3600)
+            local minutes = math.floor((seconds % 3600) / 60)
+            local secs = seconds % 60
+    
+            return string.format("%02d:%02d:%02d", hours, minutes, secs)
+        end
+    
+        --==================================================
+        -- SCROLL
+        --==================================================
+    
+        local scroll = Instance.new("ScrollingFrame")
+        scroll.Name = "DashboardScroll"
+        scroll.Size = UDim2.fromScale(1, 1)
+        scroll.BackgroundTransparency = 1
+        scroll.BorderSizePixel = 0
+        scroll.ScrollBarThickness = 4
+        scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+        scroll.Parent = page
+    
+        local content = Instance.new("Frame")
+        content.Name = "DashboardContent"
+        content.Position = UDim2.fromOffset(8, 8)
+        content.Size = UDim2.new(1, -16, 0, 0)
+        content.AutomaticSize = Enum.AutomaticSize.Y
+        content.BackgroundTransparency = 1
+        content.Parent = scroll
+    
+        local list = Instance.new("UIListLayout")
+        list.Padding = UDim.new(0, 10)
+        list.SortOrder = Enum.SortOrder.LayoutOrder
+        list.Parent = content
+    
+        --==================================================
+        -- HEADER
+        --==================================================
+    
+        local header = Instance.new("Frame")
+        header.Name = "DashboardHeader"
+        header.Size = UDim2.new(1, 0, 0, 48)
+        header.BackgroundTransparency = 1
+        header.LayoutOrder = 1
+        header.Parent = content
+    
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, 0, 0, 23)
+        title.BackgroundTransparency = 1
+        title.Text = "GAME OVERVIEW"
+        title.TextColor3 = TEXT
+        title.TextSize = 17
+        title.Font = Enum.Font.GothamBold
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.Parent = header
+    
+        local subtitle = Instance.new("TextLabel")
+        subtitle.Position = UDim2.fromOffset(0, 25)
+        subtitle.Size = UDim2.new(1, 0, 0, 17)
+        subtitle.BackgroundTransparency = 1
+        subtitle.Text = "Live game statistics"
+        subtitle.TextColor3 = MUTED
+        subtitle.TextSize = 10
+        subtitle.Font = Enum.Font.Gotham
+        subtitle.TextXAlignment = Enum.TextXAlignment.Left
+        subtitle.Parent = header
+    
+        --==================================================
+        -- STATISTICS GRID
+        --==================================================
+    
+        local grid = Instance.new("Frame")
+        grid.Name = "StatisticsGrid"
+        grid.Size = UDim2.new(1, 0, 0, 284)
+        grid.BackgroundTransparency = 1
+        grid.LayoutOrder = 2
+        grid.Parent = content
+    
+        local gridLayout = Instance.new("UIGridLayout")
+        gridLayout.CellSize = UDim2.new(0.5, -5, 0, 88)
+        gridLayout.CellPadding = UDim2.fromOffset(10, 10)
+        gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        gridLayout.Parent = grid
+    
+        local labels = {}
+    
+        local function createCard(name, heading, order)
+            local card = Instance.new("Frame")
+            card.Name = name
+            card.BackgroundColor3 = CARD
+            card.BorderSizePixel = 0
+            card.LayoutOrder = order
+            card.Parent = grid
+    
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 10)
+            corner.Parent = card
+    
+            local stroke = Instance.new("UIStroke")
+            stroke.Color = ACCENT
+            stroke.Transparency = 0.55
+            stroke.Thickness = 1
+            stroke.Parent = card
+    
+            local accent = Instance.new("Frame")
+            accent.Size = UDim2.new(0, 3, 0, 35)
+            accent.Position = UDim2.fromOffset(0, 13)
+            accent.BackgroundColor3 = ACCENT
+            accent.BorderSizePixel = 0
+            accent.Parent = card
+    
+            local headingLabel = Instance.new("TextLabel")
+            headingLabel.Position = UDim2.fromOffset(12, 12)
+            headingLabel.Size = UDim2.new(1, -20, 0, 17)
+            headingLabel.BackgroundTransparency = 1
+            headingLabel.Text = heading
+            headingLabel.TextColor3 = MUTED
+            headingLabel.TextSize = 9
+            headingLabel.Font = Enum.Font.GothamBold
+            headingLabel.TextXAlignment = Enum.TextXAlignment.Left
+            headingLabel.Parent = card
+    
+            local valueLabel = Instance.new("TextLabel")
+            valueLabel.Name = "Value"
+            valueLabel.Position = UDim2.fromOffset(12, 34)
+            valueLabel.Size = UDim2.new(1, -20, 0, 30)
+            valueLabel.BackgroundTransparency = 1
+            valueLabel.Text = "Loading..."
+            valueLabel.TextColor3 = TEXT
+            valueLabel.TextSize = 17
+            valueLabel.Font = Enum.Font.GothamBold
+            valueLabel.TextXAlignment = Enum.TextXAlignment.Left
+            valueLabel.Parent = card
+    
+            labels[name] = valueLabel
+        end
+    
+        createCard("Session", "SESSION TIME", 1)
+        createCard("Money", "CURRENT MONEY", 2)
+        createCard("CashPerSecond", "CASH / S", 3)
+        createCard("Earned", "MONEY EARNED (10S UPDATE)", 4)
+        createCard("Throws", "TOTAL THROWS", 5)
+        createCard("Script", "SCRIPT:", 6)
+    
+        --==================================================
+        -- SCRIPT STATUS
+        --==================================================
+        
+        labels.Script.Text = "● RUNNING"
+        labels.Script.TextColor3 = GREEN
+        --==================================================
+        -- STAT VALUE PARSER
+        --==================================================
+        
+        local statMultipliers = {
+            K=1e3, M=1e6, B=1e9, T=1e12,
+            QA=1e15, QI=1e18, SX=1e21, SP=1e24,
+            OC=1e27, NO=1e30, DC=1e33,
+            UD=1e36, DD=1e39, TD=1e42,
+            QAD=1e45, QID=1e48, SXD=1e51,
+            SPD=1e54, OCD=1e57, NOD=1e60,
+            VG=1e63, UVG=1e66, DVG=1e69,
+            TVG=1e72, QAVG=1e75, QIVG=1e78,
+            SXVG=1e81, SPVG=1e84, OCVG=1e87,
+            NOVG=1e90, TG=1e93, UTG=1e96,
+            DTG=1e99, TSTG=1e102, QATTG=1e105,
+            QNTG=1e108, SSTG=1e111, SETG=1e114,
+            OTRG=1e117, NVTG=1e120, QAG=1e123,
+            UQG=1e126, DQG=1e129, TQG=1e132,
+            QAQG=1e135, QNQG=1e138, SXQG=1e141,
+            SPQG=1e144, OQG=1e147, NQG=1e150,
+            QIG=1e153
+        }
+        
+        local function parseStatValue(valueObject)
+            if not valueObject then return nil end
+        
+            local raw = tostring(valueObject.Value):upper()
+            raw = raw:gsub("%$", "")
+                :gsub(",", "")
+                :gsub("%s", "")
+                :gsub("/S", "")
+        
+            local number, suffix = raw:match("^([%d%.]+)(%a*)$")
+            number = tonumber(number)
+        
+            if not number then return nil end
+        
+            return number * (statMultipliers[suffix or ""] or 1)
+        end
+        --==================================================
+        -- LIVE DATA UPDATE
+        --==================================================
+        
+        local function refreshDashboard()
+        
+            local currentMoney = parseStatValue(moneyValue)
+            local currentCashPerSecond = parseStatValue(cashPerSecondValue)
+        
+            -- Money
+            labels.Money.Text = currentMoney
+                and "$" .. formatNumber(currentMoney)
+                or "N/A"
+        
+            -- Cash / S
+            labels.CashPerSecond.Text = currentCashPerSecond
+                and "$" .. formatNumber(currentCashPerSecond) .. "/s"
+                or "N/A"
+        
+            -- Session Time
+            local elapsed = os.clock() - sessionStartedAt
+            labels.Session.Text = formatTime(elapsed)
+        
+            -- Money Earned
+            if currentCashPerSecond then
+                labels.Earned.Text = "$" .. formatNumber(currentCashPerSecond * elapsed)
+            else
+                labels.Earned.Text = "N/A"
+            end
+        
+            -- Total Throws
+            labels.Throws.Text = tostring(api.TotalThrows or 0)
+        end
+        
+        -- İlk açılışta hemen güncelle
+        refreshDashboard()
+        
+        -- Sonrasında her 10 saniyede bir güncelle
+        task.spawn(function()
+            while page.Parent and content.Parent do
+                task.wait(10)
+        
+                if not page.Parent or not content.Parent then
+                    break
+                end
+        
+                refreshDashboard()
+            end
+        end)
+    
+        print("[BZHUB DASHBOARD] Initialized")
+    end)
     
     
     
@@ -5509,304 +5871,8 @@ function GameModule.Register(api)
                 hudGui:Destroy()
             end
         end)
-        
+    
     end)
-    --==================================================
-    -- BZHUB DASHBOARD
-    --==================================================
-    
-    api.AddCategory("Dashboard", "DASHBOARD", function(page)    
-        local Players = game:GetService("Players")
-        local player = Players.LocalPlayer
-        local leaderstats = player:WaitForChild("leaderstats")
-    
-        local moneyValue = leaderstats:WaitForChild("Money")
-        local cashPerSecondValue = leaderstats:WaitForChild("Money/s")
-    
-        local ACCENT = Color3.fromRGB(45, 155, 255)
-        local CARD = Color3.fromRGB(17, 23, 33)
-        local TEXT = Color3.fromRGB(225, 233, 245)
-        local MUTED = Color3.fromRGB(145, 160, 180)
-        local GREEN = Color3.fromRGB(55, 220, 130)
-    
-        local suffixes = {
-            "", "K", "M", "B", "T",
-            "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc",
-            "Ud", "Dd", "Td", "Qad", "Qid", "Sxd", "Spd",
-            "Ocd", "Nod", "Vg", "Uvg", "Dvg", "Tvg",
-            "Qavg", "Qivg", "Sxvg", "Spvg", "Ocvg", "Novg",
-            "Tg", "Utg", "Dtg", "Tstg", "Qattg", "Qntg",
-            "Sstg", "Setg", "Otrg", "Nvtg", "Qag", "Uqg",
-            "Dqg", "Tqg", "Qaqg", "Qnqg", "Sxqg", "Spqg",
-            "Oqg", "Nqg", "Qig"
-        }
-        
-        local function formatNumber(value)
-            if not value or value ~= value then
-                return "N/A"
-            end
-        
-            if value == 0 then
-                return "0"
-            end
-        
-            local exponent = math.floor(math.log10(math.abs(value)) / 3)
-            exponent = math.max(0, exponent)
-        
-            if exponent >= #suffixes then
-                return string.format("%.2e", value)
-            end
-        
-            local scaled = value / (10 ^ (exponent * 3))
-            local formatted = string.format("%.2f", scaled)
-            formatted = formatted:gsub("%.?0+$", "")
-        
-            return formatted .. suffixes[exponent + 1]
-        end
-    
-        local function formatTime(seconds)
-            seconds = math.floor(seconds)
-    
-            local hours = math.floor(seconds / 3600)
-            local minutes = math.floor((seconds % 3600) / 60)
-            local secs = seconds % 60
-    
-            return string.format("%02d:%02d:%02d", hours, minutes, secs)
-        end
-    
-        --==================================================
-        -- SCROLL
-        --==================================================
-    
-        local scroll = Instance.new("ScrollingFrame")
-        scroll.Name = "DashboardScroll"
-        scroll.Size = UDim2.fromScale(1, 1)
-        scroll.BackgroundTransparency = 1
-        scroll.BorderSizePixel = 0
-        scroll.ScrollBarThickness = 4
-        scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-        scroll.Parent = page
-    
-        local content = Instance.new("Frame")
-        content.Name = "DashboardContent"
-        content.Position = UDim2.fromOffset(8, 8)
-        content.Size = UDim2.new(1, -16, 0, 0)
-        content.AutomaticSize = Enum.AutomaticSize.Y
-        content.BackgroundTransparency = 1
-        content.Parent = scroll
-    
-        local list = Instance.new("UIListLayout")
-        list.Padding = UDim.new(0, 10)
-        list.SortOrder = Enum.SortOrder.LayoutOrder
-        list.Parent = content
-    
-        --==================================================
-        -- HEADER
-        --==================================================
-    
-        local header = Instance.new("Frame")
-        header.Name = "DashboardHeader"
-        header.Size = UDim2.new(1, 0, 0, 48)
-        header.BackgroundTransparency = 1
-        header.LayoutOrder = 1
-        header.Parent = content
-    
-        local title = Instance.new("TextLabel")
-        title.Size = UDim2.new(1, 0, 0, 23)
-        title.BackgroundTransparency = 1
-        title.Text = "GAME OVERVIEW"
-        title.TextColor3 = TEXT
-        title.TextSize = 17
-        title.Font = Enum.Font.GothamBold
-        title.TextXAlignment = Enum.TextXAlignment.Left
-        title.Parent = header
-    
-        local subtitle = Instance.new("TextLabel")
-        subtitle.Position = UDim2.fromOffset(0, 25)
-        subtitle.Size = UDim2.new(1, 0, 0, 17)
-        subtitle.BackgroundTransparency = 1
-        subtitle.Text = "Live game statistics"
-        subtitle.TextColor3 = MUTED
-        subtitle.TextSize = 10
-        subtitle.Font = Enum.Font.Gotham
-        subtitle.TextXAlignment = Enum.TextXAlignment.Left
-        subtitle.Parent = header
-    
-        --==================================================
-        -- STATISTICS GRID
-        --==================================================
-    
-        local grid = Instance.new("Frame")
-        grid.Name = "StatisticsGrid"
-        grid.Size = UDim2.new(1, 0, 0, 284)
-        grid.BackgroundTransparency = 1
-        grid.LayoutOrder = 2
-        grid.Parent = content
-    
-        local gridLayout = Instance.new("UIGridLayout")
-        gridLayout.CellSize = UDim2.new(0.5, -5, 0, 88)
-        gridLayout.CellPadding = UDim2.fromOffset(10, 10)
-        gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        gridLayout.Parent = grid
-    
-        local labels = {}
-    
-        local function createCard(name, heading, order)
-            local card = Instance.new("Frame")
-            card.Name = name
-            card.BackgroundColor3 = CARD
-            card.BorderSizePixel = 0
-            card.LayoutOrder = order
-            card.Parent = grid
-    
-            local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(0, 10)
-            corner.Parent = card
-    
-            local stroke = Instance.new("UIStroke")
-            stroke.Color = ACCENT
-            stroke.Transparency = 0.55
-            stroke.Thickness = 1
-            stroke.Parent = card
-    
-            local accent = Instance.new("Frame")
-            accent.Size = UDim2.new(0, 3, 0, 35)
-            accent.Position = UDim2.fromOffset(0, 13)
-            accent.BackgroundColor3 = ACCENT
-            accent.BorderSizePixel = 0
-            accent.Parent = card
-    
-            local headingLabel = Instance.new("TextLabel")
-            headingLabel.Position = UDim2.fromOffset(12, 12)
-            headingLabel.Size = UDim2.new(1, -20, 0, 17)
-            headingLabel.BackgroundTransparency = 1
-            headingLabel.Text = heading
-            headingLabel.TextColor3 = MUTED
-            headingLabel.TextSize = 9
-            headingLabel.Font = Enum.Font.GothamBold
-            headingLabel.TextXAlignment = Enum.TextXAlignment.Left
-            headingLabel.Parent = card
-    
-            local valueLabel = Instance.new("TextLabel")
-            valueLabel.Name = "Value"
-            valueLabel.Position = UDim2.fromOffset(12, 34)
-            valueLabel.Size = UDim2.new(1, -20, 0, 30)
-            valueLabel.BackgroundTransparency = 1
-            valueLabel.Text = "Loading..."
-            valueLabel.TextColor3 = TEXT
-            valueLabel.TextSize = 17
-            valueLabel.Font = Enum.Font.GothamBold
-            valueLabel.TextXAlignment = Enum.TextXAlignment.Left
-            valueLabel.Parent = card
-    
-            labels[name] = valueLabel
-        end
-    
-        createCard("Session", "SESSION TIME", 1)
-        createCard("Money", "CURRENT MONEY", 2)
-        createCard("CashPerSecond", "CASH / S", 3)
-        createCard("Earned", "MONEY EARNED (10S UPDATE)", 4)
-        createCard("Throws", "TOTAL THROWS", 5)
-        createCard("Script", "SCRIPT:", 6)
-    
-        --==================================================
-        -- SCRIPT STATUS
-        --==================================================
-        
-        labels.Script.Text = "● RUNNING"
-        labels.Script.TextColor3 = GREEN
-        --==================================================
-        -- STAT VALUE PARSER
-        --==================================================
-        
-        local statMultipliers = {
-            K=1e3, M=1e6, B=1e9, T=1e12,
-            QA=1e15, QI=1e18, SX=1e21, SP=1e24,
-            OC=1e27, NO=1e30, DC=1e33,
-            UD=1e36, DD=1e39, TD=1e42,
-            QAD=1e45, QID=1e48, SXD=1e51,
-            SPD=1e54, OCD=1e57, NOD=1e60,
-            VG=1e63, UVG=1e66, DVG=1e69,
-            TVG=1e72, QAVG=1e75, QIVG=1e78,
-            SXVG=1e81, SPVG=1e84, OCVG=1e87,
-            NOVG=1e90, TG=1e93, UTG=1e96,
-            DTG=1e99, TSTG=1e102, QATTG=1e105,
-            QNTG=1e108, SSTG=1e111, SETG=1e114,
-            OTRG=1e117, NVTG=1e120, QAG=1e123,
-            UQG=1e126, DQG=1e129, TQG=1e132,
-            QAQG=1e135, QNQG=1e138, SXQG=1e141,
-            SPQG=1e144, OQG=1e147, NQG=1e150,
-            QIG=1e153
-        }
-        
-        local function parseStatValue(valueObject)
-            if not valueObject then return nil end
-        
-            local raw = tostring(valueObject.Value):upper()
-            raw = raw:gsub("%$", "")
-                :gsub(",", "")
-                :gsub("%s", "")
-                :gsub("/S", "")
-        
-            local number, suffix = raw:match("^([%d%.]+)(%a*)$")
-            number = tonumber(number)
-        
-            if not number then return nil end
-        
-            return number * (statMultipliers[suffix or ""] or 1)
-        end
-        --==================================================
-        -- LIVE DATA UPDATE
-        --==================================================
-        
-        local function refreshDashboard()
-        
-            local currentMoney = parseStatValue(moneyValue)
-            local currentCashPerSecond = parseStatValue(cashPerSecondValue)
-        
-            -- Money
-            labels.Money.Text = currentMoney
-                and "$" .. formatNumber(currentMoney)
-                or "N/A"
-        
-            -- Cash / S
-            labels.CashPerSecond.Text = currentCashPerSecond
-                and "$" .. formatNumber(currentCashPerSecond) .. "/s"
-                or "N/A"
-        
-            -- Session Time
-            local elapsed = os.clock() - sessionStartedAt
-            labels.Session.Text = formatTime(elapsed)
-        
-            -- Money Earned
-            if currentCashPerSecond then
-                labels.Earned.Text = "$" .. formatNumber(currentCashPerSecond * elapsed)
-            else
-                labels.Earned.Text = "N/A"
-            end
-        
-            -- Total Throws
-            labels.Throws.Text = tostring(api.TotalThrows or 0)
-        end
-        
-        -- İlk açılışta hemen güncelle
-        refreshDashboard()
-        
-        -- Sonrasında her 10 saniyede bir güncelle
-        task.spawn(function()
-            while page.Parent and content.Parent do
-                task.wait(10)
-        
-                if not page.Parent or not content.Parent then
-                    break
-                end
-        
-                refreshDashboard()
-            end
-        end)
-    
-        print("[BZHUB DASHBOARD] Initialized")
-    end)
+
 end
 return GameModule
