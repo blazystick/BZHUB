@@ -10,6 +10,7 @@ local RunService = game:GetService("RunService")
 
 local SUPPORTED_GAMES = {
     [120219252362013] = "Throw Food for Animals",
+    [91704854174760] = "Finish The Word",
 }
 
 local player = Players.LocalPlayer
