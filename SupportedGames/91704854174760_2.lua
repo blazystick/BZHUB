@@ -145,10 +145,13 @@ function GameModule.Register(api)
             refreshOpponentInfo(isTurn, screen)
         end
 
-        local function findWord(prefix)
+        local function findWord(prefix, excludedWords)
             local candidates = {}
             for _, word in ipairs(WORDS) do
-                if #word > #prefix and word:sub(1, #prefix) == prefix and not usedWords[word] then
+                if #word > #prefix
+                    and word:sub(1, #prefix) == prefix
+                    and not usedWords[word]
+                    and not (excludedWords and excludedWords[word]) then
                     table.insert(candidates, word)
                 end
             end
@@ -231,9 +234,19 @@ function GameModule.Register(api)
                     else
                         local prefix = getRequiredPrefix()
                         if prefix and prefix ~= lastPrefix then
-                            local word = findWord(prefix)
                             lastPrefix = prefix
-                            if word then
+                            local attemptedWords = {}
+                            local maxAttempts = 3
+
+                            for attempt = 1, maxAttempts do
+                                if not completeWordsEnabled or player:GetAttribute("IsTurn") ~= true then
+                                    break
+                                end
+
+                                local word = findWord(prefix, attemptedWords)
+                                if not word then break end
+                                attemptedWords[word] = true
+
                                 local typedSuccessfully = true
                                 for index = #prefix + 1, #word do
                                     if not completeWordsEnabled or player:GetAttribute("IsTurn") ~= true then
@@ -246,11 +259,29 @@ function GameModule.Register(api)
                                     end
                                     task.wait(0.1)
                                 end
-                                if typedSuccessfully and completeWordsEnabled and player:GetAttribute("IsTurn") == true then
-                                    task.wait(0.15)
-                                    -- Submit with the Enter key through the same virtual keyboard.
-                                    pressLetter("return")
+
+                                if not typedSuccessfully then break end
+
+                                task.wait(0.15)
+                                if not pressLetter("return") then break end
+                                task.wait(0.8)
+
+                                -- If the turn is still ours, treat the answer as rejected:
+                                -- erase only the letters we typed (never the game's locked first letter),
+                                -- then try another unused word with the same starting letter.
+                                if player:GetAttribute("IsTurn") == true and completeWordsEnabled then
+                                    for _ = 1, (#word - #prefix) do
+                                        if not pressLetter("backspace") then
+                                            typedSuccessfully = false
+                                            break
+                                        end
+                                        task.wait(0.06)
+                                    end
+                                    if not typedSuccessfully then break end
+                                    task.wait(0.12)
+                                else
                                     usedWords[word] = true
+                                    break
                                 end
                             end
                         end
