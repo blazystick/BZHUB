@@ -61,7 +61,7 @@ function GameModule.Register(api)
         local opponentSamplePrefix = nil
         local opponentSampleStarted = nil
         local lastOpponentResult = "Henüz veri yok"
-        local infoStatusLabel, infoDetailLabel
+        local infoStatusLabel, infoDetailLabel, infoHudGui
 
         local function refreshOpponentInfo(isTurn, screen)
             if not infoHudGui or not infoHudGui.Parent then return end
