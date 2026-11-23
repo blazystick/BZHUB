@@ -1,0 +1,2 @@
+BZHUB GitHub write-permission test.
+Created to verify repository write access.
