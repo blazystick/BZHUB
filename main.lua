@@ -2197,10 +2197,34 @@ end
 -- EXECUTOR-COMPATIBLE GAME MODULE LOADER
 --==================================================
 
-local GAME_MODULE_URL =
-    "https://raw.githubusercontent.com/blazystick/BZHUB/refs/heads/main/SupportedGames/120219252362013.lua"
-    .. tostring(game.PlaceId)
+-- Detect Xeno without assuming every executor exposes the same identity function.
+local executorName = ""
+
+if type(identifyexecutor) == "function" then
+    local ok, result = pcall(identifyexecutor)
+    if ok and type(result) == "string" then
+        executorName = result
+    end
+end
+
+if executorName == "" and type(getexecutorname) == "function" then
+    local ok, result = pcall(getexecutorname)
+    if ok and type(result) == "string" then
+        executorName = result
+    end
+end
+
+local IS_XENO_EXECUTOR = string.find(string.lower(executorName), "xeno", 1, true) ~= nil
+local gameModuleFile = tostring(game.PlaceId)
+    .. (IS_XENO_EXECUTOR and "_2" or "")
     .. ".lua"
+
+local GAME_MODULE_URL =
+    "https://raw.githubusercontent.com/blazystick/BZHUB/refs/heads/main/SupportedGames/"
+    .. gameModuleFile
+
+print("[BZHUB] Executor:", executorName ~= "" and executorName or "Unknown")
+print("[BZHUB] Selected game module:", gameModuleFile)
 
 local function getResponseBody(response)
     if type(response) == "string" then
