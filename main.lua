@@ -2121,9 +2121,7 @@ end)
 currentCategory = "Home"
 pages.Home.Visible = true
 -- GAME MODULE SYSTEM
-local gameModuleLoadFinished = not (
-    gameSupported and game.PlaceId == 120219252362013
-)
+local gameModuleLoadFinished = not gameSupported
 local BZHUB_API = {}
 
 local gameCategoryCount = 0
@@ -2201,6 +2199,8 @@ end
 
 local GAME_MODULE_URL =
     "https://raw.githubusercontent.com/blazystick/BZHUB/refs/heads/main/SupportedGames/120219252362013.lua"
+    .. tostring(game.PlaceId)
+    .. ".lua"
 
 local function getResponseBody(response)
     if type(response) == "string" then
@@ -2318,7 +2318,7 @@ local function setModuleLoadError(message)
     end
 end
 
-if gameSupported and game.PlaceId == 120219252362013 then
+if gameSupported then
     task.spawn(function()
         local success, err = pcall(function()
             local response, downloadError = downloadGameModule(GAME_MODULE_URL)
