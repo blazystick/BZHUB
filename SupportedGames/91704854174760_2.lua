@@ -52,8 +52,9 @@ function GameModule.Register(api)
                 prefix = prefix .. tostring(label.Text):lower()
             end
             prefix = prefix:gsub("[^a-z]", "")
-            if #prefix < 1 or #prefix > 3 then return nil end
-            return prefix
+            if #prefix < 1 then return nil end
+            -- Yalnizca oyunun verdigi ilk harfi kullan; yazilan diger harfleri kaydetme.
+            return prefix:sub(1, 1)
         end
 
         -- Rakibin harf/prefix bazinda zorlanma suresi.
@@ -81,7 +82,7 @@ function GameModule.Register(api)
             elseif opponentSamplePrefix and opponentSampleStarted then
                 local elapsed = math.clamp(os.clock() - opponentSampleStarted, 0, 16)
                 infoStatusLabel.Text = "RAKİP TAKİP EDİLİYOR"
-                infoDetailLabel.Text = string.format("Görülen harf: %s   |   Süre: %.1f / 16 sn\nSon kayıt: %s", opponentSamplePrefix:upper(), elapsed, lastOpponentResult)
+                infoDetailLabel.Text = string.format("İlk harf: %s   |   Rakibin süresi: %.1f / 16 sn\nSon kayıt: %s", opponentSamplePrefix:upper(), elapsed, lastOpponentResult)
             elseif isTurn then
                 infoStatusLabel.Text = "SENİN SIRAN"
                 infoDetailLabel.Text = "Prefix: " .. tostring(prefix and prefix:upper() or "algılanamadı")
@@ -132,9 +133,10 @@ function GameModule.Register(api)
                 and prefix ~= nil
 
             if opponentAnswering then
-                if opponentSamplePrefix ~= prefix then
-                    finishOpponentSample()
-                    opponentSamplePrefix = prefix
+                -- Rakibin turunda yalnizca ilk verilen harfi ve toplam cevap suresini kaydet.
+                -- Rakibin yazdigi sonraki harfler yeni kayit olusturmaz.
+                if not opponentSamplePrefix then
+                    opponentSamplePrefix = prefix:sub(1, 1)
                     opponentSampleStarted = os.clock()
                 end
             else
@@ -220,7 +222,7 @@ function GameModule.Register(api)
                                         break
                                     end
                                     local ok = pcall(function()
-                                        eventAPI.fire("tryKeystroke", word:sub(index, index))
+                                        eventAPI.fire("keyStroke", word:sub(index, index))
                                     end)
                                     if not ok then
                                         typedSuccessfully = false
@@ -312,7 +314,7 @@ function GameModule.Register(api)
         local infoHudPanel = Instance.new("Frame")
         infoHudPanel.Name = "OpponentAnalysisPanel"
         infoHudPanel.AnchorPoint = Vector2.new(0.5, 0)
-        infoHudPanel.Position = UDim2.new(0.5, 0, 0, 18)
+        infoHudPanel.Position = UDim2.new(0.5, 0, 0, 70)
         infoHudPanel.Size = UDim2.fromOffset(390, 82)
         infoHudPanel.BackgroundColor3 = Color3.fromRGB(8, 13, 22)
         infoHudPanel.BackgroundTransparency = 0.08
