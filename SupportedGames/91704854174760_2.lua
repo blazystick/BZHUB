@@ -57,23 +57,44 @@ function GameModule.Register(api)
             return prefix:sub(1, 1)
         end
 
-        -- Strikes altindaki pembe ImageLabel'lari dolu carpi olarak say.
-        local function getFilledStrikeCount(screen)
+        -- Her strike ImageLabel'inin rengini sirali sekilde oku.
+        local function getStrikeColors(screen)
             local bottomBar = screen and screen:FindFirstChild("BottomBar")
             local centerBar = bottomBar and bottomBar:FindFirstChild("CenterBar")
             local strikes = centerBar and centerBar:FindFirstChild("Strikes")
-            if not strikes then return 0 end
+            if not strikes then return nil end
 
-            local count = 0
+            local images = {}
             for _, object in ipairs(strikes:GetChildren()) do
                 if object:IsA("ImageLabel") then
-                    local color = object.ImageColor3
-                    if color.R > 0.8 and color.G < 0.6 and color.B > 0.5 then
-                        count = count + 1
-                    end
+                    table.insert(images, object)
                 end
             end
-            return count
+            table.sort(images, function(a, b)
+                if a.LayoutOrder == b.LayoutOrder then
+                    return a.Name < b.Name
+                end
+                return a.LayoutOrder < b.LayoutOrder
+            end)
+
+            local colors = {}
+            for index, object in ipairs(images) do
+                colors[index] = object.ImageColor3
+            end
+            return colors
+        end
+
+        local function strikeColorsChanged(before, after)
+            if not before or not after then return false end
+            for index = 1, math.min(#before, #after) do
+                local a, b = before[index], after[index]
+                if math.abs(a.R - b.R) > 0.01
+                    or math.abs(a.G - b.G) > 0.01
+                    or math.abs(a.B - b.B) > 0.01 then
+                    return true
+                end
+            end
+            return false
         end
 
         -- Rakibin harf/prefix bazinda zorlanma suresi.
@@ -282,7 +303,8 @@ function GameModule.Register(api)
                                 if not typedSuccessfully then break end
 
                                 task.wait(0.15)
-                                local strikesBefore = getFilledStrikeCount(screen)
+                                -- Bu denemeden once 5 strike'in tamamini kaydet.
+                                local strikesBefore = getStrikeColors(screen)
                                 if not pressLetter("return") then break end
 
                                 -- ChoiceList / IsTurn degisikligi kabul; yeni pembe strike reddedilme demek.
@@ -301,7 +323,9 @@ function GameModule.Register(api)
                                         answerAccepted = true
                                         break
                                     end
-                                    if getFilledStrikeCount(screen) > strikesBefore then
+                                    -- Herhangi bir ImageLabel rengi degistiyse bu cevap reddedildi.
+                                    local strikesAfter = getStrikeColors(screen)
+                                    if strikeColorsChanged(strikesBefore, strikesAfter) then
                                         answerRejected = true
                                         break
                                     end
