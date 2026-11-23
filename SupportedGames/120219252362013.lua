@@ -1,4 +1,4 @@
---123414
+
 local GameModule = {}
 
 function GameModule.Register(api)
@@ -4712,28 +4712,55 @@ function GameModule.Register(api)
         
         local LocalPlayer = Players.LocalPlayer
         
-        local DataController = require(
-            LocalPlayer.PlayerScripts.Client.Controllers.DataController
-        )
-        
-        local FoodsConfig = require(
-            ReplicatedStorage.Config.FoodsConfig
-        )
-        
-        local BalanceCurve = require(
-            ReplicatedStorage.Shared.BalanceCurve
-        )
-        
-        local Remotes = require(
-            ReplicatedStorage.Shared.Remotes
-        )
-        
+        -- Load game modules only when Auto Upgrade Food is actually used.
+        -- Some Xeno builds cannot require client-only RobloxScript modules
+        -- from an executor context, so failures must not abort the category.
+        local cachedFoodModules = nil
+        local function getFoodModules()
+            if cachedFoodModules then
+                return cachedFoodModules
+            end
+
+            local loaded, result = pcall(function()
+                local dataController = require(
+                    LocalPlayer.PlayerScripts.Client.Controllers.DataController
+                )
+                local foodsConfig = require(ReplicatedStorage.Config.FoodsConfig)
+                local balanceCurve = require(ReplicatedStorage.Shared.BalanceCurve)
+                local remotes = require(ReplicatedStorage.Shared.Remotes)
+
+                return {
+                    DataController = dataController,
+                    FoodsConfig = foodsConfig,
+                    BalanceCurve = balanceCurve,
+                    Remotes = remotes
+                }
+            end)
+
+            if not loaded then
+                return nil, "Game module load blocked by executor: " .. tostring(result)
+            end
+
+            cachedFoodModules = result
+            return cachedFoodModules
+        end
+
         --==================================================
         -- TRY FOOD UPGRADE
         --==================================================
         
         local function tryFoodUpgrade()
         
+            local modules, moduleError = getFoodModules()
+            if not modules then
+                return false, moduleError
+            end
+
+            local DataController = modules.DataController
+            local FoodsConfig = modules.FoodsConfig
+            local BalanceCurve = modules.BalanceCurve
+            local Remotes = modules.Remotes
+
             local ownedFoods = DataController:Get("OwnedFoods") or {}
             local money = tonumber(DataController:Get("Money")) or 0
         
@@ -5328,10 +5355,33 @@ function GameModule.Register(api)
         local player = Players.LocalPlayer
         local playerGui = player:WaitForChild("PlayerGui")
     
-        local Thanksgiving = require(
-            ReplicatedStorage.Shared.Thanksgiving
-        )
-    
+        -- Load Thanksgiving lazily so a blocked RobloxScript module
+        -- cannot prevent the EVENT category UI from being created.
+        local Thanksgiving = nil
+        local thanksgivingLoadError = nil
+
+        local function getThanksgiving()
+            if Thanksgiving then
+                return Thanksgiving
+            end
+            if thanksgivingLoadError then
+                return nil, thanksgivingLoadError
+            end
+
+            local loaded, result = pcall(function()
+                return require(ReplicatedStorage.Shared.Thanksgiving)
+            end)
+
+            if not loaded then
+                thanksgivingLoadError = "Thanksgiving module load blocked by executor: "
+                    .. tostring(result)
+                return nil, thanksgivingLoadError
+            end
+
+            Thanksgiving = result
+            return Thanksgiving
+        end
+
         local enabled = false
         local busy = false
         local workerId = 0
@@ -5765,7 +5815,12 @@ function GameModule.Register(api)
                     and page.Parent do
     
                     local success, state = pcall(function()
-                        return Thanksgiving.State(
+                        local thanksgivingModule, moduleError = getThanksgiving()
+                        if not thanksgivingModule then
+                            error(moduleError or "Thanksgiving module is unavailable.")
+                        end
+
+                        return thanksgivingModule.State(
                             workspace:GetServerTimeNow()
                         )
                     end)
