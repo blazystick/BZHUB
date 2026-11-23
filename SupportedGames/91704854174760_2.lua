@@ -264,12 +264,36 @@ function GameModule.Register(api)
 
                                 task.wait(0.15)
                                 if not pressLetter("return") then break end
-                                task.wait(0.8)
 
-                                -- If the turn is still ours, treat the answer as rejected:
-                                -- erase only the letters we typed (never the game's locked first letter),
-                                -- then try another unused word with the same starting letter.
-                                if player:GetAttribute("IsTurn") == true and completeWordsEnabled then
+                                -- Wait for the game to react. A visible ChoiceList means
+                                -- the answer was accepted and the player is choosing the next letter,
+                                -- even if IsTurn remains true.
+                                local acceptedOrTurnChanged = false
+                                local answerGui = screen and screen:FindFirstChild("TopBar")
+                                answerGui = answerGui and answerGui:FindFirstChild("AnswerInput")
+                                local choiceGui = screen and screen:FindFirstChild("ChoiceList")
+                                for _ = 1, 16 do
+                                    task.wait(0.1)
+                                    if not completeWordsEnabled or player:GetAttribute("IsTurn") ~= true then
+                                        acceptedOrTurnChanged = true
+                                        break
+                                    end
+                                    if choiceGui and choiceGui.Visible then
+                                        acceptedOrTurnChanged = true
+                                        break
+                                    end
+                                end
+
+                                if acceptedOrTurnChanged then
+                                    usedWords[word] = true
+                                    break
+                                end
+
+                                -- No choice phase appeared and our answer input is still active:
+                                -- assume rejection, erase only our suffix, then try another word.
+                                if completeWordsEnabled and player:GetAttribute("IsTurn") == true
+                                    and answerGui and answerGui.Visible
+                                    and not (choiceGui and choiceGui.Visible) then
                                     for _ = 1, (#word - #prefix) do
                                         if not pressLetter("backspace") then
                                             typedSuccessfully = false
