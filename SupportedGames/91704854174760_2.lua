@@ -247,6 +247,7 @@ function GameModule.Register(api)
         end
 
         -- Her acilis yeni bir oturum kimligi alir; eski donguler bu kimlikle durdurulur.
+        local restartCompleteWords
         local activeRunId = 0
         local function runCompleteWords(runId)
             task.spawn(function()
@@ -354,6 +355,12 @@ function GameModule.Register(api)
                                     end
                                     if not typedSuccessfully then break end
                                     task.wait(0.12)
+                                    -- Yanlis cevap sonrasi otomatik OFF/ON: oturumu sifirla,
+                                    -- ancak ayni yanlis kelimeyi tekrar secme.
+                                    if restartCompleteWords then
+                                        restartCompleteWords(word)
+                                    end
+                                    break
                                 else
                                     -- Oyun henuz kabul/red sinyali vermediyse metni bozma.
                                     break
@@ -568,6 +575,33 @@ function GameModule.Register(api)
                     Transparency = completeWordsEnabled and 0.05 or 0.35
                 }):Play()
             end
+        end
+
+        restartCompleteWords = function(rejectedWord)
+            if not completeWordsEnabled then return end
+
+            -- Eski donguyu aninda durdur ve ozellik dugmesini kisa sureligine OFF yap.
+            completeWordsEnabled = false
+            activeRunId = activeRunId + 1
+            updateSwitch(true)
+            if infoHudGui then infoHudGui.Enabled = false end
+
+            task.spawn(function()
+                task.wait(0.15)
+                -- Yeni oturum: tum analiz ve kullanilmis kelime verileri sifirlanir.
+                usedWords = {}
+                if rejectedWord then usedWords[rejectedWord] = true end
+                opponentDifficulty = {}
+                opponentSamplePrefix = nil
+                opponentSampleStarted = nil
+                lastOpponentResult = "Henüz veri yok"
+
+                completeWordsEnabled = true
+                activeRunId = activeRunId + 1
+                updateSwitch(true)
+                if infoHudGui then infoHudGui.Enabled = true end
+                runCompleteWords(activeRunId)
+            end)
         end
 
         switch.MouseButton1Click:Connect(function()
