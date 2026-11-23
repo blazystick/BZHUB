@@ -312,9 +312,14 @@ function GameModule.Register(api)
                                 local choiceGui = screen and screen:FindFirstChild("ChoiceList")
                                 local answerAccepted = false
                                 local answerRejected = false
+                                local runCancelled = false
                                 for _ = 1, 20 do
                                     task.wait(0.1)
-                                    if not completeWordsEnabled or activeRunId ~= runId or player:GetAttribute("IsTurn") ~= true then
+                                    if not completeWordsEnabled or activeRunId ~= runId then
+                                        runCancelled = true
+                                        break
+                                    end
+                                    if player:GetAttribute("IsTurn") ~= true then
                                         answerAccepted = true
                                         break
                                     end
@@ -330,7 +335,9 @@ function GameModule.Register(api)
                                     end
                                 end
 
-                                if answerAccepted then
+                                if runCancelled then
+                                    break
+                                elseif answerAccepted then
                                     usedWords[word] = true
                                     break
                                 elseif answerRejected then
