@@ -247,6 +247,7 @@ function GameModule.Register(api)
             local count = 0
             for _, word in ipairs(WORDS) do
                 if #word > #prefix and word:sub(1, #prefix) == prefix
+                    and #word >= minWordLength and #word <= maxWordLength
                     and not usedWords[word] and not rejectedWords[word] then
                     count = count + 1
                 end
