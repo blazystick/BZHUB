@@ -19,11 +19,45 @@ function GameModule.Register(api)
                 local usedWords = {}
         -- Reddedilen kelimeler ON/OFF ve otomatik yeniden baslatmalarda da hatirlanir.
         local rejectedWords = {}
+        local sharedEnv = (type(getgenv) == "function" and getgenv()) or _G
+        if type(sharedEnv.BZHUB_CompleteWordsRejected) == "table" then
+            rejectedWords = sharedEnv.BZHUB_CompleteWordsRejected
+        else
+            sharedEnv.BZHUB_CompleteWordsRejected = rejectedWords
+        end
+        local rejectedWordsFile = "BZHUB_CompleteWords_Rejected.txt"
+        pcall(function()
+            if type(readfile) == "function" and type(isfile) == "function" and isfile(rejectedWordsFile) then
+                for word in readfile(rejectedWordsFile):gmatch("[^\\r\\n]+") do
+                    word = word:lower():gsub("[^a-z]", "")
+                    if #word > 0 then rejectedWords[word] = true end
+                end
+            end
+        end)
+        local function saveRejectedWords()
+            sharedEnv.BZHUB_CompleteWordsRejected = rejectedWords
+            pcall(function()
+                if type(writefile) == "function" then
+                    local saved = {}
+                    for word in pairs(rejectedWords) do
+                        table.insert(saved, word)
+                    end
+                    table.sort(saved)
+                    writefile(rejectedWordsFile, table.concat(saved, "\\n"))
+                end
+            end)
+        end
         local wordStats = { attempted = 0, accepted = 0, rejected = 0 }
         local difficultyMode = "Normal"
         local speedMode = false
         local rareWordsMode = false
         local autoRetryEnabled = true
+        local minWordLength = 1
+        local maxWordLength = 20
+        local typingDelayMs = 100
+        local fallbackEnabled = true
+        local fallbackButton, scanPrefixesButton, searchPrefixBox
+        local searchResultsLabel, prefixScanLabel
         local prefixAnalyzerLabel, dictionaryStatsLabel, coverageLabel
         local difficultyButton, speedButton, rareButton, retryButton
         local eventAPI
@@ -233,13 +267,27 @@ function GameModule.Register(api)
 
         local function findWord(prefix, excludedWords)
             local candidates = {}
-            for _, word in ipairs(WORDS) do
-                if #word > #prefix
+            local function isAvailable(word, checkLength)
+                return #word > #prefix
                     and word:sub(1, #prefix) == prefix
                     and not usedWords[word]
                     and not rejectedWords[word]
-                    and not (excludedWords and excludedWords[word]) then
+                    and not (excludedWords and excludedWords[word])
+                    and (not checkLength or (#word >= minWordLength and #word <= maxWordLength))
+            end
+
+            for _, word in ipairs(WORDS) do
+                if isAvailable(word, true) then
                     table.insert(candidates, word)
+                end
+            end
+
+            -- Fallback: uzunluk aralığında kelime yoksa aralığı geçici olarak esnet.
+            if #candidates == 0 and fallbackEnabled then
+                for _, word in ipairs(WORDS) do
+                    if isAvailable(word, false) then
+                        table.insert(candidates, word)
+                    end
                 end
             end
             if #candidates == 0 then return nil end
@@ -364,7 +412,7 @@ function GameModule.Register(api)
                                         typedSuccessfully = false
                                         break
                                     end
-                                    task.wait(speedMode and 0.025 or 0.1)
+                                    task.wait(speedMode and 0.025 or (typingDelayMs / 1000))
                                 end
 
                                 if not typedSuccessfully then break end
@@ -414,6 +462,7 @@ function GameModule.Register(api)
                                     -- Word Memory: reddedilen kelime sonraki turlarda da secilmez.
                                     usedWords[word] = true
                                     rejectedWords[word] = true
+                                    saveRejectedWords()
                                     wordStats.rejected = wordStats.rejected + 1
                                     refreshWordStats(prefix)
                                     -- Yanlis cevapta sadece bizim yazdigimiz harfleri sil.
@@ -501,7 +550,7 @@ function GameModule.Register(api)
         -- Complete Words ayarlari ve canli sozluk analiz paneli.
         local controls = Instance.new("Frame")
         controls.Name = "CompleteWordsControls"
-        controls.Size = UDim2.new(1, 0, 0, 190)
+        controls.Size = UDim2.new(1, 0, 0, 345)
         controls.BackgroundColor3 = PANEL
         controls.BorderSizePixel = 0
         controls.LayoutOrder = 2
@@ -584,6 +633,121 @@ function GameModule.Register(api)
         retryButton.MouseButton1Click:Connect(function()
             autoRetryEnabled = not autoRetryEnabled
             retryButton.Text = "AUTO RETRY: " .. (autoRetryEnabled and "ON" or "OFF")
+        end)
+
+        -- Kelime uzunluğu, yazma hızı ve fallback ayarları.
+        local function makeControlInput(name, placeholder, position, size, defaultText)
+            local box = Instance.new("TextBox")
+            box.Name = name
+            box.Position = position
+            box.Size = size
+            box.BackgroundColor3 = CARD
+            box.BorderSizePixel = 0
+            box.Text = defaultText or ""
+            box.PlaceholderText = placeholder
+            box.PlaceholderColor3 = MUTED
+            box.TextColor3 = WHITE
+            box.TextSize = 10
+            box.Font = Enum.Font.GothamMedium
+            box.ClearTextOnFocus = false
+            box.Parent = controls
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 6)
+            corner.Parent = box
+            return box
+        end
+
+        makeControlLabel("LengthLabel", "MIN / MAX WORD LENGTH", UDim2.fromOffset(12, 171), UDim2.fromOffset(142, 16), 9)
+        local minLengthBox = makeControlInput("MinWordLength", "Min", UDim2.fromOffset(154, 168), UDim2.fromOffset(48, 25), "1")
+        local maxLengthBox = makeControlInput("MaxWordLength", "Max", UDim2.fromOffset(208, 168), UDim2.fromOffset(48, 25), "20")
+        makeControlLabel("DelayLabel", "DELAY (MS)", UDim2.fromOffset(266, 171), UDim2.fromOffset(70, 16), 9)
+        local delayBox = makeControlInput("TypingDelay", "ms", UDim2.new(1, -62, 0, 168), UDim2.fromOffset(50, 25), "100")
+
+        local function applyLengthSettings()
+            local minimum = tonumber(minLengthBox.Text)
+            local maximum = tonumber(maxLengthBox.Text)
+            if minimum and maximum then
+                minimum = math.clamp(math.floor(minimum), 1, 30)
+                maximum = math.clamp(math.floor(maximum), 1, 30)
+                if maximum < minimum then
+                    maximum = minimum
+                    maxLengthBox.Text = tostring(maximum)
+                end
+                minWordLength, maxWordLength = minimum, maximum
+                minLengthBox.Text = tostring(minimum)
+                maxLengthBox.Text = tostring(maximum)
+                refreshWordStats(getRequiredPrefix())
+            else
+                minLengthBox.Text = tostring(minWordLength)
+                maxLengthBox.Text = tostring(maxWordLength)
+            end
+        end
+        minLengthBox.FocusLost:Connect(applyLengthSettings)
+        maxLengthBox.FocusLost:Connect(applyLengthSettings)
+        delayBox.FocusLost:Connect(function()
+            local value = tonumber(delayBox.Text)
+            if value then
+                typingDelayMs = math.clamp(math.floor(value), 10, 1000)
+            end
+            delayBox.Text = tostring(typingDelayMs)
+        end)
+
+        fallbackButton = makeControlButton("FallbackStrategy", "FALLBACK: ON", UDim2.fromOffset(12, 202), UDim2.new(0.48, -6, 0, 27))
+        fallbackButton.MouseButton1Click:Connect(function()
+            fallbackEnabled = not fallbackEnabled
+            fallbackButton.Text = "FALLBACK: " .. (fallbackEnabled and "ON" or "OFF")
+        end)
+
+        scanPrefixesButton = makeControlButton("ScanPrefixes", "SCAN MISSING PREFIXES", UDim2.new(0.52, 0, 0, 202), UDim2.new(0.48, -12, 0, 27))
+        prefixScanLabel = makeControlLabel("PrefixScanResults", "PREFIX SCANNER  |  henüz taranmadı", UDim2.fromOffset(12, 232), UDim2.new(1, -24, 0, 34), 9)
+        prefixScanLabel.TextWrapped = true
+        prefixScanLabel.TextYAlignment = Enum.TextYAlignment.Top
+        scanPrefixesButton.MouseButton1Click:Connect(function()
+            local known = {}
+            for _, word in ipairs(WORDS) do
+                if #word >= 2 then known[word:sub(1, 2)] = true end
+                if #word >= 3 then known[word:sub(1, 3)] = true end
+            end
+            local missingTwo, missingThree, examples = 0, 0, {}
+            for a = 97, 122 do
+                for b = 97, 122 do
+                    local two = string.char(a, b)
+                    if not known[two] then
+                        missingTwo = missingTwo + 1
+                        if #examples < 5 then table.insert(examples, two) end
+                    end
+                    for c = 97, 122 do
+                        local three = two .. string.char(c)
+                        if not known[three] then missingThree = missingThree + 1 end
+                    end
+                end
+            end
+            prefixScanLabel.Text = string.format("EKSİK PREFIX  |  2 harf: %d  •  3 harf: %d\\nÖrnek: %s",
+                missingTwo, missingThree, table.concat(examples, ", "))
+        end)
+
+        makeControlLabel("DictionarySearchTitle", "DICTIONARY SEARCH", UDim2.fromOffset(12, 273), UDim2.fromOffset(130, 16), 9)
+        searchPrefixBox = makeControlInput("DictionaryPrefixSearch", "Prefix yaz (örn. str)", UDim2.fromOffset(142, 269), UDim2.new(1, -154, 0, 25), "")
+        searchResultsLabel = makeControlLabel("DictionarySearchResults", "Sonuçlar burada gösterilecek.", UDim2.fromOffset(12, 299), UDim2.new(1, -24, 0, 38), 9)
+        searchResultsLabel.TextWrapped = true
+        searchResultsLabel.TextYAlignment = Enum.TextYAlignment.Top
+        searchPrefixBox.FocusLost:Connect(function()
+            local prefix = searchPrefixBox.Text:lower():gsub("[^a-z]", "")
+            searchPrefixBox.Text = prefix
+            if #prefix == 0 then
+                searchResultsLabel.Text = "Arama için en az bir harf yaz."
+                return
+            end
+            local matches = {}
+            for _, word in ipairs(WORDS) do
+                if word:sub(1, #prefix) == prefix then
+                    table.insert(matches, word)
+                    if #matches >= 8 then break end
+                end
+            end
+            searchResultsLabel.Text = #matches > 0
+                and ("'" .. prefix:upper() .. "' sonuçları: " .. table.concat(matches, ", "))
+                or ("'" .. prefix:upper() .. "' için kelime bulunamadı.")
         end)
 
         -- Independent top HUD, like the Auto Throw status panel.
@@ -791,6 +955,7 @@ function GameModule.Register(api)
         speedButton.Text = "SPEED: OFF"
         rareButton.Text = "RARE WORDS: OFF"
         retryButton.Text = "AUTO RETRY: ON"
+        fallbackButton.Text = "FALLBACK: ON"
         refreshWordStats(nil)
 
         updateSwitch(true)
