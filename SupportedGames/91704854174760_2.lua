@@ -112,6 +112,7 @@ function GameModule.Register(api)
         local opponentSampleStarted = nil
         local lastOpponentResult = "Henüz veri yok"
         local infoStatusLabel, infoDetailLabel, infoHudGui
+        local refreshWordStats, getPrefixCandidateCount
 
         local function refreshOpponentInfo(isTurn, screen)
             if not infoHudGui or not infoHudGui.Parent then return end
@@ -208,7 +209,7 @@ function GameModule.Register(api)
             return score
         end
 
-        local function getPrefixCandidateCount(prefix)
+        getPrefixCandidateCount = function(prefix)
             local count = 0
             for _, word in ipairs(WORDS) do
                 if #word > #prefix and word:sub(1, #prefix) == prefix
@@ -219,7 +220,7 @@ function GameModule.Register(api)
             return count
         end
 
-        local function refreshWordStats(prefix)
+        refreshWordStats = function(prefix)
             if prefixAnalyzerLabel then
                 prefixAnalyzerLabel.Text = string.format("PREFIX ANALYZER  |  %s: %d kelime",
                     tostring(prefix or "--"):upper(), prefix and getPrefixCandidateCount(prefix) or 0)
