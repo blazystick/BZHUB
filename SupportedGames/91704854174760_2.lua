@@ -53,8 +53,8 @@ function GameModule.Register(api)
             end
             prefix = prefix:gsub("[^a-z]", "")
             if #prefix < 1 then return nil end
-            -- Yalnizca oyunun verdigi ilk harfi kullan; yazilan diger harfleri kaydetme.
-            return prefix:sub(1, 1)
+            -- Oyunun verdigi tum sabit harfleri kullan (ornegin N + E = "ne").
+            return prefix
         end
 
         -- Her strike ImageLabel'inin rengini sirali sekilde oku.
