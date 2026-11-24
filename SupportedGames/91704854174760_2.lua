@@ -28,7 +28,7 @@ function GameModule.Register(api)
         local rejectedWordsFile = "BZHUB_CompleteWords_Rejected.txt"
         pcall(function()
             if type(readfile) == "function" and type(isfile) == "function" and isfile(rejectedWordsFile) then
-                for word in readfile(rejectedWordsFile):gmatch("[^\\r\\n]+") do
+                for word in readfile(rejectedWordsFile):gmatch("[^\r\n]+") do
                     word = word:lower():gsub("[^a-z]", "")
                     if #word > 0 then rejectedWords[word] = true end
                 end
@@ -43,7 +43,7 @@ function GameModule.Register(api)
                         table.insert(saved, word)
                     end
                     table.sort(saved)
-                    writefile(rejectedWordsFile, table.concat(saved, "\\n"))
+                    writefile(rejectedWordsFile, table.concat(saved, "\n"))
                 end
             end)
         end
@@ -722,7 +722,7 @@ function GameModule.Register(api)
                     end
                 end
             end
-            prefixScanLabel.Text = string.format("EKSİK PREFIX  |  2 harf: %d  •  3 harf: %d\\nÖrnek: %s",
+            prefixScanLabel.Text = string.format("EKSİK PREFIX  |  2 harf: %d  •  3 harf: %d\nÖrnek: %s",
                 missingTwo, missingThree, table.concat(examples, ", "))
         end)
 
