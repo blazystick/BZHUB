@@ -317,6 +317,11 @@ screen_revision = 0
 
 processed_fps = 0
 
+# Lightweight diagnostics; averages are logged once per second.
+ui_present_total_ms = 0.0
+ui_present_count = 0
+ui_present_log_time = time.perf_counter()
+
 signals = None
 keyboard_listener = None
 mouse_listener = None
@@ -967,6 +972,10 @@ def capture_worker():
 
     fps_count = 0
     fps_start = time.perf_counter()
+    wait_total_ms = 0.0
+    process_total_ms = 0.0
+    qimage_total_ms = 0.0
+    timing_count = 0
 
     try:
         camera = dxcam.create(
@@ -1045,20 +1054,25 @@ def capture_worker():
                     crop_height
                 )
 
+            stage_start = time.perf_counter()
             frame = camera.get_latest_frame()
+            wait_ms = (time.perf_counter() - stage_start) * 1000.0
 
             if frame is None:
                 time.sleep(0.002)
                 continue
 
+            stage_start = time.perf_counter()
             enlarged = process_image(
                 frame,
                 width,
                 height
             )
+            process_ms = (time.perf_counter() - stage_start) * 1000.0
 
             # Keep the NumPy buffer alive while QImage reads its memory.
             # This avoids copying the full frame on every capture.
+            stage_start = time.perf_counter()
             image = QImage(
                 enlarged.data,
                 width,
@@ -1066,6 +1080,12 @@ def capture_worker():
                 enlarged.strides[0],
                 QImage.Format.Format_BGR888
             )
+            qimage_ms = (time.perf_counter() - stage_start) * 1000.0
+
+            wait_total_ms += wait_ms
+            process_total_ms += process_ms
+            qimage_total_ms += qimage_ms
+            timing_count += 1
 
             with state_lock:
                 latest_image_buffer = enlarged
@@ -1083,8 +1103,21 @@ def capture_worker():
                     processed_fps
                 )
 
+                if timing_count:
+                    logger.info(
+                        "PERF capture_fps=%s | dxcam_wait_avg=%.2fms | upscale_avg=%.2fms | qimage_avg=%.2fms",
+                        processed_fps,
+                        wait_total_ms / timing_count,
+                        process_total_ms / timing_count,
+                        qimage_total_ms / timing_count
+                    )
+
                 fps_count = 0
                 fps_start = now
+                wait_total_ms = 0.0
+                process_total_ms = 0.0
+                qimage_total_ms = 0.0
+                timing_count = 0
 
     except Exception:
         logger.exception("Capture worker failed")
@@ -1214,6 +1247,7 @@ class ZoomOverlay(QWidget):
 
     def update_frame(self):
         global displayed_version
+        global ui_present_total_ms, ui_present_count, ui_present_log_time
 
         with state_lock:
             active = zoom_active
@@ -1230,11 +1264,26 @@ class ZoomOverlay(QWidget):
             self.showFullScreen()
 
         if image is not None and version != displayed_version:
+            present_start = time.perf_counter()
             self.label.setPixmap(
                 QPixmap.fromImage(image)
             )
-
+            present_ms = (time.perf_counter() - present_start) * 1000.0
+            ui_present_total_ms += present_ms
+            ui_present_count += 1
             displayed_version = version
+
+        now_perf = time.perf_counter()
+        if now_perf - ui_present_log_time >= 1.0:
+            if ui_present_count:
+                logger.info(
+                    "PERF ui_present_avg=%.2fms | presented_frames=%s",
+                    ui_present_total_ms / ui_present_count,
+                    ui_present_count
+                )
+            ui_present_total_ms = 0.0
+            ui_present_count = 0
+            ui_present_log_time = now_perf
 
         now = time.monotonic()
 
