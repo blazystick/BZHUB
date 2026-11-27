@@ -38,16 +38,3 @@ luac.out
 *.i*86
 *.x86_64
 *.hex
-
-# BLZOOM local runtime data
-config.json
-app.log
-*.log
-
-# Python / packaging
-__pycache__/
-*.py[cod]
-.venv-build/
-build/
-dist/
-*.spec
