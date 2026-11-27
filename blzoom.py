@@ -981,7 +981,7 @@ def capture_worker():
         camera = dxcam.create(
             output_idx=0,
             output_color="BGR",
-            max_buffer_len=1
+            max_buffer_len=2
         )
 
         logger.info("DXGI camera initialized")
@@ -1236,6 +1236,7 @@ class ZoomOverlay(QWidget):
         self.hide()
 
         self.timer = QTimer(self)
+        self.timer.setTimerType(Qt.TimerType.PreciseTimer)
         self.timer.timeout.connect(self.update_frame)
         # Poll near the active display refresh rate without busy-looping.
         refresh = get_capture_target_fps(screen_refresh)
@@ -1252,6 +1253,8 @@ class ZoomOverlay(QWidget):
         with state_lock:
             active = zoom_active
             image = latest_image
+            # Keep the NumPy storage alive while Qt copies QImage into a pixmap.
+            image_buffer = latest_image_buffer
             version = image_version
 
         if not active:
@@ -1265,6 +1268,7 @@ class ZoomOverlay(QWidget):
 
         if image is not None and version != displayed_version:
             present_start = time.perf_counter()
+            # image_buffer keeps the QImage's backing NumPy memory alive here.
             self.label.setPixmap(
                 QPixmap.fromImage(image)
             )
