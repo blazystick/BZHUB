@@ -67,7 +67,11 @@ APP_NAME = "BLZOOM"
 APP_VERSION = "1.0.0"
 CREATOR = "@blazystick"
 
-APP_DIR = Path(__file__).resolve().parent
+APP_DIR = (
+    Path(sys.executable).resolve().parent
+    if getattr(sys, "frozen", False)
+    else Path(__file__).resolve().parent
+)
 CONFIG_FILE = APP_DIR / "config.json"
 LOG_FILE = APP_DIR / "app.log"
 
