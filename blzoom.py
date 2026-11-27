@@ -78,8 +78,21 @@ ZOOM_STEP = 0.25
 
 DOUBLE_SHIFT_DELAY = 0.45
 
-# Capture processing target. The monitor still limits unique desktop frames.
-CAPTURE_TARGET_FPS = 200
+# Capture target follows the active primary display refresh rate.
+MIN_CAPTURE_FPS = 30
+MAX_CAPTURE_FPS = 240
+
+
+def get_capture_target_fps(refresh_rate):
+    try:
+        refresh = int(round(float(refresh_rate)))
+    except (TypeError, ValueError):
+        refresh = 60
+
+    if refresh < 1:
+        refresh = 60
+
+    return max(MIN_CAPTURE_FPS, min(MAX_CAPTURE_FPS, refresh))
 
 SPI_GETMOUSESPEED = 0x0070
 SPI_SETMOUSESPEED = 0x0071
@@ -299,7 +312,7 @@ displayed_version = -1
 
 screen_width = 1280
 screen_height = 1024
-screen_refresh = 75
+screen_refresh = 60
 screen_revision = 0
 
 processed_fps = 0
@@ -971,7 +984,10 @@ def capture_worker():
 
                 width = screen_width
                 height = screen_height
+                refresh = screen_refresh
                 revision = screen_revision
+
+            target_fps = get_capture_target_fps(refresh)
 
             if not active:
                 if capturing:
@@ -1011,7 +1027,7 @@ def capture_worker():
 
                 camera.start(
                     region=region,
-                    target_fps=CAPTURE_TARGET_FPS,
+                    target_fps=target_fps,
                     video_mode=False
                 )
 
@@ -1024,7 +1040,7 @@ def capture_worker():
 
                 logger.info(
                     "Capture started (target %s FPS): %s x %s",
-                    CAPTURE_TARGET_FPS,
+                    target_fps,
                     crop_width,
                     crop_height
                 )
@@ -1188,9 +1204,9 @@ class ZoomOverlay(QWidget):
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_frame)
-        # 8 ms polling is enough for a 75 Hz display and avoids
-        # waking the GUI thread 250 times per second.
-        self.timer.start(8)
+        # Poll near the active display refresh rate without busy-looping.
+        refresh = get_capture_target_fps(screen_refresh)
+        self.timer.start(max(1, round(1000 / refresh)))
 
     def change_display(self, width, height):
         self.setGeometry(0, 0, width, height)
@@ -2745,6 +2761,8 @@ class MainWindow(QWidget):
 
         if zoom_overlay is not None:
             zoom_overlay.change_display(width, height)
+            target_fps = get_capture_target_fps(refresh)
+            zoom_overlay.timer.setInterval(max(1, round(1000 / target_fps)))
 
         self.position_window()
 
@@ -2757,7 +2775,8 @@ class MainWindow(QWidget):
             f"{refresh} Hz"
         )
 
-        self.target_value.setText(f"{CAPTURE_TARGET_FPS} FPS")
+        target_fps = get_capture_target_fps(refresh)
+        self.target_value.setText(f"{target_fps} FPS")
 
     # --------------------------------------------------------
     # GAME STATUS
