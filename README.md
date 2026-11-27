@@ -10,79 +10,79 @@
 [![Language](https://img.shields.io/badge/Language-Lua-2C2D72?style=for-the-badge&logo=lua)](https://www.lua.org/)
 [![Platform](https://img.shields.io/badge/Platform-Roblox-168BFF?style=for-the-badge&logo=roblox&logoColor=white)](https://www.roblox.com/)
 
-**Roblox oyunları için modüler GUI ve oyuna özel otomasyon projesi.**
+**A modular GUI and game-specific automation project for Roblox.**
 
-[Özellikler](#-özellikler) · [Desteklenen Oyunlar](#-desteklenen-oyunlar) · [Kurulum](#-kurulum) · [Proje Yapısı](#-proje-yapısı)
+[Features](#-features) · [Supported Games](#-supported-games) · [Installation](#-installation) · [Project Structure](#-project-structure)
 
 </div>
 
 ---
 
-## ✨ Özellikler
+## ✨ Features
 
 <table>
 <tr>
 <td width="50%">
 
-### 🎨 Modern Arayüz
-Koyu tasarım, mavi neon vurgular, animasyonlar ve sürüklenebilir pencere.
+### 🎨 Modern Interface
+Dark design, blue neon accents, smooth animations, and a draggable window.
 
 </td>
 <td width="50%">
 
-### 🕹️ Oyun Algılama
-Açık olan oyunun PlaceId değerini kontrol eder ve destek durumunu gösterir.
-
-</td>
-</tr>
-<tr>
-<td width="50%">
-
-### 🌈 Görünüm Seçenekleri
-Blue, Purple, Green ve Red temaları.
-
-</td>
-<td width="50%">
-
-### 🌍 Çoklu Dil
-English, Türkçe ve Русский arayüz seçenekleri.
+### 🕹️ Game Detection
+Detects the current game's PlaceId and displays its support status.
 
 </td>
 </tr>
 <tr>
 <td width="50%">
 
-### 🧩 Modüler Sistem
-Oyunlara özel kodlar ayrı `SupportedGames` dosyalarında tutulur.
+### 🌈 Appearance Options
+Blue, Purple, Green, and Red themes.
 
 </td>
 <td width="50%">
 
-### 🪟 Pencere Kontrolleri
-Küçültme, yeniden boyutlandırma ve arayüzü kapatma kontrolleri.
+### 🌍 Multiple Languages
+English, Turkish, and Russian interface options.
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 🧩 Modular System
+Game-specific code is organized into separate `SupportedGames` modules.
+
+</td>
+<td width="50%">
+
+### 🪟 Window Controls
+Minimize, resize, and close the interface.
 
 </td>
 </tr>
 </table>
 
-## 🎮 Desteklenen Oyunlar
+## 🎮 Supported Games
 
-| Oyun | PlaceId | Durum |
+| Game | PlaceId | Status |
 |:--|:--:|:--:|
-| Throw Food for Animals | `120219252362013` | 🟢 Destekleniyor |
+| Throw Food for Animals | `120219252362013` | 🟢 Supported |
 
-> BZHUB, yalnızca ana scriptte desteklenen olarak tanımlanan oyunlarda oyuna özel modülleri yükler. Destek listesi zamanla değişebilir.
+> BZHUB loads game-specific modules only for games registered as supported in the main script. The supported games list may change over time.
 
-## 🧭 Arayüz Bölümleri
+## 🧭 Interface Sections
 
-| Bölüm | Açıklama |
+| Section | Description |
 |:--|:--|
-| **Home** | Karşılama ve genel durum ekranı |
-| **Information** | Arayüz kullanım bilgileri (desteklenen oyunlarda) |
-| **Settings** | Tema ve dil seçenekleri |
-| **Automation** | Oyun modülünün sunduğu otomasyon kontrolleri |
+| **Home** | Welcome screen and general status |
+| **Information** | Interface usage information (available in supported games) |
+| **Settings** | Theme and language options |
+| **Automation** | Automation controls provided by the game module |
 
-## 📁 Proje Yapısı
+## 📁 Project Structure
 
 ```text
 BZHUB/
@@ -96,28 +96,28 @@ BZHUB/
 └── main.lua
 ```
 
-- **`main.lua`** — Ana arayüz, oyun algılama ve ortak sistemler.
-- **`SupportedGames/`** — Oyunlara özel Lua modülleri.
-- **`assets/`** — README ve proje görselleri.
+- **`main.lua`** — Main interface, game detection, and shared systems.
+- **`SupportedGames/`** — Lua modules containing game-specific features.
+- **`assets/`** — README and project visuals.
 
-## 🚀 Kurulum
+## 🚀 Installation
 
-1. [BZHUB deposunu](https://github.com/blazystick/BZHUB) aç.
-2. **Code → Download ZIP** seçeneğiyle dosyaları indir.
-3. Roblox'ta desteklenen oyuna katıl.
-4. `main.lua` dosyasını kullandığın Roblox Lua executor ortamında çalıştır.
-5. Arayüzdeki oyun durumunu kontrol et.
+1. Open the [BZHUB repository](https://github.com/blazystick/BZHUB).
+2. Select **Code → Download ZIP** to download the project files.
+3. Join a supported Roblox game.
+4. Execute `main.lua` using your Roblox Lua executor.
+5. Check the game status displayed in the BZHUB interface.
 
-## 🛠️ Geliştirme
+## 🛠️ Development
 
-Yeni bir oyun desteği eklerken oyuna özel kodu mümkün olduğunca `SupportedGames/<PlaceId>.lua` dosyasında tut. Ortak arayüz ve sistemleri, gerekli olmadıkça `main.lua` içinde değiştirme.
+When adding support for a new game, keep game-specific code in `SupportedGames/<PlaceId>.lua` whenever possible. Avoid changing the shared interface and systems in `main.lua` unless necessary.
 
-## ⚠️ Uyarı
+## ⚠️ Disclaimer
 
-- BZHUB, Roblox tarafından geliştirilmiş veya resmî olarak onaylanmış değildir.
-- Üçüncü taraf script ve executor kullanımı hesabın veya cihazın için risk oluşturabilir.
-- Yalnızca kaynağına güvendiğin kodları çalıştır.
-- Roblox oyun güncellemeleri, oyun modüllerinin çalışmasını etkileyebilir.
+- BZHUB is not developed, endorsed, or officially supported by Roblox.
+- Using third-party scripts and executors may pose risks to your account or device.
+- Only execute code from sources you trust.
+- Roblox game updates may affect the functionality of game modules.
 
 ---
 
