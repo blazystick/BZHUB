@@ -293,6 +293,7 @@ last_shift_press = 0.0
 capturing_hotkey = False
 
 latest_image = None
+latest_image_buffer = None
 image_version = 0
 displayed_version = -1
 
@@ -941,6 +942,7 @@ def process_image(frame, width, height):
 
 def capture_worker():
     global latest_image
+    global latest_image_buffer
     global image_version
     global processed_fps
 
@@ -1039,15 +1041,18 @@ def capture_worker():
                 height
             )
 
+            # Keep the NumPy buffer alive while QImage reads its memory.
+            # This avoids copying the full frame on every capture.
             image = QImage(
                 enlarged.data,
                 width,
                 height,
                 enlarged.strides[0],
                 QImage.Format.Format_BGR888
-            ).copy()
+            )
 
             with state_lock:
+                latest_image_buffer = enlarged
                 latest_image = image
                 image_version += 1
 
@@ -1183,7 +1188,9 @@ class ZoomOverlay(QWidget):
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_frame)
-        self.timer.start(4)
+        # 8 ms polling is enough for a 75 Hz display and avoids
+        # waking the GUI thread 250 times per second.
+        self.timer.start(8)
 
     def change_display(self, width, height):
         self.setGeometry(0, 0, width, height)
