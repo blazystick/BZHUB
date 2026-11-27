@@ -980,7 +980,7 @@ def capture_worker():
     try:
         camera = dxcam.create(
             output_idx=0,
-            output_color="BGRA",
+            output_color="BGR",
             max_buffer_len=2
         )
 
@@ -1078,7 +1078,7 @@ def capture_worker():
                 width,
                 height,
                 enlarged.strides[0],
-                QImage.Format.Format_BGRA8888
+                QImage.Format.Format_BGR888
             )
             qimage_ms = (time.perf_counter() - stage_start) * 1000.0
 
