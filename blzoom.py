@@ -78,9 +78,8 @@ ZOOM_STEP = 0.25
 
 DOUBLE_SHIFT_DELAY = 0.45
 
-# 0 = DXcam pacing disabled. Actual FPS depends on new
-# desktop frames delivered by Windows.
-CAPTURE_TARGET_FPS = 45
+# Capture processing target. The monitor still limits unique desktop frames.
+CAPTURE_TARGET_FPS = 200
 
 SPI_GETMOUSESPEED = 0x0070
 SPI_SETMOUSESPEED = 0x0071
@@ -1022,7 +1021,8 @@ def capture_worker():
                 fps_start = time.perf_counter()
 
                 logger.info(
-                    "Unpaced capture started: %s x %s",
+                    "Capture started (target %s FPS): %s x %s",
+                    CAPTURE_TARGET_FPS,
                     crop_width,
                     crop_height
                 )
@@ -1183,7 +1183,7 @@ class ZoomOverlay(QWidget):
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_frame)
-        self.timer.start(16)
+        self.timer.start(4)
 
     def change_display(self, width, height):
         self.setGeometry(0, 0, width, height)
