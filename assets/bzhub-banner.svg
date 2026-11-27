@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#050912"/><stop offset=".55" stop-color="#0a1426"/><stop offset="1" stop-color="#07101b"/></linearGradient>
+  <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#42c7ff"/><stop offset="1" stop-color="#3977ff"/></linearGradient>
+  <radialGradient id="glow"><stop stop-color="#168bff" stop-opacity=".32"/><stop offset="1" stop-color="#168bff" stop-opacity="0"/></radialGradient>
+  <filter id="shadow"><feGaussianBlur stdDeviation="18"/></filter>
+</defs>
+<rect width="1200" height="420" rx="28" fill="url(#bg)"/>
+<circle cx="940" cy="180" r="270" fill="url(#glow)"/>
+<circle cx="940" cy="180" r="180" fill="#168bff" opacity=".10" filter="url(#shadow)"/>
+<g opacity=".18" stroke="#5abfff"><path d="M0 80H1200M0 160H1200M0 240H1200M0 320H1200"/><path d="M120 0V420M240 0V420M360 0V420M480 0V420M600 0V420M720 0V420M840 0V420M960 0V420M1080 0V420"/></g>
+<g transform="translate(90 102)">
+  <rect x="0" y="0" width="82" height="82" rx="22" fill="#0d2340" stroke="#42baff" stroke-width="2"/>
+  <path d="M23 22h36v9H33v9h22v9H33v11h26v9H23z" fill="url(#blue)"/>
+  <text x="110" y="62" fill="#f4f8ff" font-family="Arial,Helvetica,sans-serif" font-size="76" font-weight="800" letter-spacing="3">BZHUB</text>
+  <rect x="3" y="112" width="58" height="4" rx="2" fill="url(#blue)"/>
+  <text x="0" y="158" fill="#a9bfd8" font-family="Arial,Helvetica,sans-serif" font-size="25" letter-spacing="4">ROBLOX GAME UI &amp; AUTOMATION</text>
+  <text x="0" y="205" fill="#6f8eae" font-family="Arial,Helvetica,sans-serif" font-size="17" letter-spacing="2">MODULAR  •  CUSTOMIZABLE  •  GAME-SPECIFIC</text>
+</g>
+<g transform="translate(850 86)">
+  <rect x="0" y="0" width="270" height="220" rx="18" fill="#080e18" stroke="#24466b" stroke-width="2"/>
+  <rect x="0" y="0" width="270" height="34" rx="18" fill="#101d30"/>
+  <circle cx="18" cy="17" r="4" fill="#4dbdff"/><circle cx="33" cy="17" r="4" fill="#355575"/><circle cx="48" cy="17" r="4" fill="#355575"/>
+  <rect x="16" y="53" width="65" height="150" rx="9" fill="#0d1726"/>
+  <rect x="28" y="69" width="40" height="7" rx="3" fill="#3daeff"/>
+  <rect x="28" y="91" width="34" height="5" rx="2" fill="#49627e"/>
+  <rect x="28" y="110" width="34" height="5" rx="2" fill="#49627e"/>
+  <rect x="28" y="129" width="34" height="5" rx="2" fill="#49627e"/>
+  <rect x="96" y="53" width="158" height="52" rx="9" fill="#0e1b2c" stroke="#1c3d60"/>
+  <text x="110" y="75" fill="#7d9ab8" font-family="Arial" font-size="9" letter-spacing="1">GAME STATUS</text>
+  <circle cx="112" cy="90" r="4" fill="#43d89b"/><rect x="123" y="86" width="75" height="7" rx="3" fill="#d7e8fa" opacity=".8"/>
+  <rect x="96" y="117" width="158" height="86" rx="9" fill="#0e1b2c" stroke="#1c3d60"/>
+  <text x="110" y="140" fill="#dcecff" font-family="Arial" font-size="11" font-weight="bold">AUTOMATION</text>
+  <rect x="110" y="153" width="130" height="20" rx="6" fill="#102c4a" stroke="#278de0"/>
+  <text x="175" y="167" text-anchor="middle" fill="#9bdcff" font-family="Arial" font-size="9">START</text>
+  <rect x="110" y="181" width="90" height="5" rx="2" fill="#38516d"/>
+</g>
+<text x="1100" y="385" text-anchor="end" fill="#54718e" font-family="Arial" font-size="13" letter-spacing="2">BLAZY STICK</text>
+</svg>
