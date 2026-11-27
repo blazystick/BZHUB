@@ -1,60 +1,130 @@
-# BZHUB
+<!-- BZHUB README -->
 
-BZHUB, Roblox oyunları için hazırlanmış, oyunlara özel otomasyon özellikleri sunan bir Lua GUI scriptidir.
+<div align="center">
 
-Arayüz; sade, modern ve koyu bir tasarıma sahiptir. Mavi neon vurgular, animasyonlar ve kişiselleştirilebilir görünüm seçenekleri kullanır.
+<img src="assets/bzhub-banner.svg" alt="BZHUB banner" width="100%">
 
-## Özellikler
+<br>
 
-- **Modern arayüz:** Koyu tema, mavi vurgular, yumuşak animasyonlar ve sürüklenebilir pencere.
-- **Pencere kontrolleri:** Küçültme, pencere boyutunu değiştirme ve arayüzü kapatma.
-- **Çoklu dil:** English, Türkçe ve Русский.
-- **Temalar:** Blue, Purple, Green ve Red.
-- **Oyun algılama:** Açık olan oyunun PlaceId değerini kontrol eder ve destek durumunu gösterir.
-- **Oyun modülleri:** Oyuna özel özellikler `SupportedGames/<PlaceId>.lua` dosyalarında tutulur.
+[![Repository](https://img.shields.io/badge/GitHub-BZHUB-181717?style=for-the-badge&logo=github)](https://github.com/blazystick/BZHUB)
+[![Language](https://img.shields.io/badge/Language-Lua-2C2D72?style=for-the-badge&logo=lua)](https://www.lua.org/)
+[![Platform](https://img.shields.io/badge/Platform-Roblox-168BFF?style=for-the-badge&logo=roblox&logoColor=white)](https://www.roblox.com/)
 
-## Desteklenen oyunlar
+**Roblox oyunları için modüler GUI ve oyuna özel otomasyon projesi.**
 
-| Oyun | PlaceId |
-|---|---:|
-| Throw Food for Animals | `120219252362013` |
+[Özellikler](#-özellikler) · [Desteklenen Oyunlar](#-desteklenen-oyunlar) · [Kurulum](#-kurulum) · [Proje Yapısı](#-proje-yapısı)
 
-> BZHUB yalnızca destek listesinde bulunan oyunlarda oyun-özel özellikleri yükler. Desteklenmeyen oyunlarda arayüz desteklenmediğini belirtir.
+</div>
 
-## Arayüz
+---
 
-- **Home:** Karşılama ve genel durum ekranı.
-- **Information:** Desteklenen oyunlarda arayüz kullanım bilgileri.
-- **Settings:** Tema ve dil gibi arayüz seçenekleri.
-- **Automation:** Desteklenen oyuna ait otomasyon kontrolleri.
+## ✨ Özellikler
 
-## Proje yapısı
+<table>
+<tr>
+<td width="50%">
+
+### 🎨 Modern Arayüz
+Koyu tasarım, mavi neon vurgular, animasyonlar ve sürüklenebilir pencere.
+
+</td>
+<td width="50%">
+
+### 🕹️ Oyun Algılama
+Açık olan oyunun PlaceId değerini kontrol eder ve destek durumunu gösterir.
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 🌈 Görünüm Seçenekleri
+Blue, Purple, Green ve Red temaları.
+
+</td>
+<td width="50%">
+
+### 🌍 Çoklu Dil
+English, Türkçe ve Русский arayüz seçenekleri.
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 🧩 Modüler Sistem
+Oyunlara özel kodlar ayrı `SupportedGames` dosyalarında tutulur.
+
+</td>
+<td width="50%">
+
+### 🪟 Pencere Kontrolleri
+Küçültme, yeniden boyutlandırma ve arayüzü kapatma kontrolleri.
+
+</td>
+</tr>
+</table>
+
+## 🎮 Desteklenen Oyunlar
+
+| Oyun | PlaceId | Durum |
+|:--|:--:|:--:|
+| Throw Food for Animals | `120219252362013` | 🟢 Destekleniyor |
+
+> BZHUB, yalnızca ana scriptte desteklenen olarak tanımlanan oyunlarda oyuna özel modülleri yükler. Destek listesi zamanla değişebilir.
+
+## 🧭 Arayüz Bölümleri
+
+| Bölüm | Açıklama |
+|:--|:--|
+| **Home** | Karşılama ve genel durum ekranı |
+| **Information** | Arayüz kullanım bilgileri (desteklenen oyunlarda) |
+| **Settings** | Tema ve dil seçenekleri |
+| **Automation** | Oyun modülünün sunduğu otomasyon kontrolleri |
+
+## 📁 Proje Yapısı
 
 ```text
 BZHUB/
-├── main.lua
-└── SupportedGames/
-    ├── 120219252362013.lua
-    └── ...
+├── assets/
+│   └── bzhub-banner.svg
+├── SupportedGames/
+│   ├── 120219252362013.lua
+│   ├── 120219252362013_2.lua
+│   ├── 91704854174760.lua
+│   └── 91704854174760_2.lua
+└── main.lua
 ```
 
-- `main.lua`: Ana arayüzü, oyun algılamayı ve ortak sistemleri yönetir.
-- `SupportedGames/`: Her desteklenen oyun için ayrı Lua modüllerini içerir.
+- **`main.lua`** — Ana arayüz, oyun algılama ve ortak sistemler.
+- **`SupportedGames/`** — Oyunlara özel Lua modülleri.
+- **`assets/`** — README ve proje görselleri.
 
-## Kurulum ve kullanım
+## 🚀 Kurulum
 
-1. Depoyu ZIP olarak indir veya projeyi bilgisayarına klonla.
-2. Roblox'ta desteklenen oyuna katıl.
-3. `main.lua` dosyasını kullandığın Roblox Lua executor ortamında çalıştır.
-4. BZHUB arayüzündeki oyun durumunu kontrol et ve mevcut seçenekleri kullan.
+1. [BZHUB deposunu](https://github.com/blazystick/BZHUB) aç.
+2. **Code → Download ZIP** seçeneğiyle dosyaları indir.
+3. Roblox'ta desteklenen oyuna katıl.
+4. `main.lua` dosyasını kullandığın Roblox Lua executor ortamında çalıştır.
+5. Arayüzdeki oyun durumunu kontrol et.
 
-## Önemli notlar
+## 🛠️ Geliştirme
 
-- BZHUB, Roblox tarafından geliştirilmiş veya resmî olarak onaylanmış bir ürün değildir.
-- Script kullanımı Roblox'un kullanım şartlarıyla çelişebilir ve hesabın için risk oluşturabilir.
-- Yalnızca güvendiğin kodları çalıştır. Executor kullanımı ve üçüncü taraf scriptler kendi güvenlik risklerini taşır.
-- Oyun güncellemeleri, oyun modüllerinin çalışmasını bozabilir.
+Yeni bir oyun desteği eklerken oyuna özel kodu mümkün olduğunca `SupportedGames/<PlaceId>.lua` dosyasında tut. Ortak arayüz ve sistemleri, gerekli olmadıkça `main.lua` içinde değiştirme.
 
-## Geliştirme
+## ⚠️ Uyarı
 
-Yeni oyun desteği eklerken mümkün olduğunca oyuna özel kodu `SupportedGames/<PlaceId>.lua` içinde tut. Ana arayüz ve ortak sistemleri, gerekli olmadıkça `main.lua` içinde değiştirme.
+- BZHUB, Roblox tarafından geliştirilmiş veya resmî olarak onaylanmış değildir.
+- Üçüncü taraf script ve executor kullanımı hesabın veya cihazın için risk oluşturabilir.
+- Yalnızca kaynağına güvendiğin kodları çalıştır.
+- Roblox oyun güncellemeleri, oyun modüllerinin çalışmasını etkileyebilir.
+
+---
+
+<div align="center">
+
+**BZHUB** · Made by **blazystick**
+
+<sub>Built for a cleaner and more organized Roblox GUI experience.</sub>
+
+</div>
